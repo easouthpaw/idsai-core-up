@@ -27,5 +27,5 @@ func (h *HealthHandler) Get(c *gin.Context) {
 			return
 		}
 	}
-	c.JSON(http.StatusInternalServerError, gin.H{"status": "ok"})
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
