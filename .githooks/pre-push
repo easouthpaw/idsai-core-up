@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "==> running unit tests"
+go test ./...
+
+echo "OK ✅"
