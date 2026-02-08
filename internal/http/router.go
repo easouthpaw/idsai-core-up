@@ -5,6 +5,7 @@ import (
 
 	"idsai-core-up/internal/http/handlers"
 	"idsai-core-up/internal/http/middleware"
+	"idsai-core-up/internal/services/projects"
 	"idsai-core-up/internal/services/rbac"
 
 	"github.com/gin-gonic/gin"
@@ -16,9 +17,21 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-func NewRouter(db *pgxpool.Pool, authz rbac.Authorizer) *gin.Engine {
+func NewRouter(db *pgxpool.Pool, authz rbac.Authorizer, projectsSvc *projects.Service) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
+
+	projectsH := handlers.NewProjectsHandler(projectsSvc)
+
+	r.POST("/projects",
+		middleware.RequirePermission(authz, "project.create", middleware.FacultyScopeFromHeader("X-Faculty-ID")),
+		projectsH.Create,
+	)
+
+	r.GET("/projects/:project_id",
+		middleware.RequirePermission(authz, "project.view", middleware.ProjectScopeFromParam("project_id")),
+		projectsH.Get,
+	)
 
 	health := handlers.NewHealthHandler(db)
 	r.GET("/health", health.Get)

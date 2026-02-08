@@ -1,3 +1,7 @@
+// @title IDSAI Core API
+// @version 0.1
+// @description Core platform for IDSAI projects (RBAC-driven).
+// @BasePath /
 package main
 
 import (
@@ -12,10 +16,6 @@ import (
 	"idsai-core-up/internal/app"
 )
 
-// @title IDSAI Core API
-// @version 0.1
-// @description Core platform for IDSAI projects (RBAC-driven).
-// @BasePath /
 func main() {
 	a, err := app.New(context.Background())
 	if err != nil {

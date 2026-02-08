@@ -1,0 +1,153 @@
+basePath: /
+definitions:
+  handlers.createProjectRequest:
+    properties:
+      description:
+        type: string
+      group_id:
+        description: UUID string, required if visibility=GROUP
+        type: string
+      title:
+        type: string
+      visibility:
+        description: PUBLIC | FACULTY | GROUP | PRIVATE
+        type: string
+    required:
+    - title
+    type: object
+  handlers.projectResponse:
+    properties:
+      created_at:
+        type: string
+      created_by:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      description:
+        example: created from swagger
+        type: string
+      faculty_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      group_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      is_public:
+        example: false
+        type: boolean
+      professor_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      status:
+        example: DRAFT
+        type: string
+      title:
+        example: Swagger Demo
+        type: string
+      updated_at:
+        type: string
+      visibility:
+        example: FACULTY
+        type: string
+    type: object
+info:
+  contact: {}
+  description: Core platform for IDSAI projects (RBAC-driven).
+  title: IDSAI Core API
+  version: "0.1"
+paths:
+  /projects:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: User UUID
+        in: header
+        name: X-User-ID
+        required: true
+        type: string
+      - description: Faculty UUID
+        in: header
+        name: X-Faculty-ID
+        required: true
+        type: string
+      - description: Project data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.createProjectRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create project
+      tags:
+      - Projects
+  /projects/{project_id}:
+    get:
+      parameters:
+      - description: User UUID
+        in: header
+        name: X-User-ID
+        required: true
+        type: string
+      - description: Project UUID
+        in: path
+        name: project_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.projectResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get project by id
+      tags:
+      - Projects
+swagger: "2.0"

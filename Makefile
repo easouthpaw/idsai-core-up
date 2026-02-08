@@ -1,8 +1,12 @@
 APP=cmd/api/main.go
 DB_URL?=postgres://postgres:postgres@localhost:5433/idsai?sslmode=disable
 
-.PHONY: run test test-integration up down migrate-up tools swagger
-
+.PHONY: run test test-integration up down migrate-up tools swagger fmt
+swagger:
+	swag init -g cmd/api/main.go -o docs/swagger --packageName swagger
+fmt:
+	gofumpt -l -w .
+	
 run:
 	DATABASE_URL="$(DB_URL)" go run $(APP)
 
@@ -24,6 +28,3 @@ tools:
 
 migrate-up:
 	goose -dir migrations postgres "$(DB_URL)" up
-
-swagger:
-	swag init -g cmd/api/main.go -o docs/swagger

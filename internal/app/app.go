@@ -7,6 +7,7 @@ import (
 	"idsai-core-up/internal/db"
 	httpx "idsai-core-up/internal/http"
 	"idsai-core-up/internal/repos/postgres"
+	"idsai-core-up/internal/services/projects"
 	"idsai-core-up/internal/services/rbac"
 
 	"github.com/gin-gonic/gin"
@@ -29,6 +30,10 @@ func New(ctx context.Context) (*App, error) {
 	rbacRepo := postgres.NewRBACRepo(pool)
 	rbacSvc := rbac.NewService(rbacRepo)
 
-	router := httpx.NewRouter(pool, rbacSvc)
+	projectsRepo := postgres.NewProjectsRepo(pool)
+	projectsSvc := projects.NewService(projectsRepo, rbacRepo)
+
+	router := httpx.NewRouter(pool, rbacSvc, projectsSvc)
+
 	return &App{Cfg: cfg, DB: pool, HTTP: router}, nil
 }

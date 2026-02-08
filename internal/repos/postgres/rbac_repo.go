@@ -39,3 +39,25 @@ SELECT EXISTS (
 	err := r.db.QueryRow(ctx, q, userID, string(scope.Type), scope.ID, now, permissionCode).Scan(&ok)
 	return ok, err
 }
+
+func (r *RBACRepo) GrantRoleByCode(
+	ctx context.Context,
+	userID uuid.UUID,
+	roleCode string,
+	scope rbac.Scope,
+	expiresAt *time.Time,
+) error {
+	// ensure role exists
+	var roleID uuid.UUID
+	err := r.db.QueryRow(ctx, `SELECT id FROM roles WHERE code=$1`, roleCode).Scan(&roleID)
+	if err != nil {
+		return err
+	}
+
+	_, err = r.db.Exec(ctx, `
+INSERT INTO role_assignments(user_id, role_id, scope_type, scope_id, expires_at)
+VALUES ($1, $2, $3, $4, $5);
+`, userID, roleID, string(scope.Type), scope.ID, expiresAt)
+
+	return err
+}

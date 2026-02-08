@@ -103,3 +103,27 @@ VALUES (
 	require.NoError(t, err)
 	require.False(t, ok)
 }
+
+func TestRBACRepo_Integration_GrantRoleByCode_AllowsPermission(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	require.NotEmpty(t, dsn)
+
+	ctx := context.Background()
+	pool, err := db.NewPool(ctx, dsn)
+	require.NoError(t, err)
+	defer pool.Close()
+
+	repo := postgres.NewRBACRepo(pool)
+
+	userID := uuid.New()
+	projectID := uuid.New()
+	scope := rbac.Scope{Type: rbac.ScopeProject, ID: &projectID}
+
+	// grant TEAM_LEAD in this project
+	require.NoError(t, repo.GrantRoleByCode(ctx, userID, "TEAM_LEAD", scope, nil))
+
+	// TEAM_LEAD should have task.create (per seeds)
+	ok, err := repo.HasPermission(ctx, userID, "task.create", scope, time.Now())
+	require.NoError(t, err)
+	require.True(t, ok)
+}

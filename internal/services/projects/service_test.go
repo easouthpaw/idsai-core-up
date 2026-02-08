@@ -1,0 +1,94 @@
+package projects_test
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"idsai-core-up/internal/domain"
+	"idsai-core-up/internal/services/projects"
+	"idsai-core-up/internal/services/rbac"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+)
+
+type fakeProjectsRepo struct {
+	id      uuid.UUID
+	err     error
+	project domain.Project
+	getErr  error
+}
+
+func (f fakeProjectsRepo) Create(ctx context.Context, title, description string, facultyID uuid.UUID, visibility string, groupID *uuid.UUID, createdBy uuid.UUID) (uuid.UUID, error) {
+	return f.id, f.err
+}
+
+func (f fakeProjectsRepo) GetByID(ctx context.Context, id uuid.UUID) (domain.Project, error) {
+	return f.project, f.getErr
+}
+
+type fakeGrantor struct {
+	called   bool
+	userID   uuid.UUID
+	roleCode string
+	scope    rbac.Scope
+	err      error
+}
+
+func TestService_GetProject_ReturnsProject(t *testing.T) {
+	pid := uuid.New()
+	fid := uuid.New()
+	uid := uuid.New()
+
+	want := domain.Project{
+		ID:          pid,
+		Title:       "T",
+		Description: "D",
+		Status:      domain.ProjectDraft,
+		FacultyID:   fid,
+		Visibility:  "FACULTY",
+		CreatedBy:   uid,
+	}
+
+	repo := fakeProjectsRepo{project: want}
+	grantor := &fakeGrantor{}
+	svc := projects.NewService(repo, grantor)
+
+	got, err := svc.GetProject(context.Background(), pid)
+	require.NoError(t, err)
+	require.Equal(t, want.ID, got.ID)
+	require.Equal(t, want.Title, got.Title)
+	require.Equal(t, want.FacultyID, got.FacultyID)
+	require.Equal(t, want.Visibility, got.Visibility)
+}
+
+func (g *fakeGrantor) GrantRoleByCode(ctx context.Context, userID uuid.UUID, roleCode string, scope rbac.Scope, expiresAt *time.Time) error {
+	g.called = true
+	g.userID = userID
+	g.roleCode = roleCode
+	g.scope = scope
+	return g.err
+}
+
+func TestService_CreateProject_GrantsTeamLead(t *testing.T) {
+	projectID := uuid.New()
+	createdBy := uuid.New()
+
+	repo := fakeProjectsRepo{id: projectID}
+	grantor := &fakeGrantor{}
+
+	svc := projects.NewService(repo, grantor)
+
+	facultyID := uuid.New()
+	gotID, err := svc.CreateProject(context.Background(), "X", "Y", facultyID, "FACULTY", nil, createdBy)
+	require.NoError(t, err)
+	require.Equal(t, projectID, gotID)
+
+	require.True(t, grantor.called)
+	require.Equal(t, createdBy, grantor.userID)
+	require.Equal(t, "TEAM_LEAD", grantor.roleCode)
+	require.Equal(t, rbac.ScopeProject, grantor.scope.Type)
+	require.NotNil(t, grantor.scope.ID)
+	require.Equal(t, projectID, *grantor.scope.ID)
+}
