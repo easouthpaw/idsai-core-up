@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Student PM Projects</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/dev/static/css/projects.css" />
+</head>
+<body class="projects-body">
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="profile-row">
+        <div id="profileAvatar" class="avatar">ST</div>
+        <div>
+          <p id="studentName" class="profile-name">Student</p>
+          <p id="studentEmail" class="profile-sub">Student Plan</p>
+        </div>
+      </div>
+
+      <p class="nav-title">WORKSPACE</p>
+      <nav class="main-nav" aria-label="Project sections">
+        <button class="nav-item active" data-tab="mine" type="button">Мои проекты</button>
+        <button class="nav-item" data-tab="community" type="button">Сообщество</button>
+        <button class="nav-item ghost" type="button" disabled>Задачи</button>
+        <button class="nav-item ghost" type="button" disabled>Команда</button>
+        <button class="nav-item ghost" type="button" disabled>Календарь</button>
+      </nav>
+
+      <p class="nav-title">UTILITIES</p>
+      <nav class="main-nav">
+        <a class="nav-link" href="/swagger/index.html" target="_blank" rel="noreferrer">Swagger</a>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <button class="bottom-link" type="button" disabled>Настройки</button>
+        <button id="logoutBtn" class="bottom-link danger" type="button">Выйти</button>
+      </div>
+    </aside>
+
+    <div class="content-shell">
+      <header class="topbar">
+        <div class="breadcrumbs">
+          <span>student-hub</span>
+          <span>/</span>
+          <strong id="crumbTab">projects</strong>
+        </div>
+        <div class="topbar-actions">
+          <label class="search-wrap" for="searchInput">
+            <input id="searchInput" type="search" placeholder="Search projects (Cmd+K)" />
+          </label>
+          <button id="refreshActiveBtn" class="icon-btn" type="button" aria-label="Refresh">↻</button>
+        </div>
+      </header>
+
+      <main class="content">
+        <section class="hero">
+          <div>
+            <div class="hero-title-row">
+              <h1 id="tabTitle">Мои проекты</h1>
+              <span id="tabCounter" class="hero-counter" hidden>0 активных</span>
+            </div>
+            <p id="tabSubtitle">Управляйте репозиториями и отслеживайте прогресс команды.</p>
+          </div>
+          <button id="createToggleBtn" class="create-btn" type="button">＋ Создать проект</button>
+        </section>
+
+        <section id="toolbarMine" class="toolbar">
+          <div class="filters">
+            <button class="filter-btn active" data-filter="all" type="button">Все <span id="countAll">0</span></button>
+            <button class="filter-btn" data-filter="inwork" type="button">В работе <span id="countInwork">0</span></button>
+            <button class="filter-btn" data-filter="review" type="button">На ревью <span id="countReview">0</span></button>
+            <button class="filter-btn" data-filter="done" type="button">Готово <span id="countDone">0</span></button>
+          </div>
+          <div class="view-toggle" role="group" aria-label="View mode">
+            <button class="view-btn active" data-view="grid" type="button">▦</button>
+            <button class="view-btn" data-view="list" type="button">☰</button>
+          </div>
+        </section>
+
+        <section id="toolbarCommunity" class="toolbar community-toolbar" hidden>
+          <div class="community-controls">
+            <input id="communitySearchInput" class="community-search" placeholder="Найти проект по названию, стеку..." />
+            <div class="community-select-wrap">
+              <span>Фильтры:</span>
+              <select id="communityTechFilter" class="community-select">
+                <option value="ALL">Все технологии</option>
+                <option value="GO">Go</option>
+                <option value="PYTHON">Python</option>
+                <option value="JAVASCRIPT">JavaScript</option>
+                <option value="TYPESCRIPT">TypeScript</option>
+                <option value="FLUTTER">Flutter</option>
+                <option value="REACT">React</option>
+              </select>
+              <select id="communityDifficultyFilter" class="community-select">
+                <option value="ALL">Любая сложность</option>
+                <option value="BEGINNER">Новичок</option>
+                <option value="MEDIUM">Средний</option>
+                <option value="ADVANCED">Продвинутый</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <section id="paneMine" class="tab-pane active">
+          <div id="myProjects" class="project-grid"></div>
+        </section>
+
+        <section id="paneCommunity" class="tab-pane">
+          <div id="publicProjects" class="project-grid"></div>
+        </section>
+
+        <section class="console-block" aria-label="status console">
+          <div class="console-head">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <span>console.js</span>
+          </div>
+          <pre id="consoleLog" class="console-body">&gt; waiting for events...</pre>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div id="createModal" class="modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="createTitle">
+      <button id="createCloseBtn" class="modal-close" type="button" aria-label="Закрыть">×</button>
+
+      <h2 id="createTitle">Создание нового проекта</h2>
+      <p class="modal-subtitle">Инициализируйте рабочее пространство и настройте публичный или приватный доступ.</p>
+
+      <div class="modal-grid two">
+        <div>
+          <label>Название проекта</label>
+          <input id="title" placeholder="Название проекта" value="Demo Project" />
+        </div>
+        <div>
+          <label>Краткое описание</label>
+          <input id="description" placeholder="Краткое описание" value="Created from projects dashboard" />
+        </div>
+      </div>
+
+      <div class="modal-grid one">
+        <div>
+          <label>README / Полное описание</label>
+          <textarea id="readme" placeholder="Введите подробное описание проекта..."></textarea>
+        </div>
+      </div>
+
+      <div class="modal-grid one">
+        <div>
+          <label>Ссылка на репозиторий GitHub</label>
+          <input id="repoLink" placeholder="https://github.com/username/repo-name" />
+        </div>
+      </div>
+
+      <div class="modal-grid one">
+        <div>
+          <label>Приватность проекта</label>
+          <div class="visibility-grid" role="group" aria-label="Project visibility">
+            <button class="visibility-card active" data-visibility="PUBLIC" type="button">
+              <strong>Публичный</strong>
+              <span>Доступен всем участникам системы</span>
+            </button>
+            <button class="visibility-card" data-visibility="PRIVATE" type="button">
+              <strong>Приватный</strong>
+              <span>Только для вашей группы</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="privateGroupRow" class="modal-grid two" hidden>
+        <div>
+          <label>Кафедра</label>
+          <select id="groupDepartment"></select>
+        </div>
+        <div>
+          <label>Номер группы</label>
+          <select id="groupNumber"></select>
+        </div>
+      </div>
+
+      <div id="createStatus" class="status"></div>
+
+      <div class="modal-actions">
+        <button id="createCancelBtn" class="cancel-btn" type="button">Отмена</button>
+        <button id="createBtn" class="submit-btn" type="button">Создать проект</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/dev/static/js/projects.js" defer></script>
+</body>
+</html>

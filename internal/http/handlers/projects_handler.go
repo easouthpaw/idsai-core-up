@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"idsai-core-up/internal/domain"
 	"idsai-core-up/internal/services/projects"
 
 	"github.com/gin-gonic/gin"
@@ -24,8 +25,9 @@ func NewProjectsHandler(svc *projects.Service) *ProjectsHandler {
 type createProjectRequest struct {
 	Title       string  `json:"title" binding:"required"`
 	Description string  `json:"description"`
-	Visibility  string  `json:"visibility"`         // PUBLIC | FACULTY | GROUP | PRIVATE
-	GroupID     *string `json:"group_id,omitempty"` // UUID string, required if visibility=GROUP
+	Visibility  string  `json:"visibility"`         // PUBLIC | PRIVATE
+	GroupID     *string `json:"group_id,omitempty"` // UUID string, optional alternative to group_code for PRIVATE
+	GroupCode   *string `json:"group_code,omitempty"`
 }
 type projectResponse struct {
 	ID          string    `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
@@ -40,6 +42,61 @@ type projectResponse struct {
 	GroupID     *string   `json:"group_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type groupOptionResponse struct {
+	ID         string `json:"id"`
+	Code       string `json:"code"`
+	Name       string `json:"name"`
+	Department string `json:"department"`
+	Number     string `json:"number"`
+}
+
+func toUIVisibility(v string) string {
+	switch strings.ToUpper(strings.TrimSpace(v)) {
+	case "GROUP", "FACULTY", "PRIVATE":
+		return "PRIVATE"
+	case "PUBLIC":
+		return "PUBLIC"
+	default:
+		return strings.ToUpper(strings.TrimSpace(v))
+	}
+}
+
+func splitGroupCode(code string) (department, number string) {
+	parts := strings.SplitN(strings.TrimSpace(code), "-", 2)
+	if len(parts) == 2 {
+		return strings.ToUpper(parts[0]), strings.TrimSpace(parts[1])
+	}
+	return strings.ToUpper(strings.TrimSpace(code)), ""
+}
+
+func projectToResponse(p domain.Project) projectResponse {
+	resp := projectResponse{
+		ID:          p.ID.String(),
+		Title:       p.Title,
+		Description: p.Description,
+		Status:      string(p.Status),
+		IsPublic:    p.IsPublic,
+		CreatedBy:   p.CreatedBy.String(),
+		ProfessorID: nil,
+		FacultyID:   p.FacultyID.String(),
+		Visibility:  toUIVisibility(p.Visibility),
+		GroupID:     nil,
+		CreatedAt:   p.CreatedAt,
+		UpdatedAt:   p.UpdatedAt,
+	}
+
+	if p.ProfessorID != nil {
+		s := p.ProfessorID.String()
+		resp.ProfessorID = &s
+	}
+	if p.GroupID != nil {
+		s := p.GroupID.String()
+		resp.GroupID = &s
+	}
+
+	return resp
 }
 
 // CreateProject
@@ -89,31 +146,48 @@ func (h *ProjectsHandler) Create(c *gin.Context) {
 
 	visibility := strings.ToUpper(strings.TrimSpace(req.Visibility))
 	if visibility == "" {
-		visibility = "FACULTY"
+		visibility = "PRIVATE"
 	}
-	if visibility != "PUBLIC" && visibility != "FACULTY" && visibility != "GROUP" && visibility != "PRIVATE" {
+	if visibility != "PUBLIC" && visibility != "PRIVATE" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid visibility"})
 		return
 	}
 
 	var groupID *uuid.UUID
-	if visibility == "GROUP" {
-		if req.GroupID == nil || strings.TrimSpace(*req.GroupID) == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "group_id is required for visibility=GROUP"})
+	persistVisibility := visibility
+	if visibility == "PRIVATE" {
+		persistVisibility = "GROUP"
+
+		if req.GroupID != nil && strings.TrimSpace(*req.GroupID) != "" {
+			gid, err := uuid.Parse(strings.TrimSpace(*req.GroupID))
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid group_id"})
+				return
+			}
+			groupID = &gid
+		} else if req.GroupCode != nil && strings.TrimSpace(*req.GroupCode) != "" {
+			groupCode := strings.ToUpper(strings.TrimSpace(*req.GroupCode))
+			gid, err := h.svc.ResolveGroupByCode(c.Request.Context(), facultyID, groupCode)
+			if err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "unknown group_code"})
+					return
+				}
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			groupID = &gid
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "group_code is required for visibility=PRIVATE"})
 			return
 		}
-		gid, err := uuid.Parse(strings.TrimSpace(*req.GroupID))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid group_id"})
-			return
-		}
-		groupID = &gid
 	} else {
+		persistVisibility = "PUBLIC"
 		groupID = nil
 	}
 
 	// 4) create
-	id, err := h.svc.CreateProject(c.Request.Context(), req.Title, req.Description, facultyID, visibility, groupID, userID)
+	id, err := h.svc.CreateProject(c.Request.Context(), req.Title, req.Description, facultyID, persistVisibility, groupID, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -151,28 +225,105 @@ func (h *ProjectsHandler) Get(c *gin.Context) {
 		return
 	}
 
-	resp := projectResponse{
-		ID:          p.ID.String(),
-		Title:       p.Title,
-		Description: p.Description,
-		Status:      string(p.Status),
-		IsPublic:    p.IsPublic,
-		CreatedBy:   p.CreatedBy.String(),
-		ProfessorID: nil,
-		FacultyID:   p.FacultyID.String(),
-		Visibility:  p.Visibility,
-		GroupID:     nil,
-		CreatedAt:   p.CreatedAt,
-		UpdatedAt:   p.UpdatedAt,
+	c.JSON(http.StatusOK, projectToResponse(p))
+}
+
+// ListMyProjects
+// @Summary List my projects
+// @Tags Projects
+// @Produce json
+// @Param X-User-ID header string true "User UUID"
+// @Success 200 {array} projectResponse
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /projects/my [get]
+func (h *ProjectsHandler) ListMine(c *gin.Context) {
+	userRaw := c.GetHeader("X-User-ID")
+	if userRaw == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing X-User-ID"})
+		return
+	}
+	userID, err := uuid.Parse(userRaw)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid X-User-ID"})
+		return
 	}
 
-	if p.ProfessorID != nil {
-		s := p.ProfessorID.String()
-		resp.ProfessorID = &s
+	items, err := h.svc.ListProjectsByCreator(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
-	if p.GroupID != nil {
-		s := p.GroupID.String()
-		resp.GroupID = &s
+
+	resp := make([]projectResponse, 0, len(items))
+	for _, p := range items {
+		resp = append(resp, projectToResponse(p))
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+// ListPublicProjects
+// @Summary List all public projects
+// @Tags Projects
+// @Produce json
+// @Success 200 {array} projectResponse
+// @Failure 500 {object} map[string]string
+// @Router /projects/public [get]
+func (h *ProjectsHandler) ListPublic(c *gin.Context) {
+	items, err := h.svc.ListPublicProjects(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	resp := make([]projectResponse, 0, len(items))
+	for _, p := range items {
+		resp = append(resp, projectToResponse(p))
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+// ListGroups
+// @Summary List predefined groups for faculty
+// @Tags Projects
+// @Produce json
+// @Param X-Faculty-ID header string true "Faculty UUID"
+// @Success 200 {array} groupOptionResponse
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /projects/groups [get]
+func (h *ProjectsHandler) ListGroups(c *gin.Context) {
+	facultyRaw := c.GetHeader("X-Faculty-ID")
+	if facultyRaw == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing X-Faculty-ID"})
+		return
+	}
+
+	facultyID, err := uuid.Parse(facultyRaw)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid X-Faculty-ID"})
+		return
+	}
+
+	items, err := h.svc.ListGroupsByFaculty(c.Request.Context(), facultyID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	resp := make([]groupOptionResponse, 0, len(items))
+	for _, g := range items {
+		dept, num := splitGroupCode(g.Code)
+		resp = append(resp, groupOptionResponse{
+			ID:         g.ID.String(),
+			Code:       g.Code,
+			Name:       g.Name,
+			Department: dept,
+			Number:     num,
+		})
 	}
 
 	c.JSON(http.StatusOK, resp)

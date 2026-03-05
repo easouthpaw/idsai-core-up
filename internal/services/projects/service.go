@@ -35,3 +35,19 @@ func (s *Service) CreateProject(ctx context.Context, title, description string, 
 func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (domain.Project, error) {
 	return s.repo.GetByID(ctx, projectID)
 }
+
+func (s *Service) ListProjectsByCreator(ctx context.Context, createdBy uuid.UUID) ([]domain.Project, error) {
+	return s.repo.ListByCreator(ctx, createdBy)
+}
+
+func (s *Service) ListPublicProjects(ctx context.Context) ([]domain.Project, error) {
+	return s.repo.ListPublic(ctx)
+}
+
+func (s *Service) ResolveGroupByCode(ctx context.Context, facultyID uuid.UUID, groupCode string) (uuid.UUID, error) {
+	return s.repo.FindGroupIDByCode(ctx, facultyID, groupCode)
+}
+
+func (s *Service) ListGroupsByFaculty(ctx context.Context, facultyID uuid.UUID) ([]Group, error) {
+	return s.repo.ListGroupsByFaculty(ctx, facultyID)
+}

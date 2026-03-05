@@ -6,7 +6,10 @@ import (
 	"idsai-core-up/internal/config"
 	"idsai-core-up/internal/db"
 	httpx "idsai-core-up/internal/http"
+	"idsai-core-up/internal/http/handlers"
 	"idsai-core-up/internal/repos/postgres"
+	"idsai-core-up/internal/services/auth"
+	"idsai-core-up/internal/services/projectflow"
 	"idsai-core-up/internal/services/projects"
 	"idsai-core-up/internal/services/rbac"
 
@@ -27,13 +30,20 @@ func New(ctx context.Context) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	authRepo := postgres.NewAuthRepo(pool)
+	authSvc := auth.NewService(authRepo, cfg.JWTSecret)
+	authHandler := handlers.NewAuthHandler(authSvc)
+
 	rbacRepo := postgres.NewRBACRepo(pool)
 	rbacSvc := rbac.NewService(rbacRepo)
 
 	projectsRepo := postgres.NewProjectsRepo(pool)
 	projectsSvc := projects.NewService(projectsRepo, rbacRepo)
+	projectFlowSvc := projectflow.NewService(pool, rbacSvc, rbacRepo)
+	projectFlowHandler := handlers.NewProjectFlowHandler(projectFlowSvc)
 
-	router := httpx.NewRouter(pool, rbacSvc, projectsSvc)
+	router := httpx.NewRouter(pool, rbacSvc, projectsSvc, projectFlowHandler, authHandler, cfg.JWTSecret)
 
 	return &App{Cfg: cfg, DB: pool, HTTP: router}, nil
 }

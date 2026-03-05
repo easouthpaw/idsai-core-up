@@ -9,6 +9,7 @@ import (
 type Config struct {
 	Addr        string
 	DatabaseURL string
+	JWTSecret   string
 }
 
 func Load() Config {
@@ -17,6 +18,7 @@ func Load() Config {
 	return Config{
 		Addr:        getenv("ADDR", ":8080"),
 		DatabaseURL: getenv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/idsai?sslmode=disable"),
+		JWTSecret:   getenv("JWT_SECRET", "dev-jwt-secret"),
 	}
 }
 

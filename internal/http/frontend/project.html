@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Student PM Project</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/dev/static/css/project-detail.css" />
+</head>
+<body class="project-body">
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <img class="brand-logo" src="/dev/static/assets/terminal-2.svg" alt="" />
+        <span>Student PM</span>
+      </div>
+
+      <div class="profile-row">
+        <div id="profileAvatar" class="avatar">ST</div>
+        <div>
+          <p id="studentName" class="profile-name">Student</p>
+          <p id="studentEmail" class="profile-sub">student@university.edu</p>
+        </div>
+      </div>
+
+      <p class="nav-title">РАБОЧАЯ ОБЛАСТЬ</p>
+      <nav class="side-nav">
+        <a class="side-link active" href="/dev/projects">Проекты</a>
+        <button class="side-link" type="button" disabled>Задачи</button>
+        <button class="side-link" type="button" disabled>Команда</button>
+        <button class="side-link" type="button" disabled>Календарь</button>
+      </nav>
+
+      <p class="nav-title">ИНСТРУМЕНТЫ</p>
+      <nav class="side-nav">
+        <a class="side-link muted" href="/swagger/index.html" target="_blank" rel="noreferrer">Документация</a>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <button class="bottom-link" type="button" disabled>Настройки</button>
+        <button id="logoutBtn" class="bottom-link danger" type="button">Выйти</button>
+      </div>
+    </aside>
+
+    <div class="main-shell">
+      <header class="topbar">
+        <div class="breadcrumbs">
+          <a href="/dev/projects">Проекты</a>
+          <span>/</span>
+          <strong id="crumbProject">project</strong>
+        </div>
+
+        <div class="topbar-actions">
+          <label class="search-wrap" for="globalSearchInput">
+            <input id="globalSearchInput" type="search" placeholder="Поиск в проекте (Cmd+K)" />
+          </label>
+          <button id="refreshBtn" class="icon-btn" type="button" title="Обновить">↻</button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="project-hero">
+          <div class="hero-main">
+            <h1 id="projectTitle">project-name</h1>
+            <div class="hero-meta">
+              <a id="repoLink" class="meta-link" href="#" target="_blank" rel="noreferrer">github.com/student/project</a>
+              <span id="visibilityLabel" class="meta-pill">Публичный</span>
+              <span id="statusBadge" class="status-pill">В работе</span>
+              <span id="projectID" class="meta-mono">id: -</span>
+            </div>
+          </div>
+
+          <div class="hero-actions">
+            <button id="favoriteBtn" class="ghost-btn" type="button">★ В избранное</button>
+            <button id="openEditViewBtn" class="primary-btn" type="button">✎ Редактировать</button>
+          </div>
+        </section>
+
+        <nav class="project-tabs" aria-label="Project tabs">
+          <button class="tab-btn active" type="button" data-view="overview">Описание</button>
+          <button class="tab-btn" type="button" data-view="team">Команда</button>
+          <button class="tab-btn" type="button" data-view="tasks">Задачи</button>
+          <button class="tab-btn" type="button" data-view="review">Ревью</button>
+        </nav>
+
+        <div id="pageNotice" class="notice" hidden></div>
+
+        <section id="view-overview" class="view active">
+          <div class="overview-grid">
+            <div class="left-stack">
+              <article class="card">
+                <header class="card-head">
+                  <h2>О проекте</h2>
+                  <span>README.md</span>
+                </header>
+                <div id="aboutContent" class="card-body about-body"></div>
+              </article>
+
+              <article class="card">
+                <header class="card-head">
+                  <h2>Технологический стек</h2>
+                </header>
+                <div class="card-body">
+                  <div id="stackChips" class="chips"></div>
+                </div>
+              </article>
+            </div>
+
+            <div class="right-stack">
+              <article class="card">
+                <header class="card-head">
+                  <h2>Команда</h2>
+                  <button class="mini-link" type="button" data-switch-view="team">Управление</button>
+                </header>
+                <div id="teamMiniList" class="card-body mini-team"></div>
+              </article>
+
+              <article class="card">
+                <header class="card-head">
+                  <h2>Пайплайн запуска</h2>
+                </header>
+                <div class="card-body pipeline-body">
+                  <div class="pipeline-actions">
+                    <button id="openRecruitmentBtn" class="ghost-btn" type="button">Открыть набор</button>
+                    <button id="applyMemberBtn" class="ghost-btn" type="button">Подать заявку</button>
+                  </div>
+
+                  <div class="split-row">
+                    <input id="professorIDInput" type="text" placeholder="UUID преподавателя" />
+                    <button id="assignProfessorBtn" class="ghost-btn" type="button">Назначить</button>
+                  </div>
+                  <div class="empty-state">Критерии задаются преподавателем в его кабинете.</div>
+
+                  <div id="readinessList" class="readiness-list"></div>
+                  <button id="approveProjectBtn" class="primary-btn full" type="button">Утвердить проект (ACTIVE)</button>
+                </div>
+              </article>
+
+              <article class="card">
+                <header class="card-head">
+                  <h2>Активность</h2>
+                </header>
+                <ul id="activityList" class="activity-list"></ul>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section id="view-team" class="view">
+          <article class="card team-card">
+            <header class="card-head team-head">
+              <div>
+                <h2>Команда проекта</h2>
+                <p>Управляйте участниками и ролями в проекте.</p>
+              </div>
+              <div class="team-head-actions">
+                <form id="positionForm" class="position-form">
+                  <input id="positionNameInput" type="text" placeholder="Название роли" required />
+                  <input id="positionCodeInput" type="text" placeholder="Код роли" />
+                  <input id="positionCapacityInput" type="number" min="1" value="1" required />
+                  <button class="ghost-btn" type="submit">Добавить роль</button>
+                </form>
+              </div>
+            </header>
+
+            <div class="team-table-wrap">
+              <table class="team-table">
+                <thead>
+                  <tr>
+                    <th>Участник</th>
+                    <th>Статус</th>
+                    <th>Роль</th>
+                    <th>GitHub</th>
+                    <th>Действия</th>
+                  </tr>
+                </thead>
+                <tbody id="teamTableBody"></tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="card helper-card">
+            <div>
+              <strong>Нужно больше рук?</strong>
+              <p>Пригласите студентов из других групп присоединиться к проекту.</p>
+            </div>
+            <button class="ghost-btn" type="button" data-switch-view="overview">Найти участников</button>
+          </article>
+        </section>
+
+        <section id="view-tasks" class="view">
+          <div class="tasks-layout">
+            <article class="card board-card">
+              <header class="card-head">
+                <h2>Задачи</h2>
+                <div class="task-toolbar">
+                  <span id="progressBadge" class="status-pill muted">Прогресс закрыт</span>
+                  <button id="openTaskModalBtn" class="primary-btn" type="button">+ Новая задача</button>
+                </div>
+              </header>
+
+              <div class="kanban-board">
+                <section class="kanban-col">
+                  <header class="kanban-head">К выполнению <span id="countTodo">0</span></header>
+                  <div id="todoTasks" class="kanban-list"></div>
+                </section>
+
+                <section class="kanban-col">
+                  <header class="kanban-head">В работе <span id="countDoing">0</span></header>
+                  <div id="doingTasks" class="kanban-list"></div>
+                </section>
+
+                <section class="kanban-col">
+                  <header class="kanban-head">Готово <span id="countDone">0</span></header>
+                  <div id="doneTasks" class="kanban-list"></div>
+                </section>
+              </div>
+            </article>
+
+            <div class="tasks-side">
+              <article class="card">
+                <header class="card-head">
+                  <h2>Команда</h2>
+                </header>
+                <div id="tasksTeamList" class="card-body mini-team"></div>
+              </article>
+
+              <article id="activeProgressWrap" class="card" hidden>
+                <header class="card-head">
+                  <h2>Прогресс проекта</h2>
+                  <span id="progressPercent">0%</span>
+                </header>
+                <div class="card-body">
+                  <div class="progress-track"><span id="progressFill"></span></div>
+                </div>
+              </article>
+
+              <article class="card">
+                <header class="card-head">
+                  <h2>stack_info.json</h2>
+                </header>
+                <pre id="stackInfoConsole" class="console">{
+  "status": "idle"
+}</pre>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section id="view-review" class="view">
+          <article class="card">
+            <header class="card-head">
+              <h2>Ревью проекта</h2>
+            </header>
+            <div class="card-body">
+              <p class="muted-text">После запуска проекта преподаватель оценивает работу по заданным критериям. Здесь будет итоговое ревью и оценка.</p>
+            </div>
+          </article>
+        </section>
+
+        <section id="view-edit" class="view">
+          <article class="edit-card">
+            <header class="edit-head">
+              <h2>Редактирование проекта</h2>
+              <button id="closeEditViewBtn" class="icon-btn" type="button">×</button>
+            </header>
+
+            <div class="edit-body">
+              <div class="cover-slot">
+                <img class="cover-placeholder" src="/dev/static/assets/code-screen.jpg" alt="Project cover" />
+                <span>Кликните для замены</span>
+              </div>
+
+              <div class="edit-fields">
+                <label for="editTitleInput">Название проекта</label>
+                <input id="editTitleInput" type="text" placeholder="Название проекта" />
+
+                <label for="editShortDescriptionInput">Краткое описание</label>
+                <input id="editShortDescriptionInput" type="text" placeholder="Краткое описание" />
+
+                <label for="editReadmeInput">README / Полное описание</label>
+                <textarea id="editReadmeInput" rows="10" placeholder="Введите подробное описание проекта..."></textarea>
+
+                <label for="editRepoInput">GitHub репозиторий</label>
+                <input id="editRepoInput" type="text" placeholder="https://github.com/username/repo" />
+
+                <div class="edit-inline">
+                  <div>
+                    <label for="editStacksInput">Стек технологий</label>
+                    <input id="editStacksInput" type="text" placeholder="React, Node.js, PostgreSQL" />
+                  </div>
+
+                  <div>
+                    <label>Приватность проекта</label>
+                    <div class="visibility-grid">
+                      <label class="visibility-item">
+                        <input id="editVisibilityPublic" type="radio" name="editVisibility" value="PUBLIC" checked />
+                        <span>Public</span>
+                      </label>
+                      <label class="visibility-item">
+                        <input id="editVisibilityPrivate" type="radio" name="editVisibility" value="PRIVATE" />
+                        <span>Private</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div id="editStackChips" class="chips"></div>
+
+                <div class="edit-actions">
+                  <button id="cancelEditBtn" class="ghost-btn" type="button">Отмена</button>
+                  <button id="saveProjectBtn" class="primary-btn" type="button">Сохранить изменения</button>
+                </div>
+              </div>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div id="taskModal" class="modal" hidden>
+    <div class="modal-card">
+      <header class="modal-head">
+        <h3>Добавление новой задачи</h3>
+        <button class="icon-btn" type="button" data-close-modal="taskModal">×</button>
+      </header>
+
+      <div class="modal-body">
+        <label for="taskModalTitleInput">Название задачи</label>
+        <input id="taskModalTitleInput" type="text" placeholder="Например: Разработать дизайн-систему" />
+
+        <div class="modal-grid two">
+          <div>
+            <label for="taskModalStatusSelect">Статус</label>
+            <select id="taskModalStatusSelect">
+              <option value="OPEN">Backlog</option>
+              <option value="IN_PROGRESS">В работе</option>
+            </select>
+          </div>
+          <div>
+            <label for="taskModalPrioritySelect">Приоритет</label>
+            <select id="taskModalPrioritySelect">
+              <option value="MEDIUM">Средний</option>
+              <option value="HIGH">Высокий</option>
+              <option value="LOW">Низкий</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="modal-grid two">
+          <div>
+            <label for="taskModalPositionSelect">Роль</label>
+            <select id="taskModalPositionSelect"></select>
+          </div>
+          <div>
+            <label for="taskModalAssigneeSelect">Исполнитель</label>
+            <select id="taskModalAssigneeSelect"></select>
+          </div>
+        </div>
+
+        <label for="taskModalTagsInput">Теги</label>
+        <input id="taskModalTagsInput" type="text" placeholder="Design, Frontend" />
+
+        <label for="taskModalDescriptionInput">Описание</label>
+        <textarea id="taskModalDescriptionInput" rows="6" placeholder="Добавьте подробности..."></textarea>
+
+        <label for="taskModalDueAtInput">Срок</label>
+        <input id="taskModalDueAtInput" type="datetime-local" />
+      </div>
+
+      <footer class="modal-foot">
+        <button class="ghost-btn" type="button" data-close-modal="taskModal">Отмена</button>
+        <button id="taskModalCreateBtn" class="primary-btn" type="button">Создать задачу</button>
+      </footer>
+    </div>
+  </div>
+
+  <div id="permissionsModal" class="modal" hidden>
+    <div class="modal-card permissions-card">
+      <header class="modal-head">
+        <h3>Настройка прав доступа: <span id="permMemberName">Участник</span></h3>
+        <button class="icon-btn" type="button" data-close-modal="permissionsModal">×</button>
+      </header>
+
+      <div class="modal-body">
+        <label for="permRoleSelect">Глобальная роль в проекте</label>
+        <select id="permRoleSelect">
+          <option value="TEAM_LEAD">Team Lead</option>
+          <option value="DEVELOPER">Developer</option>
+          <option value="FRONTEND">Frontend</option>
+          <option value="BACKEND">Backend</option>
+          <option value="QA">QA</option>
+          <option value="DESIGNER">Designer</option>
+        </select>
+
+        <div id="permChecklist" class="permissions-grid"></div>
+      </div>
+
+      <footer class="modal-foot">
+        <button class="ghost-btn" type="button" data-close-modal="permissionsModal">Отмена</button>
+        <button id="savePermissionsBtn" class="primary-btn" type="button">Сохранить права</button>
+      </footer>
+    </div>
+  </div>
+
+  <script src="/dev/static/js/project-detail.js" defer></script>
+</body>
+</html>

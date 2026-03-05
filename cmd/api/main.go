@@ -2,6 +2,9 @@
 // @version 0.1
 // @description Core platform for IDSAI projects (RBAC-driven).
 // @BasePath /
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 package main
 
 import (
@@ -10,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -30,7 +34,9 @@ func main() {
 	}
 
 	go func() {
+		baseURL := resolveBaseURL(a.Cfg.Addr)
 		log.Printf("listening on %s", a.Cfg.Addr)
+		log.Printf("authorization: %s/dev/login", baseURL)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("server failed: %v", err)
 		}
@@ -43,4 +49,14 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(ctx)
+}
+
+func resolveBaseURL(addr string) string {
+	if strings.HasPrefix(addr, "http://") || strings.HasPrefix(addr, "https://") {
+		return strings.TrimRight(addr, "/")
+	}
+	if strings.HasPrefix(addr, ":") {
+		return "http://localhost" + addr
+	}
+	return "http://" + strings.TrimRight(addr, "/")
 }

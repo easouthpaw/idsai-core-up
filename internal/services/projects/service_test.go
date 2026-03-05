@@ -14,10 +14,18 @@ import (
 )
 
 type fakeProjectsRepo struct {
-	id      uuid.UUID
-	err     error
-	project domain.Project
-	getErr  error
+	id            uuid.UUID
+	err           error
+	project       domain.Project
+	getErr        error
+	list          []domain.Project
+	listErr       error
+	listPublic    []domain.Project
+	listPublicErr error
+	groupID       uuid.UUID
+	groupErr      error
+	groups        []projects.Group
+	groupsErr     error
 }
 
 func (f fakeProjectsRepo) Create(ctx context.Context, title, description string, facultyID uuid.UUID, visibility string, groupID *uuid.UUID, createdBy uuid.UUID) (uuid.UUID, error) {
@@ -26,6 +34,25 @@ func (f fakeProjectsRepo) Create(ctx context.Context, title, description string,
 
 func (f fakeProjectsRepo) GetByID(ctx context.Context, id uuid.UUID) (domain.Project, error) {
 	return f.project, f.getErr
+}
+
+func (f fakeProjectsRepo) ListByCreator(ctx context.Context, createdBy uuid.UUID) ([]domain.Project, error) {
+	return f.list, f.listErr
+}
+
+func (f fakeProjectsRepo) ListPublic(ctx context.Context) ([]domain.Project, error) {
+	if f.listPublic != nil || f.listPublicErr != nil {
+		return f.listPublic, f.listPublicErr
+	}
+	return f.list, f.listErr
+}
+
+func (f fakeProjectsRepo) FindGroupIDByCode(ctx context.Context, facultyID uuid.UUID, code string) (uuid.UUID, error) {
+	return f.groupID, f.groupErr
+}
+
+func (f fakeProjectsRepo) ListGroupsByFaculty(ctx context.Context, facultyID uuid.UUID) ([]projects.Group, error) {
+	return f.groups, f.groupsErr
 }
 
 type fakeGrantor struct {
@@ -91,4 +118,25 @@ func TestService_CreateProject_GrantsTeamLead(t *testing.T) {
 	require.Equal(t, rbac.ScopeProject, grantor.scope.Type)
 	require.NotNil(t, grantor.scope.ID)
 	require.Equal(t, projectID, *grantor.scope.ID)
+}
+
+func TestService_ListPublicProjects_ReturnsItems(t *testing.T) {
+	creator := uuid.New()
+	items := []domain.Project{
+		{
+			ID:        uuid.New(),
+			Title:     "Public One",
+			IsPublic:  true,
+			CreatedBy: creator,
+		},
+	}
+
+	repo := fakeProjectsRepo{listPublic: items}
+	svc := projects.NewService(repo, &fakeGrantor{})
+
+	got, err := svc.ListPublicProjects(context.Background())
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	require.Equal(t, "Public One", got[0].Title)
+	require.True(t, got[0].IsPublic)
 }

@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Student PM Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/dev/static/css/auth.css" />
+</head>
+<body class="auth-body">
+  <main class="split">
+    <section class="left-pane">
+      <div class="left-content">
+        <span class="badge">v2.4.0-stable</span>
+        <h1>Создавайте лучшее ПО<br>вместе с коллегами.</h1>
+        <p>Единое рабочее пространство для студентов-разработчиков. Управляйте репозиториями, спринтами и документацией в одном месте.</p>
+
+        <figure class="code-shot">
+          <img src="/dev/static/assets/code-screen.jpg" alt="Code preview" loading="lazy" />
+        </figure>
+
+        <div class="left-foot">
+          <span>system.collab()</span>
+          <span>merge_requests.all()</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="right-pane">
+      <div class="auth-card">
+        <div class="logo-wrap">
+          <img src="/dev/static/assets/terminal-2.svg" alt="Logo" />
+        </div>
+        <h2>Student PM</h2>
+
+        <div class="tabs" role="tablist" aria-label="Auth tabs">
+          <button id="tabLogin" class="tab active" type="button">Вход</button>
+          <button id="tabRegister" class="tab" type="button">Регистрация</button>
+        </div>
+
+        <section id="panelLogin" class="panel active">
+          <label>ID студента / Email</label>
+          <input id="loginEmail" placeholder="напр. s1234567@university.edu" />
+
+          <label>Пароль</label>
+          <input id="loginPassword" type="password" placeholder="••••••••" />
+
+          <div class="mini-row">
+            <label class="remember"><input id="rememberMe" type="checkbox" /><span>Запомнить меня</span></label>
+            <span class="link-ghost">Забыли пароль?</span>
+          </div>
+
+          <button id="loginBtn" class="primary" type="button">Войти →</button>
+        </section>
+
+        <section id="panelRegister" class="panel">
+          <label>ФИО</label>
+          <input id="regFullName" placeholder="Иванов Иван Иванович" />
+
+          <div class="row2">
+            <div>
+              <label>Кафедра</label>
+              <select id="regDepartment">
+                <option value="IS">IS</option>
+                <option value="AI">AI</option>
+                <option value="CPI">CPI</option>
+                <option value="INF">INF</option>
+                <option value="SEC">SEC</option>
+                <option value="SAU">SAU</option>
+              </select>
+            </div>
+            <div>
+              <label>Номер группы</label>
+              <input id="regGroupNumber" placeholder="45" />
+            </div>
+          </div>
+
+          <label>Email</label>
+          <input id="regEmail" placeholder="student@example.edu" />
+
+          <div class="row2">
+            <div>
+              <label>Пароль</label>
+              <input id="regPassword" type="password" placeholder="••••••••" />
+            </div>
+            <div>
+              <label>Повторите пароль</label>
+              <input id="regPassword2" type="password" placeholder="••••••••" />
+            </div>
+          </div>
+
+          <button id="registerBtn" class="primary" type="button">Создать аккаунт ☐</button>
+        </section>
+
+        <div id="status" class="status"></div>
+        <pre id="resp" class="resp"></pre>
+
+        <footer class="foot-note">
+          <p>© 2026 Student PM. Все системы работают штатно.</p>
+          <nav>
+            <a href="/swagger/index.html" target="_blank" rel="noreferrer">Swagger</a>
+            <a href="#">Конфиденциальность</a>
+            <a href="#">Условия</a>
+            <a href="#">Статус</a>
+          </nav>
+        </footer>
+      </div>
+    </section>
+  </main>
+
+  <script src="/dev/static/js/login.js" defer></script>
+</body>
+</html>

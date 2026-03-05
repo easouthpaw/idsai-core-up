@@ -1,19 +1,65 @@
 basePath: /
 definitions:
+  auth.Tokens:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+  handlers.accessResp:
+    properties:
+      access_token:
+        type: string
+    type: object
   handlers.createProjectRequest:
     properties:
       description:
         type: string
+      group_code:
+        type: string
       group_id:
-        description: UUID string, required if visibility=GROUP
+        description: UUID string, optional alternative to group_code for PRIVATE
         type: string
       title:
         type: string
       visibility:
-        description: PUBLIC | FACULTY | GROUP | PRIVATE
+        description: PUBLIC | PRIVATE
         type: string
     required:
     - title
+    type: object
+  handlers.groupOptionResponse:
+    properties:
+      code:
+        type: string
+      department:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      number:
+        type: string
+    type: object
+  handlers.loginReq:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  handlers.meResp:
+    properties:
+      department_id:
+        type: string
+      faculty_id:
+        type: string
+      user_id:
+        type: string
     type: object
   handlers.projectResponse:
     properties:
@@ -52,12 +98,136 @@ definitions:
         example: FACULTY
         type: string
     type: object
+  handlers.refreshReq:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  handlers.registerReq:
+    properties:
+      department_code:
+        type: string
+      email:
+        type: string
+      full_name:
+        type: string
+      password:
+        minLength: 6
+        type: string
+    required:
+    - department_code
+    - email
+    - password
+    type: object
 info:
   contact: {}
   description: Core platform for IDSAI projects (RBAC-driven).
   title: IDSAI Core API
   version: "0.1"
 paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Login payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.loginReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.Tokens'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Login
+      tags:
+      - auth
+  /auth/me:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.meResp'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Current user (from JWT)
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Refresh payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.refreshReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.accessResp'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Refresh access token
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Register payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.registerReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/auth.Tokens'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Register student
+      tags:
+      - auth
   /projects:
     post:
       consumes:
@@ -150,4 +320,79 @@ paths:
       summary: Get project by id
       tags:
       - Projects
+  /projects/groups:
+    get:
+      parameters:
+      - description: Faculty UUID
+        in: header
+        name: X-Faculty-ID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.groupOptionResponse'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List predefined groups for faculty
+      tags:
+      - Projects
+  /projects/my:
+    get:
+      parameters:
+      - description: User UUID
+        in: header
+        name: X-User-ID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.projectResponse'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List my projects
+      tags:
+      - Projects
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"
