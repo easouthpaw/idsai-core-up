@@ -227,6 +227,48 @@ WHERE id = $1;
 	return nil
 }
 
+func (r *AdminRepo) GetProjectByID(ctx context.Context, projectID uuid.UUID) (svc.Project, error) {
+	const q = `
+SELECT
+  p.id,
+  p.title,
+  p.description,
+  p.status,
+  p.visibility,
+  p.is_public,
+  p.created_by,
+  COALESCE(up.full_name, '') AS author_name,
+  COALESCE(u.email, '') AS author_email,
+  COALESCE(f.code, '') AS faculty_code,
+  COALESCE(d.code, '') AS department_code,
+  p.created_at,
+  p.updated_at
+FROM projects p
+LEFT JOIN users u ON u.id = p.created_by
+LEFT JOIN user_profiles up ON up.user_id = p.created_by
+LEFT JOIN faculties f ON f.id = p.faculty_id
+LEFT JOIN departments d ON d.id = up.department_id
+WHERE p.id = $1;
+`
+	var p svc.Project
+	err := r.db.QueryRow(ctx, q, projectID).Scan(
+		&p.ID,
+		&p.Title,
+		&p.Description,
+		&p.Status,
+		&p.Visibility,
+		&p.IsPublic,
+		&p.CreatedBy,
+		&p.AuthorName,
+		&p.AuthorEmail,
+		&p.FacultyCode,
+		&p.DepartmentCode,
+		&p.CreatedAt,
+		&p.UpdatedAt,
+	)
+	return p, err
+}
+
 func (r *AdminRepo) getUserByID(ctx context.Context, userID uuid.UUID) (svc.User, error) {
 	const q = `
 SELECT

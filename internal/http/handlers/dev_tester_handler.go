@@ -9,6 +9,10 @@ import (
 
 var devFrontendFS = http.FS(frontend.Files)
 
+func DevLandingPage(c *gin.Context) {
+	c.FileFromFS("landing.html", devFrontendFS)
+}
+
 func DevLoginPage(c *gin.Context) {
 	c.FileFromFS("login.html", devFrontendFS)
 }

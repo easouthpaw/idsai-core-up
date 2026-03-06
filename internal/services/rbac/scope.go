@@ -5,9 +5,11 @@ import "github.com/google/uuid"
 type ScopeType string
 
 const (
-	ScopeSystem  ScopeType = "SYSTEM"
-	ScopeFaculty ScopeType = "FACULTY"
-	ScopeProject ScopeType = "PROJECT"
+	ScopeSystem     ScopeType = "SYSTEM"
+	ScopeTenant     ScopeType = "TENANT"
+	ScopeFaculty    ScopeType = "FACULTY"
+	ScopeDepartment ScopeType = "DEPARTMENT"
+	ScopeProject    ScopeType = "PROJECT"
 )
 
 type Scope struct {
@@ -19,7 +21,7 @@ func (s Scope) Validate() bool {
 	if s.Type == ScopeSystem {
 		return s.ID == nil
 	}
-	if s.Type == ScopeFaculty || s.Type == ScopeProject {
+	if s.Type == ScopeTenant || s.Type == ScopeFaculty || s.Type == ScopeDepartment || s.Type == ScopeProject {
 		return s.ID != nil
 	}
 	return false

@@ -74,6 +74,7 @@ type Repository interface {
 	CreateUser(ctx context.Context, in CreateUserParams) (User, error)
 	UpdateUserStatus(ctx context.Context, userID uuid.UUID, status string) error
 	UpdateProjectStatus(ctx context.Context, projectID uuid.UUID, status string) error
+	GetProjectByID(ctx context.Context, projectID uuid.UUID) (Project, error)
 }
 
 type Service struct {
@@ -138,12 +139,15 @@ func (s *Service) SetUserStatus(ctx context.Context, userID uuid.UUID, status st
 	return s.repo.UpdateUserStatus(ctx, userID, normalized)
 }
 
-func (s *Service) SetProjectStatus(ctx context.Context, projectID uuid.UUID, status string) error {
+func (s *Service) SetProjectStatus(ctx context.Context, projectID uuid.UUID, status string) (Project, error) {
 	normalized, err := normalizeProjectStatus(status)
 	if err != nil {
-		return err
+		return Project{}, err
 	}
-	return s.repo.UpdateProjectStatus(ctx, projectID, normalized)
+	if err := s.repo.UpdateProjectStatus(ctx, projectID, normalized); err != nil {
+		return Project{}, err
+	}
+	return s.repo.GetProjectByID(ctx, projectID)
 }
 
 func normalizeRole(role string) (string, error) {

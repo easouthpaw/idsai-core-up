@@ -916,6 +916,10 @@ body.modal-open {
   margin-top: 12px;
 }
 
+.modal-grid[hidden] {
+  display: none !important;
+}
+
 .modal-grid.two {
   grid-template-columns: 1fr 1fr;
 }

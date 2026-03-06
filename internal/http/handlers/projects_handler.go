@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"idsai-core-up/internal/domain"
+	"idsai-core-up/internal/http/middleware"
 	"idsai-core-up/internal/services/projects"
 
 	"github.com/gin-gonic/gin"
@@ -15,11 +16,16 @@ import (
 )
 
 type ProjectsHandler struct {
-	svc *projects.Service
+	svc      *projects.Service
+	notifier NotificationPublisher
 }
 
 func NewProjectsHandler(svc *projects.Service) *ProjectsHandler {
 	return &ProjectsHandler{svc: svc}
+}
+
+func (h *ProjectsHandler) SetNotifier(pub NotificationPublisher) {
+	h.notifier = pub
 }
 
 type createProjectRequest struct {
@@ -104,8 +110,6 @@ func projectToResponse(p domain.Project) projectResponse {
 // @Tags Projects
 // @Accept json
 // @Produce json
-// @Param X-User-ID header string true "User UUID"
-// @Param X-Faculty-ID header string true "Faculty UUID"
 // @Param body body createProjectRequest true "Project data"
 // @Success 201 {object} map[string]string
 // @Failure 400 {object} map[string]string
@@ -113,31 +117,22 @@ func projectToResponse(p domain.Project) projectResponse {
 // @Failure 403 {object} map[string]string
 // @Router /projects [post]
 func (h *ProjectsHandler) Create(c *gin.Context) {
-	// 1) user
-	userRaw := c.GetHeader("X-User-ID")
-	if userRaw == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing X-User-ID"})
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-	userID, err := uuid.Parse(userRaw)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid X-User-ID"})
+	tenantID, ok := middleware.TenantIDFromCtx(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-
-	// 2) faculty
-	facultyRaw := c.GetHeader("X-Faculty-ID")
-	if facultyRaw == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "missing X-Faculty-ID"})
-		return
-	}
-	facultyID, err := uuid.Parse(facultyRaw)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid X-Faculty-ID"})
+	facultyID, ok := middleware.FacultyIDFromCtx(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 
-	// 3) body
 	var req createProjectRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
@@ -186,12 +181,25 @@ func (h *ProjectsHandler) Create(c *gin.Context) {
 		groupID = nil
 	}
 
-	// 4) create
 	id, err := h.svc.CreateProject(c.Request.Context(), req.Title, req.Description, facultyID, persistVisibility, groupID, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	notifyBestEffort(h.notifier, c.Request.Context(), notifCreateInput(
+		tenantID,
+		userID,
+		"project.created",
+		"Проект создан",
+		"Новый проект успешно создан и готов к настройке.",
+		map[string]any{
+			"project_id": id.String(),
+			"title":      strings.TrimSpace(req.Title),
+			"visibility": persistVisibility,
+		},
+		true,
+	))
 
 	c.JSON(http.StatusCreated, gin.H{"project_id": id.String()})
 }
@@ -200,7 +208,6 @@ func (h *ProjectsHandler) Create(c *gin.Context) {
 // @Summary Get project by id
 // @Tags Projects
 // @Produce json
-// @Param X-User-ID header string true "User UUID"
 // @Param project_id path string true "Project UUID"
 // @Success 200 {object} projectResponse
 // @Failure 400 {object} map[string]string
@@ -232,21 +239,15 @@ func (h *ProjectsHandler) Get(c *gin.Context) {
 // @Summary List my projects
 // @Tags Projects
 // @Produce json
-// @Param X-User-ID header string true "User UUID"
 // @Success 200 {array} projectResponse
 // @Failure 400 {object} map[string]string
 // @Failure 401 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /projects/my [get]
 func (h *ProjectsHandler) ListMine(c *gin.Context) {
-	userRaw := c.GetHeader("X-User-ID")
-	if userRaw == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing X-User-ID"})
-		return
-	}
-	userID, err := uuid.Parse(userRaw)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid X-User-ID"})
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 
@@ -290,21 +291,14 @@ func (h *ProjectsHandler) ListPublic(c *gin.Context) {
 // @Summary List predefined groups for faculty
 // @Tags Projects
 // @Produce json
-// @Param X-Faculty-ID header string true "Faculty UUID"
 // @Success 200 {array} groupOptionResponse
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /projects/groups [get]
 func (h *ProjectsHandler) ListGroups(c *gin.Context) {
-	facultyRaw := c.GetHeader("X-Faculty-ID")
-	if facultyRaw == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "missing X-Faculty-ID"})
-		return
-	}
-
-	facultyID, err := uuid.Parse(facultyRaw)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid X-Faculty-ID"})
+	facultyID, ok := middleware.FacultyIDFromCtx(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 

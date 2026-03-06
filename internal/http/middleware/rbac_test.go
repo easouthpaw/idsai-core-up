@@ -23,7 +23,14 @@ func (f fakeAuthz) Can(ctx context.Context, userID uuid.UUID, permissionCode str
 	return f.allow, f.err
 }
 
-func TestRequirePermission_MissingUserHeader(t *testing.T) {
+func withUser(id uuid.UUID) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set("userID", id)
+		c.Next()
+	}
+}
+
+func TestRequirePermission_MissingUserContext(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 
@@ -42,14 +49,14 @@ func TestRequirePermission_Forbidden(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 
-	user := uuid.New().String()
+	user := uuid.New()
+	r.Use(withUser(user))
 	r.GET("/x", middleware.RequirePermission(fakeAuthz{allow: false}, "task.view", middleware.SystemScope()), func(c *gin.Context) {
 		c.JSON(200, gin.H{"ok": true})
 	})
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/x", nil)
-	req.Header.Set("X-User-ID", user)
 	r.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusForbidden, w.Code)
@@ -59,14 +66,14 @@ func TestRequirePermission_Allows(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 
-	user := uuid.New().String()
+	user := uuid.New()
+	r.Use(withUser(user))
 	r.GET("/x", middleware.RequirePermission(fakeAuthz{allow: true}, "task.view", middleware.SystemScope()), func(c *gin.Context) {
 		c.JSON(200, gin.H{"ok": true})
 	})
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/x", nil)
-	req.Header.Set("X-User-ID", user)
 	r.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)

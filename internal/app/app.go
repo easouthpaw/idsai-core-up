@@ -2,14 +2,17 @@ package app
 
 import (
 	"context"
+	"time"
 
 	"idsai-core-up/internal/config"
 	"idsai-core-up/internal/db"
 	httpx "idsai-core-up/internal/http"
 	"idsai-core-up/internal/http/handlers"
+	"idsai-core-up/internal/infra/email"
 	"idsai-core-up/internal/repos/postgres"
 	"idsai-core-up/internal/services/admin"
 	"idsai-core-up/internal/services/auth"
+	"idsai-core-up/internal/services/notifications"
 	"idsai-core-up/internal/services/projectflow"
 	"idsai-core-up/internal/services/projects"
 	"idsai-core-up/internal/services/rbac"
@@ -48,7 +51,21 @@ func New(ctx context.Context) (*App, error) {
 	projectFlowSvc := projectflow.NewService(pool, rbacSvc, rbacRepo)
 	projectFlowHandler := handlers.NewProjectFlowHandler(projectFlowSvc)
 
-	router := httpx.NewRouter(pool, rbacSvc, projectsSvc, projectFlowHandler, authHandler, adminHandler, cfg.JWTSecret)
+	notificationsRepo := postgres.NewNotificationsRepo(pool)
+	notificationsSvc := notifications.NewService(notificationsRepo)
+	notificationsHandler := handlers.NewNotificationsHandler(notificationsSvc)
+	authSvc.SetNotifier(notificationsSvc)
+	adminHandler.SetNotifier(notificationsSvc)
+	projectFlowHandler.SetNotifier(notificationsSvc)
+
+	if cfg.EmailEnable {
+		emailSender := email.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom)
+		dispatcher := notifications.NewOutboxDispatcher(notificationsRepo, emailSender)
+		pollEvery := time.Duration(cfg.OutboxPollS) * time.Second
+		go dispatcher.Start(ctx, pollEvery)
+	}
+
+	router := httpx.NewRouter(pool, rbacSvc, projectsSvc, projectFlowHandler, authHandler, adminHandler, notificationsHandler, notificationsSvc, cfg.JWTSecret)
 
 	return &App{Cfg: cfg, DB: pool, HTTP: router}, nil
 }

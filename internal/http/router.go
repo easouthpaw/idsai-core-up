@@ -26,24 +26,28 @@ func NewRouter(
 	projectFlowH *handlers.ProjectFlowHandler,
 	authHandler *handlers.AuthHandler,
 	adminHandler *handlers.AdminHandler,
+	notificationsH *handlers.NotificationsHandler,
+	notifier handlers.NotificationPublisher,
 	jwtSecret string,
 ) *gin.Engine {
 	r := gin.New()
-	r.Use(gin.Logger(), gin.Recovery())
+	r.Use(middleware.RequestLogger(), gin.Recovery())
+
+	v2 := r.Group("/v2")
+	authMW := middleware.AuthRequired(jwtSecret)
 
 	if authHandler != nil {
-		r.POST("/auth/register", authHandler.RegisterStudent)
-		r.POST("/auth/login", authHandler.Login)
-		r.POST("/auth/refresh", authHandler.Refresh)
+		auth := v2.Group("/auth")
+		auth.POST("/register", authHandler.RegisterStudent)
+		auth.POST("/login", authHandler.Login)
+		auth.POST("/refresh", authHandler.Refresh)
 
-		authMW := middleware.AuthRequired(jwtSecret)
-		r.GET("/auth/me", authMW, authHandler.Me)
+		auth.GET("/me", authMW, authHandler.Me)
 	}
 
 	if adminHandler != nil {
-		adminMW := middleware.AuthRequired(jwtSecret)
-		admin := r.Group("/admin")
-		admin.Use(adminMW, middleware.AdminRequired())
+		admin := v2.Group("/admin")
+		admin.Use(authMW, middleware.AdminRequired())
 		admin.GET("/users", adminHandler.ListUsers)
 		admin.POST("/users/students", adminHandler.CreateStudent)
 		admin.POST("/users/professors", adminHandler.CreateProfessor)
@@ -53,19 +57,33 @@ func NewRouter(
 	}
 
 	projectsH := handlers.NewProjectsHandler(projectsSvc)
-	r.GET("/projects/my", projectsH.ListMine)
-	r.GET("/projects/public", projectsH.ListPublic)
-	r.GET("/projects/groups", projectsH.ListGroups)
+	projectsH.SetNotifier(notifier)
+	p := v2.Group("/projects")
+	p.Use(authMW)
+	p.GET("/my", projectsH.ListMine)
+	p.GET("/public", projectsH.ListPublic)
+	p.GET("/groups", projectsH.ListGroups)
 
-	r.POST("/projects",
-		middleware.RequirePermission(rbacSvc, "project.create", middleware.FacultyScopeFromHeader("X-Faculty-ID")),
+	p.POST("",
+		middleware.RequirePermission(rbacSvc, "project.create", middleware.FacultyScopeFromCtx()),
 		projectsH.Create,
 	)
 
-	r.GET("/projects/:project_id",
+	p.GET("/:project_id",
 		middleware.RequirePermission(rbacSvc, "project.view", middleware.ProjectScopeFromParam("project_id")),
 		projectsH.Get,
 	)
+
+	if notificationsH != nil {
+		n := v2.Group("/notifications")
+		n.Use(authMW)
+		n.GET("", notificationsH.List)
+		n.GET("/unread-count", notificationsH.UnreadCount)
+		n.POST("/read-all", notificationsH.MarkAllRead)
+		n.POST("/:notification_id/read", notificationsH.MarkRead)
+		n.DELETE("/:notification_id", notificationsH.Delete)
+		n.DELETE("", notificationsH.Clear)
+	}
 
 	health := handlers.NewHealthHandler(pool)
 	r.GET("/health", health.Get)
@@ -81,32 +99,31 @@ func NewRouter(
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	r.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"name": "IDSAI Core API"})
-	})
+	r.GET("/", handlers.DevLandingPage)
 
 	if projectFlowH != nil {
-		p := r.Group("/projects/:project_id")
-		p.PATCH("", projectFlowH.UpdateProject)
-		p.PUT("/stacks", projectFlowH.SetStacks)
-		p.GET("/stacks", projectFlowH.ListStacks)
-		p.POST("/recruitment/open", projectFlowH.OpenRecruitment)
-		p.POST("/positions", projectFlowH.CreatePosition)
-		p.GET("/positions", projectFlowH.ListPositions)
-		p.POST("/members/apply", projectFlowH.ApplyMember)
-		p.GET("/members", projectFlowH.ListMembers)
-		p.POST("/members/:user_id/approve", projectFlowH.ApproveMember)
-		p.PATCH("/members/:user_id/position", projectFlowH.SetMemberPosition)
-		p.POST("/professor", projectFlowH.AssignProfessor)
-		p.POST("/criteria", projectFlowH.CreateCriterion)
-		p.GET("/criteria", projectFlowH.ListCriteria)
-		p.GET("/readiness", projectFlowH.Readiness)
-		p.POST("/approve", projectFlowH.ApproveProject)
-		p.GET("/tasks", projectFlowH.ListTasks)
-		p.POST("/tasks", projectFlowH.CreateTask)
-		p.PATCH("/tasks/:task_id/status", projectFlowH.UpdateTaskStatus)
-		p.PATCH("/tasks/:task_id/assignee", projectFlowH.AssignTask)
-		p.POST("/tasks/:task_id/claim", projectFlowH.ClaimTask)
+		projectFlow := v2.Group("/projects/:project_id")
+		projectFlow.Use(authMW)
+		projectFlow.PATCH("", projectFlowH.UpdateProject)
+		projectFlow.PUT("/stacks", projectFlowH.SetStacks)
+		projectFlow.GET("/stacks", projectFlowH.ListStacks)
+		projectFlow.POST("/recruitment/open", projectFlowH.OpenRecruitment)
+		projectFlow.POST("/positions", projectFlowH.CreatePosition)
+		projectFlow.GET("/positions", projectFlowH.ListPositions)
+		projectFlow.POST("/members/apply", projectFlowH.ApplyMember)
+		projectFlow.GET("/members", projectFlowH.ListMembers)
+		projectFlow.POST("/members/:user_id/approve", projectFlowH.ApproveMember)
+		projectFlow.PATCH("/members/:user_id/position", projectFlowH.SetMemberPosition)
+		projectFlow.POST("/professor", projectFlowH.AssignProfessor)
+		projectFlow.POST("/criteria", projectFlowH.CreateCriterion)
+		projectFlow.GET("/criteria", projectFlowH.ListCriteria)
+		projectFlow.GET("/readiness", projectFlowH.Readiness)
+		projectFlow.POST("/approve", projectFlowH.ApproveProject)
+		projectFlow.GET("/tasks", projectFlowH.ListTasks)
+		projectFlow.POST("/tasks", projectFlowH.CreateTask)
+		projectFlow.PATCH("/tasks/:task_id/status", projectFlowH.UpdateTaskStatus)
+		projectFlow.PATCH("/tasks/:task_id/assignee", projectFlowH.AssignTask)
+		projectFlow.POST("/tasks/:task_id/claim", projectFlowH.ClaimTask)
 	}
 
 	return r

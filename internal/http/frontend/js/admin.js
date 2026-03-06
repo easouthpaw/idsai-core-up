@@ -191,7 +191,7 @@
     if (role) qs.set("role", role);
     if (search) qs.set("q", search);
 
-    const { resp, data } = await requestJSON(`/admin/users?${qs.toString()}`, {
+    const { resp, data } = await requestJSON(`/v2/admin/users?${qs.toString()}`, {
       headers: authHeaders(false),
     });
 
@@ -208,7 +208,7 @@
     if (status) qs.set("status", status);
     if (search) qs.set("q", search);
 
-    const { resp, data } = await requestJSON(`/admin/projects?${qs.toString()}`, {
+    const { resp, data } = await requestJSON(`/v2/admin/projects?${qs.toString()}`, {
       headers: authHeaders(false),
     });
 
@@ -626,7 +626,7 @@
     submitCreateBtnEl.disabled = true;
     modalStatusEl.textContent = "Сохраняем...";
 
-    const endpoint = state.createRole === "PROFESSOR" ? "/admin/users/professors" : "/admin/users/students";
+    const endpoint = state.createRole === "PROFESSOR" ? "/v2/admin/users/professors" : "/v2/admin/users/students";
     const { resp, data } = await requestJSON(endpoint, {
       method: "POST",
       headers: authHeaders(true),
@@ -646,7 +646,7 @@
   }
 
   async function setUserStatus(userID, status) {
-    const { resp, data } = await requestJSON(`/admin/users/${userID}/status`, {
+    const { resp, data } = await requestJSON(`/v2/admin/users/${userID}/status`, {
       method: "PATCH",
       headers: authHeaders(true),
       body: JSON.stringify({ status }),
@@ -662,7 +662,7 @@
   }
 
   async function setProjectStatus(projectID, status) {
-    const { resp, data } = await requestJSON(`/admin/projects/${projectID}/status`, {
+    const { resp, data } = await requestJSON(`/v2/admin/projects/${projectID}/status`, {
       method: "PATCH",
       headers: authHeaders(true),
       body: JSON.stringify({ status }),

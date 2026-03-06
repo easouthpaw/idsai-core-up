@@ -3,7 +3,9 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"strings"
 
+	"idsai-core-up/internal/http/middleware"
 	"idsai-core-up/internal/services/admin"
 
 	"github.com/gin-gonic/gin"
@@ -13,11 +15,16 @@ import (
 )
 
 type AdminHandler struct {
-	svc *admin.Service
+	svc      *admin.Service
+	notifier NotificationPublisher
 }
 
 func NewAdminHandler(svc *admin.Service) *AdminHandler {
 	return &AdminHandler{svc: svc}
+}
+
+func (h *AdminHandler) SetNotifier(pub NotificationPublisher) {
+	h.notifier = pub
 }
 
 type listUsersResp struct {
@@ -127,7 +134,8 @@ func (h *AdminHandler) SetProjectStatus(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.SetProjectStatus(c.Request.Context(), projectID, req.Status); err != nil {
+	project, err := h.svc.SetProjectStatus(c.Request.Context(), projectID, req.Status)
+	if err != nil {
 		if errors.Is(err, admin.ErrInvalidProjectStatus) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -138,6 +146,45 @@ func (h *AdminHandler) SetProjectStatus(c *gin.Context) {
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update project status"})
 		return
+	}
+
+	tenantID, tenantOK := middleware.TenantIDFromCtx(c)
+	adminUserID, adminOK := middleware.UserIDFromCtx(c)
+	if tenantOK && adminOK {
+		status := strings.ToUpper(strings.TrimSpace(req.Status))
+		notifyBestEffort(h.notifier, c.Request.Context(), notifCreateInput(
+			tenantID,
+			adminUserID,
+			"project.status.changed",
+			"Статус проекта изменён",
+			"Статус проекта успешно обновлён администратором.",
+			map[string]any{
+				"project_id": projectID.String(),
+				"title":      project.Title,
+				"status":     status,
+			},
+			false,
+		))
+
+		if project.CreatedBy != adminUserID {
+			body := "Статус вашего проекта был обновлён администратором."
+			if status == "ARCHIVE" {
+				body = "Ваш проект был закрыт (ARCHIVE) администратором."
+			}
+			notifyBestEffort(h.notifier, c.Request.Context(), notifCreateInput(
+				tenantID,
+				project.CreatedBy,
+				"project.status.changed",
+				"Статус проекта обновлён",
+				body,
+				map[string]any{
+					"project_id": projectID.String(),
+					"title":      project.Title,
+					"status":     status,
+				},
+				true,
+			))
+		}
 	}
 
 	c.Status(http.StatusNoContent)

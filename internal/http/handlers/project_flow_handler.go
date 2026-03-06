@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"idsai-core-up/internal/domain"
+	"idsai-core-up/internal/http/middleware"
 	"idsai-core-up/internal/services/projectflow"
 
 	"github.com/gin-gonic/gin"
@@ -15,22 +16,22 @@ import (
 )
 
 type ProjectFlowHandler struct {
-	svc *projectflow.Service
+	svc      *projectflow.Service
+	notifier NotificationPublisher
 }
 
 func NewProjectFlowHandler(svc *projectflow.Service) *ProjectFlowHandler {
 	return &ProjectFlowHandler{svc: svc}
 }
 
+func (h *ProjectFlowHandler) SetNotifier(pub NotificationPublisher) {
+	h.notifier = pub
+}
+
 func parseUserID(c *gin.Context) (uuid.UUID, bool) {
-	raw := strings.TrimSpace(c.GetHeader("X-User-ID"))
-	if raw == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing X-User-ID"})
-		return uuid.Nil, false
-	}
-	id, err := uuid.Parse(raw)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid X-User-ID"})
+	id, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return uuid.Nil, false
 	}
 	return id, true
@@ -79,6 +80,11 @@ func (h *ProjectFlowHandler) UpdateProject(c *gin.Context) {
 	if !ok {
 		return
 	}
+	tenantID, ok := middleware.TenantIDFromCtx(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
 	pid, ok := parseProjectID(c)
 	if !ok {
 		return
@@ -95,6 +101,20 @@ func (h *ProjectFlowHandler) UpdateProject(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
+
+	notifyBestEffort(h.notifier, c.Request.Context(), notifCreateInput(
+		tenantID,
+		uid,
+		"project.updated",
+		"Изменения проекта сохранены",
+		"Данные проекта успешно обновлены.",
+		map[string]any{
+			"project_id": pid.String(),
+			"title":      p.Title,
+		},
+		true,
+	))
+
 	c.JSON(http.StatusOK, projectToResponse(p))
 }
 
@@ -105,6 +125,11 @@ type setStacksReq struct {
 func (h *ProjectFlowHandler) SetStacks(c *gin.Context) {
 	uid, ok := parseUserID(c)
 	if !ok {
+		return
+	}
+	tenantID, ok := middleware.TenantIDFromCtx(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 	pid, ok := parseProjectID(c)
@@ -123,6 +148,20 @@ func (h *ProjectFlowHandler) SetStacks(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
+
+	notifyBestEffort(h.notifier, c.Request.Context(), notifCreateInput(
+		tenantID,
+		uid,
+		"project.stacks.updated",
+		"Стек проекта обновлён",
+		"Технологический стек проекта успешно сохранён.",
+		map[string]any{
+			"project_id": pid.String(),
+			"stacks":     req.Stacks,
+		},
+		false,
+	))
+
 	c.JSON(http.StatusOK, items)
 }
 
@@ -403,6 +442,11 @@ func (h *ProjectFlowHandler) ApproveProject(c *gin.Context) {
 	if !ok {
 		return
 	}
+	tenantID, ok := middleware.TenantIDFromCtx(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
 	pid, ok := parseProjectID(c)
 	if !ok {
 		return
@@ -419,6 +463,20 @@ func (h *ProjectFlowHandler) ApproveProject(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
+
+	notifyBestEffort(h.notifier, c.Request.Context(), notifCreateInput(
+		tenantID,
+		uid,
+		"project.activated",
+		"Проект активирован",
+		"Проект переведён в статус ACTIVE.",
+		map[string]any{
+			"project_id": pid.String(),
+			"title":      p.Title,
+		},
+		true,
+	))
+
 	c.JSON(http.StatusOK, gin.H{"project": projectToResponse(p), "readiness": ready})
 }
 

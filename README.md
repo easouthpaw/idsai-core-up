@@ -21,7 +21,7 @@
 
 После запуска:
 
-- API: `http://localhost:8080`
+- API: `http://localhost:8080/v2`
 - Swagger: `http://localhost:8080/swagger/index.html`
 
 ## Основные команды
@@ -38,6 +38,9 @@ make run               # запустить API
 - `ADDR` (по умолчанию `:8080`)
 - `DATABASE_URL`
 - `JWT_SECRET` (по умолчанию `dev-jwt-secret`)
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`
+- `EMAIL_ENABLED` (по умолчанию `true`)
+- `NOTIFICATIONS_OUTBOX_POLL_SECONDS` (по умолчанию `15`)
 
 Для `Makefile` используется переменная `DB_URL` (по умолчанию `postgres://postgres:postgres@localhost:5433/idsai?sslmode=disable`).
 

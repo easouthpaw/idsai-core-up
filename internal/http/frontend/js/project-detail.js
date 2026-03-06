@@ -256,12 +256,8 @@
     if (withJSON) headers["Content-Type"] = "application/json";
 
     const access = localStorage.getItem(LS_ACCESS) || "";
-    const user = localStorage.getItem(LS_USER) || "";
-    const faculty = localStorage.getItem(LS_FACULTY) || "";
 
     if (access) headers.Authorization = `Bearer ${access}`;
-    if (user) headers["X-User-ID"] = user;
-    if (faculty) headers["X-Faculty-ID"] = faculty;
 
     return headers;
   }
@@ -948,7 +944,7 @@
     const dueAt = toRFC3339(ui.taskModalDueAtInput.value);
     if (dueAt) payload.due_at = dueAt;
 
-    const created = await request("POST", `/projects/${state.projectID}/tasks`, payload);
+    const created = await request("POST", `/v2/projects/${state.projectID}/tasks`, payload);
     const meta = collectTaskMeta();
 
     if (created && created.id) {
@@ -1025,12 +1021,12 @@
       throw new Error("Название проекта обязательно.");
     }
 
-    await request("PATCH", `/projects/${state.projectID}`, {
+    await request("PATCH", `/v2/projects/${state.projectID}`, {
       title,
       description: shortDescription,
     });
 
-    await request("PUT", `/projects/${state.projectID}/stacks`, {
+    await request("PUT", `/v2/projects/${state.projectID}/stacks`, {
       stacks,
     });
 
@@ -1064,7 +1060,7 @@
       throw new Error("Название роли обязательно.");
     }
 
-    await request("POST", `/projects/${state.projectID}/positions`, {
+    await request("POST", `/v2/projects/${state.projectID}/positions`, {
       name,
       code,
       capacity: Number.isNaN(capacity) || capacity <= 0 ? 1 : capacity,
@@ -1097,7 +1093,7 @@
     }
 
     if (action === "approve") {
-      await request("POST", `/projects/${state.projectID}/members/${userID}/approve`, {
+      await request("POST", `/v2/projects/${state.projectID}/members/${userID}/approve`, {
         position_id: positionID,
       });
       setNotice(`Участник ${shortID(userID)} одобрен.`, false);
@@ -1106,7 +1102,7 @@
     }
 
     if (action === "set-position") {
-      await request("PATCH", `/projects/${state.projectID}/members/${userID}/position`, {
+      await request("PATCH", `/v2/projects/${state.projectID}/members/${userID}/position`, {
         position_id: positionID,
       });
       setNotice(`Роль участника ${shortID(userID)} обновлена.`, false);
@@ -1122,7 +1118,7 @@
     const action = actionBtn.getAttribute("data-task-action");
 
     if (action === "claim") {
-      await request("POST", `/projects/${state.projectID}/tasks/${taskID}/claim`, {});
+      await request("POST", `/v2/projects/${state.projectID}/tasks/${taskID}/claim`, {});
       setNotice(`Задача ${shortID(taskID)} взята в работу.`, false);
       await refreshData();
       return;
@@ -1134,7 +1130,7 @@
       if (!status) {
         throw new Error("Выберите статус.");
       }
-      await request("PATCH", `/projects/${state.projectID}/tasks/${taskID}/status`, {
+      await request("PATCH", `/v2/projects/${state.projectID}/tasks/${taskID}/status`, {
         status,
       });
       setNotice(`Статус задачи ${shortID(taskID)} обновлен.`, false);
@@ -1148,7 +1144,7 @@
       if (!assignee) {
         throw new Error("Выберите исполнителя.");
       }
-      await request("PATCH", `/projects/${state.projectID}/tasks/${taskID}/assignee`, {
+      await request("PATCH", `/v2/projects/${state.projectID}/tasks/${taskID}/assignee`, {
         assignee_user_id: assignee,
       });
       setNotice(`Исполнитель задачи ${shortID(taskID)} обновлен.`, false);
@@ -1157,13 +1153,13 @@
   }
 
   async function onOpenRecruitment() {
-    await request("POST", `/projects/${state.projectID}/recruitment/open`, {});
+    await request("POST", `/v2/projects/${state.projectID}/recruitment/open`, {});
     setNotice("Набор в проект открыт.", false);
     await refreshData();
   }
 
   async function onApplyMember() {
-    await request("POST", `/projects/${state.projectID}/members/apply`, {});
+    await request("POST", `/v2/projects/${state.projectID}/members/apply`, {});
     setNotice("Заявка на вступление отправлена.", false);
     await refreshData();
   }
@@ -1174,7 +1170,7 @@
       throw new Error("Введите UUID преподавателя.");
     }
 
-    await request("POST", `/projects/${state.projectID}/professor`, {
+    await request("POST", `/v2/projects/${state.projectID}/professor`, {
       professor_id: professorID,
     });
     ui.professorIDInput.value = "";
@@ -1183,7 +1179,7 @@
   }
 
   async function onApproveProject() {
-    await request("POST", `/projects/${state.projectID}/approve`, {});
+    await request("POST", `/v2/projects/${state.projectID}/approve`, {});
     setNotice("Проект переведен в ACTIVE.", false);
     await refreshData();
   }
@@ -1202,14 +1198,14 @@
   }
 
   async function refreshData() {
-    state.project = await request("GET", `/projects/${state.projectID}`);
+    state.project = await request("GET", `/v2/projects/${state.projectID}`);
 
     const [stacks, positions, members, readiness, tasks] = await Promise.all([
-      loadOptional("stacks", "GET", `/projects/${state.projectID}/stacks`, []),
-      loadOptional("positions", "GET", `/projects/${state.projectID}/positions`, []),
-      loadOptional("members", "GET", `/projects/${state.projectID}/members`, []),
-      loadOptional("readiness", "GET", `/projects/${state.projectID}/readiness`, null),
-      loadOptional("tasks", "GET", `/projects/${state.projectID}/tasks`, []),
+      loadOptional("stacks", "GET", `/v2/projects/${state.projectID}/stacks`, []),
+      loadOptional("positions", "GET", `/v2/projects/${state.projectID}/positions`, []),
+      loadOptional("members", "GET", `/v2/projects/${state.projectID}/members`, []),
+      loadOptional("readiness", "GET", `/v2/projects/${state.projectID}/readiness`, null),
+      loadOptional("tasks", "GET", `/v2/projects/${state.projectID}/tasks`, []),
     ]);
 
     state.stacks = Array.isArray(stacks) ? stacks : [];

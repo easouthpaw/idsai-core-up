@@ -10,6 +10,7 @@ import (
 )
 
 type AccessClaims struct {
+	TenantID     string `json:"tenant_id"`
 	FacultyID    string `json:"faculty_id"`
 	DepartmentID string `json:"department_id"`
 	IsAdmin      bool   `json:"is_admin"`
@@ -46,6 +47,11 @@ func AuthRequired(jwtSecret string) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid sub"})
 			return
 		}
+		tid, err := uuid.Parse(claims.TenantID)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid tenant_id"})
+			return
+		}
 		fid, err := uuid.Parse(claims.FacultyID)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid faculty_id"})
@@ -58,6 +64,7 @@ func AuthRequired(jwtSecret string) gin.HandlerFunc {
 		}
 
 		c.Set("userID", uid)
+		c.Set("tenantID", tid)
 		c.Set("facultyID", fid)
 		c.Set("departmentID", did)
 		c.Set("isAdmin", claims.IsAdmin)
@@ -76,6 +83,15 @@ func UserIDFromCtx(c *gin.Context) (uuid.UUID, bool) {
 
 func FacultyIDFromCtx(c *gin.Context) (uuid.UUID, bool) {
 	v, ok := c.Get("facultyID")
+	if !ok {
+		return uuid.Nil, false
+	}
+	id, ok := v.(uuid.UUID)
+	return id, ok
+}
+
+func TenantIDFromCtx(c *gin.Context) (uuid.UUID, bool) {
+	v, ok := c.Get("tenantID")
 	if !ok {
 		return uuid.Nil, false
 	}

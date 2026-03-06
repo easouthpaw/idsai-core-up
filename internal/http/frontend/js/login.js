@@ -91,7 +91,7 @@
     const email = document.getElementById("loginEmail").value.trim();
     const password = document.getElementById("loginPassword").value;
 
-    const out = await callJSON("/auth/login", { email, password });
+    const out = await callJSON("/v2/auth/login", { email, password });
     if (!out.resp.ok) {
       setStatus("Ошибка входа: " + out.resp.status + " (" + out.elapsed + " ms)", false);
       showJSON(out.data);
@@ -125,7 +125,7 @@
       return;
     }
 
-    const out = await callJSON("/auth/register", {
+    const out = await callJSON("/v2/auth/register", {
       email,
       password,
       full_name: fullName,

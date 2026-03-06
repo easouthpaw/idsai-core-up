@@ -11,7 +11,7 @@ import (
 )
 
 func TestSwaggerRoute_Available(t *testing.T) {
-	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, "test-secret")
+	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/swagger/index.html", nil)

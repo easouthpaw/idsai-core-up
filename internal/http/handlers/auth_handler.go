@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 
 	"idsai-core-up/internal/http/middleware"
 	"idsai-core-up/internal/services/auth"
@@ -39,9 +40,18 @@ type accessResp struct {
 
 type meResp struct {
 	UserID       string `json:"user_id"`
+	TenantID     string `json:"tenant_id"`
 	FacultyID    string `json:"faculty_id"`
 	DepartmentID string `json:"department_id"`
 	IsAdmin      bool   `json:"is_admin"`
+}
+
+func tenantCodeFromHeader(c *gin.Context) string {
+	code := strings.ToUpper(strings.TrimSpace(c.GetHeader("X-Tenant-Code")))
+	if code == "" {
+		return "CORE"
+	}
+	return code
 }
 
 // RegisterStudent godoc
@@ -60,7 +70,7 @@ func (h *AuthHandler) RegisterStudent(c *gin.Context) {
 		return
 	}
 
-	tokens, err := h.svc.RegisterStudent(c.Request.Context(), req.Email, req.Password, req.FullName, req.DepartmentCode)
+	tokens, err := h.svc.RegisterStudent(c.Request.Context(), tenantCodeFromHeader(c), req.Email, req.Password, req.FullName, req.DepartmentCode)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -85,7 +95,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	tokens, err := h.svc.Login(c.Request.Context(), req.Email, req.Password)
+	tokens, err := h.svc.Login(c.Request.Context(), tenantCodeFromHeader(c), req.Email, req.Password)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		return
@@ -133,6 +143,11 @@ func (h *AuthHandler) Me(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
+	tid, ok := middleware.TenantIDFromCtx(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
 	fid, ok := middleware.FacultyIDFromCtx(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
@@ -147,6 +162,7 @@ func (h *AuthHandler) Me(c *gin.Context) {
 
 	c.JSON(http.StatusOK, meResp{
 		UserID:       uid.String(),
+		TenantID:     tid.String(),
 		FacultyID:    fid.String(),
 		DepartmentID: didAny.(interface{ String() string }).String(),
 		IsAdmin:      isAdmin,

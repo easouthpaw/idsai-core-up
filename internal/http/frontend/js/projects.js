@@ -73,12 +73,8 @@
     if (withJSON) headers["Content-Type"] = "application/json";
 
     const access = localStorage.getItem(LS_ACCESS) || "";
-    const user = localStorage.getItem(LS_USER) || "";
-    const faculty = localStorage.getItem(LS_FACULTY) || "";
 
     if (access) headers.Authorization = "Bearer " + access;
-    if (user) headers["X-User-ID"] = user;
-    if (faculty) headers["X-Faculty-ID"] = faculty;
 
     return headers;
   }
@@ -492,6 +488,12 @@
       .filter(Boolean))).sort();
 
     groupDepartmentEl.innerHTML = "";
+    if (departments.length > 0) {
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Выбери кафедру";
+      groupDepartmentEl.appendChild(placeholder);
+    }
     departments.forEach((dep) => {
       const option = document.createElement("option");
       option.value = dep;
@@ -521,6 +523,12 @@
       });
 
     groupNumberEl.innerHTML = "";
+    if (numbers.length > 0) {
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Выбери номер группы";
+      groupNumberEl.appendChild(placeholder);
+    }
     numbers.forEach((num) => {
       const option = document.createElement("option");
       option.value = num;
@@ -536,8 +544,45 @@
     }
   }
 
+  function normalizeGroup(raw) {
+    const item = typeof raw === "object" && raw ? raw : {};
+    const code = String(item.code || "").trim().toUpperCase();
+
+    let department = String(item.department || item.department_code || "").trim().toUpperCase();
+    let number = String(item.number || item.group_number || "").trim();
+
+    if ((!department || !number) && code) {
+      const parts = code.split("-", 2);
+      if (!department && parts[0]) {
+        department = parts[0].trim().toUpperCase();
+      }
+      if (!number && parts[1]) {
+        number = parts[1].trim();
+      }
+    }
+
+    // Fallback: extract numeric tail from code, e.g. "AI45" -> department "AI", number "45".
+    if ((!department || !number) && code) {
+      const match = code.match(/^([A-ZА-ЯЁ]+)[-_ ]?(\d+)$/i);
+      if (match) {
+        if (!department) department = match[1].toUpperCase();
+        if (!number) number = match[2];
+      }
+    }
+
+    return {
+      id: String(item.id || "").trim(),
+      code,
+      name: String(item.name || "").trim(),
+      department,
+      number,
+    };
+  }
+
   async function loadGroups() {
-    const resp = await fetch("/projects/groups", {
+    setVisibility(selectedVisibility);
+
+    const resp = await fetch("/v2/projects/groups", {
       method: "GET",
       headers: authHeaders(false),
     });
@@ -549,10 +594,14 @@
     } catch (_) {}
 
     if (!resp.ok) {
+      if (resp.status === 401) {
+        logout();
+        throw new Error("Сессия истекла. Войди снова.");
+      }
       throw new Error(typeof data === "object" && data && data.error ? data.error : "failed to load groups");
     }
 
-    groupOptions = Array.isArray(data) ? data : [];
+    groupOptions = (Array.isArray(data) ? data : []).map(normalizeGroup);
     fillGroupDepartments();
     fillGroupNumbers();
     setVisibility(selectedVisibility);
@@ -560,7 +609,7 @@
 
   async function loadMineProjects() {
     const started = performance.now();
-    const resp = await fetch("/projects/my", {
+    const resp = await fetch("/v2/projects/my", {
       method: "GET",
       headers: authHeaders(false),
     });
@@ -586,7 +635,7 @@
 
   async function loadCommunityProjects() {
     const started = performance.now();
-    const resp = await fetch("/projects/public", {
+    const resp = await fetch("/v2/projects/public", {
       method: "GET",
       headers: authHeaders(false),
     });
@@ -633,7 +682,7 @@
     }
 
     const started = performance.now();
-    const resp = await fetch("/projects", {
+    const resp = await fetch("/v2/projects", {
       method: "POST",
       headers: authHeaders(true),
       body: JSON.stringify(payload),
@@ -661,7 +710,7 @@
 
   async function applyToProject(projectID) {
     const started = performance.now();
-    const resp = await fetch(`/projects/${projectID}/members/apply`, {
+    const resp = await fetch(`/v2/projects/${projectID}/members/apply`, {
       method: "POST",
       headers: authHeaders(false),
     });

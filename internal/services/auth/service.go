@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	notifsvc "idsai-core-up/internal/services/notifications"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 
 type User struct {
 	ID           uuid.UUID
+	TenantID     uuid.UUID
 	Email        string
 	PasswordHash string
 	Status       string
@@ -26,15 +28,16 @@ type User struct {
 }
 
 type Repository interface {
-	CreateUser(ctx context.Context, email, passwordHash, status string) (uuid.UUID, error)
-	CreateProfile(ctx context.Context, userID uuid.UUID, fullName string, facultyID, departmentID uuid.UUID) error
-	GrantStudentFacultyRole(ctx context.Context, userID, facultyID uuid.UUID) error
-	FindUserByEmail(ctx context.Context, email string) (User, error)
-	FindUserByID(ctx context.Context, userID uuid.UUID) (User, error)
-	InsertRefreshToken(ctx context.Context, userID uuid.UUID, tokenHash string, expiresAt time.Time) error
-	FindRefreshToken(ctx context.Context, tokenHash string) (userID uuid.UUID, expiresAt time.Time, revokedAt *time.Time, err error)
+	FindTenantByCode(ctx context.Context, tenantCode string) (uuid.UUID, error)
+	CreateUser(ctx context.Context, tenantID uuid.UUID, email, passwordHash, status string) (uuid.UUID, error)
+	CreateProfile(ctx context.Context, tenantID, userID uuid.UUID, fullName string, facultyID, departmentID uuid.UUID) error
+	GrantStudentFacultyRole(ctx context.Context, tenantID, userID, facultyID uuid.UUID) error
+	FindUserByEmail(ctx context.Context, tenantID uuid.UUID, email string) (User, error)
+	FindUserByID(ctx context.Context, tenantID, userID uuid.UUID) (User, error)
+	InsertRefreshToken(ctx context.Context, tenantID, userID uuid.UUID, tokenHash string, expiresAt time.Time) error
+	FindRefreshToken(ctx context.Context, tokenHash string) (tenantID uuid.UUID, userID uuid.UUID, expiresAt time.Time, revokedAt *time.Time, err error)
 	RevokeRefreshToken(ctx context.Context, tokenHash string) error
-	FindDepartment(ctx context.Context, departmentCode string) (departmentID uuid.UUID, facultyID uuid.UUID, err error)
+	FindDepartment(ctx context.Context, tenantID uuid.UUID, departmentCode string) (departmentID uuid.UUID, facultyID uuid.UUID, err error)
 }
 
 type Service struct {
@@ -42,6 +45,11 @@ type Service struct {
 	jwtSecret  []byte
 	accessTTL  time.Duration
 	refreshTTL time.Duration
+	notifier   NotificationPublisher
+}
+
+type NotificationPublisher interface {
+	Notify(ctx context.Context, in notifsvc.CreateInput) (notifsvc.Notification, error)
 }
 
 func NewService(repo Repository, jwtSecret string) *Service {
@@ -53,25 +61,39 @@ func NewService(repo Repository, jwtSecret string) *Service {
 	}
 }
 
+func (s *Service) SetNotifier(notifier NotificationPublisher) {
+	s.notifier = notifier
+}
+
 type Tokens struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 }
 
 type accessClaims struct {
+	TenantID     string `json:"tenant_id"`
 	FacultyID    string `json:"faculty_id"`
 	DepartmentID string `json:"department_id"`
 	IsAdmin      bool   `json:"is_admin"`
 	jwt.RegisteredClaims
 }
 
-func (s *Service) RegisterStudent(ctx context.Context, email, password, fullName, departmentCode string) (Tokens, error) {
+func (s *Service) RegisterStudent(ctx context.Context, tenantCode, email, password, fullName, departmentCode string) (Tokens, error) {
+	tenantCode = strings.ToUpper(strings.TrimSpace(tenantCode))
+	if tenantCode == "" {
+		tenantCode = "CORE"
+	}
+	tenantID, err := s.repo.FindTenantByCode(ctx, tenantCode)
+	if err != nil {
+		return Tokens{}, err
+	}
+
 	email = strings.ToLower(strings.TrimSpace(email))
 	if email == "" || password == "" {
 		return Tokens{}, errors.New("email/password required")
 	}
 
-	deptID, facultyID, err := s.repo.FindDepartment(ctx, departmentCode)
+	deptID, facultyID, err := s.repo.FindDepartment(ctx, tenantID, departmentCode)
 	if err != nil {
 		return Tokens{}, err
 	}
@@ -81,24 +103,53 @@ func (s *Service) RegisterStudent(ctx context.Context, email, password, fullName
 		return Tokens{}, err
 	}
 
-	userID, err := s.repo.CreateUser(ctx, email, string(hash), "ACTIVE")
+	userID, err := s.repo.CreateUser(ctx, tenantID, email, string(hash), "ACTIVE")
 	if err != nil {
 		return Tokens{}, err
 	}
-	if err := s.repo.CreateProfile(ctx, userID, fullName, facultyID, deptID); err != nil {
+	if err := s.repo.CreateProfile(ctx, tenantID, userID, fullName, facultyID, deptID); err != nil {
 		return Tokens{}, err
 	}
-	if err := s.repo.GrantStudentFacultyRole(ctx, userID, facultyID); err != nil {
+	if err := s.repo.GrantStudentFacultyRole(ctx, tenantID, userID, facultyID); err != nil {
 		return Tokens{}, err
 	}
 
 	// tokens
-	return s.issueTokens(ctx, userID, facultyID, deptID, false)
+	tokens, err := s.issueTokens(ctx, tenantID, userID, facultyID, deptID, false)
+	if err != nil {
+		return Tokens{}, err
+	}
+
+	if s.notifier != nil {
+		_, _ = s.notifier.Notify(ctx, notifsvc.CreateInput{
+			TenantID:  tenantID,
+			UserID:    userID,
+			Type:      "account.registered",
+			Title:     "Добро пожаловать в IDSAI",
+			Body:      "Ваш аккаунт успешно зарегистрирован.",
+			Payload:   map[string]any{"department_code": departmentCode},
+			WithEmail: true,
+			EmailTo:   email,
+			EmailSubj: "IDSAI: регистрация аккаунта",
+			EmailBody: "Ваш аккаунт успешно зарегистрирован в системе IDSAI.",
+		})
+	}
+
+	return tokens, nil
 }
 
-func (s *Service) Login(ctx context.Context, email, password string) (Tokens, error) {
+func (s *Service) Login(ctx context.Context, tenantCode, email, password string) (Tokens, error) {
+	tenantCode = strings.ToUpper(strings.TrimSpace(tenantCode))
+	if tenantCode == "" {
+		tenantCode = "CORE"
+	}
+	tenantID, err := s.repo.FindTenantByCode(ctx, tenantCode)
+	if err != nil {
+		return Tokens{}, err
+	}
+
 	email = strings.ToLower(strings.TrimSpace(email))
-	u, err := s.repo.FindUserByEmail(ctx, email)
+	u, err := s.repo.FindUserByEmail(ctx, tenantID, email)
 	if err != nil {
 		return Tokens{}, err
 	}
@@ -108,12 +159,12 @@ func (s *Service) Login(ctx context.Context, email, password string) (Tokens, er
 	if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)); err != nil {
 		return Tokens{}, errors.New("invalid credentials")
 	}
-	return s.issueTokens(ctx, u.ID, u.FacultyID, u.DepartmentID, u.IsAdmin)
+	return s.issueTokens(ctx, u.TenantID, u.ID, u.FacultyID, u.DepartmentID, u.IsAdmin)
 }
 
 func (s *Service) Refresh(ctx context.Context, refreshToken string) (string, error) {
 	h := hashToken(refreshToken)
-	userID, exp, revokedAt, err := s.repo.FindRefreshToken(ctx, h)
+	tenantID, userID, exp, revokedAt, err := s.repo.FindRefreshToken(ctx, h)
 	if err != nil {
 		return "", err
 	}
@@ -124,7 +175,7 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (string, err
 		return "", errors.New("refresh expired")
 	}
 
-	u, err := s.repo.FindUserByID(ctx, userID)
+	u, err := s.repo.FindUserByID(ctx, tenantID, userID)
 	if err != nil {
 		return "", err
 	}
@@ -134,6 +185,7 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (string, err
 
 	now := time.Now()
 	claims := accessClaims{
+		TenantID:     u.TenantID.String(),
 		FacultyID:    u.FacultyID.String(),
 		DepartmentID: u.DepartmentID.String(),
 		IsAdmin:      u.IsAdmin,
@@ -148,10 +200,11 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (string, err
 	return tok.SignedString(s.jwtSecret)
 }
 
-func (s *Service) issueTokens(ctx context.Context, userID, facultyID, deptID uuid.UUID, isAdmin bool) (Tokens, error) {
+func (s *Service) issueTokens(ctx context.Context, tenantID, userID, facultyID, deptID uuid.UUID, isAdmin bool) (Tokens, error) {
 	now := time.Now()
 
 	claims := accessClaims{
+		TenantID:     tenantID.String(),
 		FacultyID:    facultyID.String(),
 		DepartmentID: deptID.String(),
 		IsAdmin:      isAdmin,
@@ -173,7 +226,7 @@ func (s *Service) issueTokens(ctx context.Context, userID, facultyID, deptID uui
 		return Tokens{}, err
 	}
 	refreshHash := hashToken(refreshRaw)
-	if err := s.repo.InsertRefreshToken(ctx, userID, refreshHash, now.Add(s.refreshTTL)); err != nil {
+	if err := s.repo.InsertRefreshToken(ctx, tenantID, userID, refreshHash, now.Add(s.refreshTTL)); err != nil {
 		return Tokens{}, err
 	}
 
