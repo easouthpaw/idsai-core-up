@@ -11,7 +11,7 @@ import (
 )
 
 func TestDevTesterRoute_Available(t *testing.T) {
-	r := httpx.NewRouter(nil, nil, nil, nil, nil, "test-secret")
+	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, "test-secret")
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/dev/login", nil)
@@ -23,7 +23,7 @@ func TestDevTesterRoute_Available(t *testing.T) {
 }
 
 func TestDevProjectsRoute_Available(t *testing.T) {
-	r := httpx.NewRouter(nil, nil, nil, nil, nil, "test-secret")
+	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, "test-secret")
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/dev/projects", nil)
@@ -35,7 +35,7 @@ func TestDevProjectsRoute_Available(t *testing.T) {
 }
 
 func TestDevProjectRoute_Available(t *testing.T) {
-	r := httpx.NewRouter(nil, nil, nil, nil, nil, "test-secret")
+	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, "test-secret")
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/dev/projects/00000000-0000-0000-0000-000000000001", nil)
@@ -44,4 +44,16 @@ func TestDevProjectRoute_Available(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	require.Contains(t, w.Header().Get("Content-Type"), "text/html")
 	require.Contains(t, w.Body.String(), "Student PM Project")
+}
+
+func TestDevAdminRoute_Available(t *testing.T) {
+	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, "test-secret")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/dev/admin", nil)
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Header().Get("Content-Type"), "text/html")
+	require.Contains(t, w.Body.String(), "Student PM Admin")
 }

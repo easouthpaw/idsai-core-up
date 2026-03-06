@@ -5,6 +5,7 @@
   const LS_FACULTY = "idsai_rbac_faculty_id";
   const LS_STUDENT_NAME = "idsai_student_name";
   const LS_STUDENT_EMAIL = "idsai_student_email";
+  const LS_IS_ADMIN = "idsai_is_admin";
 
   const statusEl = document.getElementById("status");
   const respEl = document.getElementById("resp");
@@ -60,6 +61,12 @@
 
     localStorage.setItem(LS_USER, claims.sub);
     localStorage.setItem(LS_FACULTY, claims.faculty_id);
+    localStorage.setItem(LS_IS_ADMIN, claims.is_admin ? "1" : "0");
+    return claims;
+  }
+
+  function targetByClaims(claims) {
+    return claims && claims.is_admin ? "/dev/admin" : "/dev/projects";
   }
 
   async function callJSON(url, payload) {
@@ -91,14 +98,14 @@
       return;
     }
 
-    saveSession(out.data);
+    const claims = saveSession(out.data);
     localStorage.setItem(LS_STUDENT_EMAIL, email);
     if (!localStorage.getItem(LS_STUDENT_NAME)) {
       localStorage.setItem(LS_STUDENT_NAME, deriveNameFromEmail(email));
     }
-    setStatus("Вход выполнен. Переход в проекты...", true);
+    setStatus("Вход выполнен. Переход в кабинет...", true);
     showJSON(out.data);
-    window.location.href = "/dev/projects";
+    window.location.href = targetByClaims(claims);
   }
 
   async function register() {
@@ -131,12 +138,12 @@
       return;
     }
 
-    saveSession(out.data);
+    const claims = saveSession(out.data);
     localStorage.setItem(LS_STUDENT_EMAIL, email);
     localStorage.setItem(LS_STUDENT_NAME, fullName || deriveNameFromEmail(email));
-    setStatus("Регистрация успешна. Переход в проекты...", true);
+    setStatus("Регистрация успешна. Переход в кабинет...", true);
     showJSON(out.data);
-    window.location.href = "/dev/projects";
+    window.location.href = targetByClaims(claims);
   }
 
   tabLoginEl.addEventListener("click", () => setTab("login"));
@@ -167,7 +174,8 @@
       if (claims.sub && claims.faculty_id) {
         localStorage.setItem(LS_USER, claims.sub);
         localStorage.setItem(LS_FACULTY, claims.faculty_id);
-        window.location.href = "/dev/projects";
+        localStorage.setItem(LS_IS_ADMIN, claims.is_admin ? "1" : "0");
+        window.location.href = targetByClaims(claims);
       }
     } catch (_) {}
   }

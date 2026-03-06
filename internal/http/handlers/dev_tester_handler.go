@@ -17,6 +17,10 @@ func DevProjectsPage(c *gin.Context) {
 	c.FileFromFS("projects.html", devFrontendFS)
 }
 
+func DevAdminPage(c *gin.Context) {
+	c.FileFromFS("admin.html", devFrontendFS)
+}
+
 func DevProjectPage(c *gin.Context) {
 	c.FileFromFS("project.html", devFrontendFS)
 }

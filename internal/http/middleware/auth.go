@@ -12,6 +12,7 @@ import (
 type AccessClaims struct {
 	FacultyID    string `json:"faculty_id"`
 	DepartmentID string `json:"department_id"`
+	IsAdmin      bool   `json:"is_admin"`
 	jwt.RegisteredClaims
 }
 
@@ -59,6 +60,7 @@ func AuthRequired(jwtSecret string) gin.HandlerFunc {
 		c.Set("userID", uid)
 		c.Set("facultyID", fid)
 		c.Set("departmentID", did)
+		c.Set("isAdmin", claims.IsAdmin)
 		c.Next()
 	}
 }
@@ -79,4 +81,24 @@ func FacultyIDFromCtx(c *gin.Context) (uuid.UUID, bool) {
 	}
 	id, ok := v.(uuid.UUID)
 	return id, ok
+}
+
+func IsAdminFromCtx(c *gin.Context) (bool, bool) {
+	v, ok := c.Get("isAdmin")
+	if !ok {
+		return false, false
+	}
+	isAdmin, ok := v.(bool)
+	return isAdmin, ok
+}
+
+func AdminRequired() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		isAdmin, ok := IsAdminFromCtx(c)
+		if !ok || !isAdmin {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "admin access required"})
+			return
+		}
+		c.Next()
+	}
 }

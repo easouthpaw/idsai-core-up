@@ -71,7 +71,24 @@ WHERE r.code = 'STUDENT'
 
 func (r *AuthRepo) FindUserByEmail(ctx context.Context, email string) (svc.User, error) {
 	const q = `
-SELECT u.id, u.email, u.password_hash, u.status, p.faculty_id, p.department_id, p.full_name
+SELECT
+  u.id,
+  u.email,
+  u.password_hash,
+  u.status,
+  p.faculty_id,
+  p.department_id,
+  p.full_name,
+  EXISTS (
+    SELECT 1
+    FROM role_assignments ra
+    JOIN roles r ON r.id = ra.role_id
+    WHERE ra.user_id = u.id
+      AND r.code = 'SUPER_ADMIN'
+      AND ra.scope_type = 'SYSTEM'
+      AND ra.scope_id IS NULL
+      AND (ra.expires_at IS NULL OR ra.expires_at > now())
+  ) AS is_admin
 FROM users u
 JOIN user_profiles p ON p.user_id=u.id
 WHERE u.email=$1;
@@ -79,14 +96,31 @@ WHERE u.email=$1;
 	var out svc.User
 	err := r.db.QueryRow(ctx, q, email).Scan(
 		&out.ID, &out.Email, &out.PasswordHash, &out.Status,
-		&out.FacultyID, &out.DepartmentID, &out.FullName,
+		&out.FacultyID, &out.DepartmentID, &out.FullName, &out.IsAdmin,
 	)
 	return out, err
 }
 
 func (r *AuthRepo) FindUserByID(ctx context.Context, userID uuid.UUID) (svc.User, error) {
 	const q = `
-SELECT u.id, u.email, u.password_hash, u.status, p.faculty_id, p.department_id, p.full_name
+SELECT
+  u.id,
+  u.email,
+  u.password_hash,
+  u.status,
+  p.faculty_id,
+  p.department_id,
+  p.full_name,
+  EXISTS (
+    SELECT 1
+    FROM role_assignments ra
+    JOIN roles r ON r.id = ra.role_id
+    WHERE ra.user_id = u.id
+      AND r.code = 'SUPER_ADMIN'
+      AND ra.scope_type = 'SYSTEM'
+      AND ra.scope_id IS NULL
+      AND (ra.expires_at IS NULL OR ra.expires_at > now())
+  ) AS is_admin
 FROM users u
 JOIN user_profiles p ON p.user_id=u.id
 WHERE u.id=$1;
@@ -94,7 +128,7 @@ WHERE u.id=$1;
 	var out svc.User
 	err := r.db.QueryRow(ctx, q, userID).Scan(
 		&out.ID, &out.Email, &out.PasswordHash, &out.Status,
-		&out.FacultyID, &out.DepartmentID, &out.FullName,
+		&out.FacultyID, &out.DepartmentID, &out.FullName, &out.IsAdmin,
 	)
 	return out, err
 }

@@ -22,6 +22,7 @@ type User struct {
 	FacultyID    uuid.UUID
 	DepartmentID uuid.UUID
 	FullName     string
+	IsAdmin      bool
 }
 
 type Repository interface {
@@ -60,6 +61,7 @@ type Tokens struct {
 type accessClaims struct {
 	FacultyID    string `json:"faculty_id"`
 	DepartmentID string `json:"department_id"`
+	IsAdmin      bool   `json:"is_admin"`
 	jwt.RegisteredClaims
 }
 
@@ -91,7 +93,7 @@ func (s *Service) RegisterStudent(ctx context.Context, email, password, fullName
 	}
 
 	// tokens
-	return s.issueTokens(ctx, userID, facultyID, deptID)
+	return s.issueTokens(ctx, userID, facultyID, deptID, false)
 }
 
 func (s *Service) Login(ctx context.Context, email, password string) (Tokens, error) {
@@ -106,7 +108,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (Tokens, er
 	if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)); err != nil {
 		return Tokens{}, errors.New("invalid credentials")
 	}
-	return s.issueTokens(ctx, u.ID, u.FacultyID, u.DepartmentID)
+	return s.issueTokens(ctx, u.ID, u.FacultyID, u.DepartmentID, u.IsAdmin)
 }
 
 func (s *Service) Refresh(ctx context.Context, refreshToken string) (string, error) {
@@ -134,6 +136,7 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (string, err
 	claims := accessClaims{
 		FacultyID:    u.FacultyID.String(),
 		DepartmentID: u.DepartmentID.String(),
+		IsAdmin:      u.IsAdmin,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   u.ID.String(),
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -145,12 +148,13 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (string, err
 	return tok.SignedString(s.jwtSecret)
 }
 
-func (s *Service) issueTokens(ctx context.Context, userID, facultyID, deptID uuid.UUID) (Tokens, error) {
+func (s *Service) issueTokens(ctx context.Context, userID, facultyID, deptID uuid.UUID, isAdmin bool) (Tokens, error) {
 	now := time.Now()
 
 	claims := accessClaims{
 		FacultyID:    facultyID.String(),
 		DepartmentID: deptID.String(),
+		IsAdmin:      isAdmin,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID.String(),
 			IssuedAt:  jwt.NewNumericDate(now),

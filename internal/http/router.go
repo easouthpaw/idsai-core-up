@@ -25,6 +25,7 @@ func NewRouter(
 	projectsSvc *projects.Service,
 	projectFlowH *handlers.ProjectFlowHandler,
 	authHandler *handlers.AuthHandler,
+	adminHandler *handlers.AdminHandler,
 	jwtSecret string,
 ) *gin.Engine {
 	r := gin.New()
@@ -37,6 +38,18 @@ func NewRouter(
 
 		authMW := middleware.AuthRequired(jwtSecret)
 		r.GET("/auth/me", authMW, authHandler.Me)
+	}
+
+	if adminHandler != nil {
+		adminMW := middleware.AuthRequired(jwtSecret)
+		admin := r.Group("/admin")
+		admin.Use(adminMW, middleware.AdminRequired())
+		admin.GET("/users", adminHandler.ListUsers)
+		admin.POST("/users/students", adminHandler.CreateStudent)
+		admin.POST("/users/professors", adminHandler.CreateProfessor)
+		admin.PATCH("/users/:user_id/status", adminHandler.SetStatus)
+		admin.GET("/projects", adminHandler.ListProjects)
+		admin.PATCH("/projects/:project_id/status", adminHandler.SetProjectStatus)
 	}
 
 	projectsH := handlers.NewProjectsHandler(projectsSvc)
@@ -61,6 +74,7 @@ func NewRouter(
 		r.StaticFS("/dev/static", http.FS(staticFS))
 	}
 	r.GET("/dev/login", handlers.DevLoginPage)
+	r.GET("/dev/admin", handlers.DevAdminPage)
 	r.GET("/dev/projects", handlers.DevProjectsPage)
 	r.GET("/dev/projects/:project_id", handlers.DevProjectPage)
 	r.GET("/dev/tester", handlers.DevLoginPage)

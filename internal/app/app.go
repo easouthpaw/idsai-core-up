@@ -8,6 +8,7 @@ import (
 	httpx "idsai-core-up/internal/http"
 	"idsai-core-up/internal/http/handlers"
 	"idsai-core-up/internal/repos/postgres"
+	"idsai-core-up/internal/services/admin"
 	"idsai-core-up/internal/services/auth"
 	"idsai-core-up/internal/services/projectflow"
 	"idsai-core-up/internal/services/projects"
@@ -35,6 +36,10 @@ func New(ctx context.Context) (*App, error) {
 	authSvc := auth.NewService(authRepo, cfg.JWTSecret)
 	authHandler := handlers.NewAuthHandler(authSvc)
 
+	adminRepo := postgres.NewAdminRepo(pool)
+	adminSvc := admin.NewService(adminRepo)
+	adminHandler := handlers.NewAdminHandler(adminSvc)
+
 	rbacRepo := postgres.NewRBACRepo(pool)
 	rbacSvc := rbac.NewService(rbacRepo)
 
@@ -43,7 +48,7 @@ func New(ctx context.Context) (*App, error) {
 	projectFlowSvc := projectflow.NewService(pool, rbacSvc, rbacRepo)
 	projectFlowHandler := handlers.NewProjectFlowHandler(projectFlowSvc)
 
-	router := httpx.NewRouter(pool, rbacSvc, projectsSvc, projectFlowHandler, authHandler, cfg.JWTSecret)
+	router := httpx.NewRouter(pool, rbacSvc, projectsSvc, projectFlowHandler, authHandler, adminHandler, cfg.JWTSecret)
 
 	return &App{Cfg: cfg, DB: pool, HTTP: router}, nil
 }

@@ -41,6 +41,7 @@ type meResp struct {
 	UserID       string `json:"user_id"`
 	FacultyID    string `json:"faculty_id"`
 	DepartmentID string `json:"department_id"`
+	IsAdmin      bool   `json:"is_admin"`
 }
 
 // RegisterStudent godoc
@@ -142,10 +143,12 @@ func (h *AuthHandler) Me(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
+	isAdmin, _ := middleware.IsAdminFromCtx(c)
 
 	c.JSON(http.StatusOK, meResp{
 		UserID:       uid.String(),
 		FacultyID:    fid.String(),
 		DepartmentID: didAny.(interface{ String() string }).String(),
+		IsAdmin:      isAdmin,
 	})
 }

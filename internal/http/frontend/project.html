@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/dev/static/css/project-detail.css" />
 </head>
 <body class="project-body">
@@ -14,12 +15,12 @@
     <aside class="sidebar">
       <div class="brand">
         <img class="brand-logo" src="/dev/static/assets/terminal-2.svg" alt="" />
-        <span>Student PM</span>
+        <span class="logo-text">Student PM</span>
       </div>
 
       <div class="profile-row">
         <div id="profileAvatar" class="avatar">ST</div>
-        <div>
+        <div class="user-info-text">
           <p id="studentName" class="profile-name">Student</p>
           <p id="studentEmail" class="profile-sub">student@university.edu</p>
         </div>
@@ -27,20 +28,41 @@
 
       <p class="nav-title">РАБОЧАЯ ОБЛАСТЬ</p>
       <nav class="side-nav">
-        <a class="side-link active" href="/dev/projects">Проекты</a>
-        <button class="side-link" type="button" disabled>Задачи</button>
-        <button class="side-link" type="button" disabled>Команда</button>
-        <button class="side-link" type="button" disabled>Календарь</button>
+        <a class="side-link active" href="/dev/projects">
+          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">folder</span></span>
+          <span class="nav-label">Проекты</span>
+        </a>
+        <button class="side-link" type="button" disabled>
+          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">task</span></span>
+          <span class="nav-label">Задачи</span>
+        </button>
+        <button class="side-link" type="button" disabled>
+          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">group</span></span>
+          <span class="nav-label">Команда</span>
+        </button>
+        <button class="side-link" type="button" disabled>
+          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">calendar_month</span></span>
+          <span class="nav-label">Календарь</span>
+        </button>
       </nav>
 
       <p class="nav-title">ИНСТРУМЕНТЫ</p>
       <nav class="side-nav">
-        <a class="side-link muted" href="/swagger/index.html" target="_blank" rel="noreferrer">Документация</a>
+        <a class="side-link muted" href="/swagger/index.html" target="_blank" rel="noreferrer">
+          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">description</span></span>
+          <span class="nav-label">Документация</span>
+        </a>
       </nav>
 
       <div class="sidebar-bottom">
-        <button class="bottom-link" type="button" disabled>Настройки</button>
-        <button id="logoutBtn" class="bottom-link danger" type="button">Выйти</button>
+        <button class="bottom-link" type="button" disabled>
+          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">settings</span></span>
+          <span class="nav-label">Настройки</span>
+        </button>
+        <button id="logoutBtn" class="bottom-link danger" type="button">
+          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">logout</span></span>
+          <span class="nav-label">Выйти</span>
+        </button>
       </div>
     </aside>
 
