@@ -190,6 +190,50 @@ func (h *AdminHandler) SetProjectStatus(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+func (h *AdminHandler) DeleteUser(c *gin.Context) {
+	userID, err := uuid.Parse(c.Param("user_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	adminUserID, ok := middleware.UserIDFromCtx(c)
+	if ok && adminUserID == userID {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot delete current admin user"})
+		return
+	}
+
+	if err := h.svc.DeleteUser(c.Request.Context(), userID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete user"})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+func (h *AdminHandler) DeleteProject(c *gin.Context) {
+	projectID, err := uuid.Parse(c.Param("project_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid project id"})
+		return
+	}
+
+	if err := h.svc.DeleteProject(c.Request.Context(), projectID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "project not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete project"})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
 func (h *AdminHandler) createByRole(c *gin.Context, role string) {
 	var req createUserReq
 	if err := c.ShouldBindJSON(&req); err != nil {

@@ -19,19 +19,41 @@ func NewProjectsRepo(db *pgxpool.Pool) *ProjectsRepo {
 }
 
 func (r *ProjectsRepo) Create(ctx context.Context, title, description string, facultyID uuid.UUID, visibility string, groupID *uuid.UUID, createdBy uuid.UUID) (uuid.UUID, error) {
-	const q = `
+	const qCreateProject = `
 INSERT INTO projects(title, description, status, is_public, created_by, faculty_id, visibility, group_id)
 VALUES ($1, $2, 'DRAFT', ($4 = 'PUBLIC'), $5, $3, $4, $6)
 RETURNING id;
 `
+	const qCreateLeadMember = `
+INSERT INTO project_members(project_id, user_id, status, joined_at)
+VALUES ($1, $2, 'ACTIVE', now())
+ON CONFLICT (project_id, user_id)
+DO UPDATE SET status='ACTIVE', joined_at=COALESCE(project_members.joined_at, now());
+`
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	defer tx.Rollback(ctx)
+
 	var id uuid.UUID
-	err := r.db.QueryRow(ctx, q, title, description, facultyID, visibility, createdBy, groupID).Scan(&id)
-	return id, err
+	err = tx.QueryRow(ctx, qCreateProject, title, description, facultyID, visibility, createdBy, groupID).Scan(&id)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if _, err := tx.Exec(ctx, qCreateLeadMember, id, createdBy); err != nil {
+		return uuid.Nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return uuid.Nil, err
+	}
+	return id, nil
 }
 
 func (r *ProjectsRepo) GetByID(ctx context.Context, id uuid.UUID) (domain.Project, error) {
 	const q = `
 SELECT id, title, description, status, is_public, created_by, professor_id,
+       professor_review_status,
        faculty_id, visibility, group_id,
        created_at, updated_at
 FROM projects
@@ -49,6 +71,7 @@ WHERE id = $1;
 		&p.IsPublic,
 		&p.CreatedBy,
 		&professorID,
+		&p.ProfessorReviewStatus,
 		&p.FacultyID,
 		&p.Visibility,
 		&groupID,
@@ -66,6 +89,7 @@ WHERE id = $1;
 func (r *ProjectsRepo) ListByCreator(ctx context.Context, createdBy uuid.UUID) ([]domain.Project, error) {
 	const q = `
 SELECT id, title, description, status, is_public, created_by, professor_id,
+       professor_review_status,
        faculty_id, visibility, group_id,
        created_at, updated_at
 FROM projects
@@ -92,6 +116,7 @@ ORDER BY created_at DESC;
 			&p.IsPublic,
 			&p.CreatedBy,
 			&professorID,
+			&p.ProfessorReviewStatus,
 			&p.FacultyID,
 			&p.Visibility,
 			&groupID,
@@ -116,6 +141,7 @@ ORDER BY created_at DESC;
 func (r *ProjectsRepo) ListPublic(ctx context.Context) ([]domain.Project, error) {
 	const q = `
 SELECT id, title, description, status, is_public, created_by, professor_id,
+       professor_review_status,
        faculty_id, visibility, group_id,
        created_at, updated_at
 FROM projects
@@ -142,6 +168,7 @@ ORDER BY created_at DESC;
 			&p.IsPublic,
 			&p.CreatedBy,
 			&professorID,
+			&p.ProfessorReviewStatus,
 			&p.FacultyID,
 			&p.Visibility,
 			&groupID,

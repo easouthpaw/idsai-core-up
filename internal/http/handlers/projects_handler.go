@@ -36,18 +36,19 @@ type createProjectRequest struct {
 	GroupCode   *string `json:"group_code,omitempty"`
 }
 type projectResponse struct {
-	ID          string    `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	Title       string    `json:"title" example:"Swagger Demo"`
-	Description string    `json:"description" example:"created from swagger"`
-	Status      string    `json:"status" example:"DRAFT"`
-	IsPublic    bool      `json:"is_public" example:"false"`
-	CreatedBy   string    `json:"created_by" example:"550e8400-e29b-41d4-a716-446655440000"`
-	ProfessorID *string   `json:"professor_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
-	FacultyID   string    `json:"faculty_id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	Visibility  string    `json:"visibility" example:"FACULTY"`
-	GroupID     *string   `json:"group_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID                    string    `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Title                 string    `json:"title" example:"Swagger Demo"`
+	Description           string    `json:"description" example:"created from swagger"`
+	Status                string    `json:"status" example:"DRAFT"`
+	IsPublic              bool      `json:"is_public" example:"false"`
+	CreatedBy             string    `json:"created_by" example:"550e8400-e29b-41d4-a716-446655440000"`
+	ProfessorID           *string   `json:"professor_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
+	ProfessorReviewStatus string    `json:"professor_review_status" example:"PENDING"`
+	FacultyID             string    `json:"faculty_id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Visibility            string    `json:"visibility" example:"FACULTY"`
+	GroupID               *string   `json:"group_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
+	CreatedAt             time.Time `json:"created_at"`
+	UpdatedAt             time.Time `json:"updated_at"`
 }
 
 type groupOptionResponse struct {
@@ -79,23 +80,27 @@ func splitGroupCode(code string) (department, number string) {
 
 func projectToResponse(p domain.Project) projectResponse {
 	resp := projectResponse{
-		ID:          p.ID.String(),
-		Title:       p.Title,
-		Description: p.Description,
-		Status:      string(p.Status),
-		IsPublic:    p.IsPublic,
-		CreatedBy:   p.CreatedBy.String(),
-		ProfessorID: nil,
-		FacultyID:   p.FacultyID.String(),
-		Visibility:  toUIVisibility(p.Visibility),
-		GroupID:     nil,
-		CreatedAt:   p.CreatedAt,
-		UpdatedAt:   p.UpdatedAt,
+		ID:                    p.ID.String(),
+		Title:                 p.Title,
+		Description:           p.Description,
+		Status:                string(p.Status),
+		IsPublic:              p.IsPublic,
+		CreatedBy:             p.CreatedBy.String(),
+		ProfessorID:           nil,
+		ProfessorReviewStatus: strings.ToUpper(strings.TrimSpace(p.ProfessorReviewStatus)),
+		FacultyID:             p.FacultyID.String(),
+		Visibility:            toUIVisibility(p.Visibility),
+		GroupID:               nil,
+		CreatedAt:             p.CreatedAt,
+		UpdatedAt:             p.UpdatedAt,
 	}
 
 	if p.ProfessorID != nil {
 		s := p.ProfessorID.String()
 		resp.ProfessorID = &s
+	}
+	if resp.ProfessorReviewStatus == "" {
+		resp.ProfessorReviewStatus = "NONE"
 	}
 	if p.GroupID != nil {
 		s := p.GroupID.String()

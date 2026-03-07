@@ -9,6 +9,7 @@
 - [x] (2026-03-07) Реализованы уведомления `In-app` + `Email` через `notifications` + `notification_outbox` (retry/backoff/dead).
 - [x] (2026-03-07) Обновлён встроенный UI (landing/login/author/admin/projects/project) под текущие потоки.
 - [x] (2026-03-07) Добавлены Telegram-алерты состояния сервера (startup/failure/recovery/heartbeat).
+- [x] (2026-03-07) Добавлен кабинет преподавателя (`/dev/professor`, `/dev/professor/reviews`) с действиями по циклу проекта: набор, прикрепление преподавателя, критерии, старт.
 
 ## In Progress
 - [ ] (начато) Полная tenant-isolation во всех репозиториях и SQL-запросах (tenant-aware доступ end-to-end).

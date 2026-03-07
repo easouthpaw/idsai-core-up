@@ -151,10 +151,10 @@ body.project-body .primary-btn,
 body.admin-body .top-btn,
 body.admin-body .submit-btn,
 body.projects-body .apply-btn {
-  border: 1px solid #d07a00;
+  border: 1px solid #1f2937;
   border-radius: 10px;
-  background: linear-gradient(180deg, #ffb245 0%, #fb8c00 100%);
-  color: #1f2328;
+  background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+  color: #f8fafc;
   padding: 10px 14px;
   font: 700 13px/1.2 var(--ui-font);
   cursor: pointer;
@@ -170,7 +170,7 @@ body.admin-body .top-btn:hover,
 body.admin-body .submit-btn:hover,
 body.projects-body .apply-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(251, 140, 0, 0.28);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.24);
 }
 
 body.projects-body .ghost-btn,

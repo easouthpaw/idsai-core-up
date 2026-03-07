@@ -74,6 +74,8 @@ type Repository interface {
 	CreateUser(ctx context.Context, in CreateUserParams) (User, error)
 	UpdateUserStatus(ctx context.Context, userID uuid.UUID, status string) error
 	UpdateProjectStatus(ctx context.Context, projectID uuid.UUID, status string) error
+	DeleteUser(ctx context.Context, userID uuid.UUID) error
+	DeleteProject(ctx context.Context, projectID uuid.UUID) error
 	GetProjectByID(ctx context.Context, projectID uuid.UUID) (Project, error)
 }
 
@@ -148,6 +150,14 @@ func (s *Service) SetProjectStatus(ctx context.Context, projectID uuid.UUID, sta
 		return Project{}, err
 	}
 	return s.repo.GetProjectByID(ctx, projectID)
+}
+
+func (s *Service) DeleteUser(ctx context.Context, userID uuid.UUID) error {
+	return s.repo.DeleteUser(ctx, userID)
+}
+
+func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) error {
+	return s.repo.DeleteProject(ctx, projectID)
 }
 
 func normalizeRole(role string) (string, error) {

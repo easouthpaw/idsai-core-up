@@ -227,6 +227,89 @@ WHERE id = $1;
 	return nil
 }
 
+func (r *AdminRepo) DeleteUser(ctx context.Context, userID uuid.UUID) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Keep RBAC clean because role_assignments.user_id has no FK to users.
+	if _, err := tx.Exec(ctx, `
+DELETE FROM role_assignments
+WHERE user_id = $1;
+`, userID); err != nil {
+		return err
+	}
+
+	// Keep team memberships clean; tasks FK will set assignee_user_id to NULL.
+	if _, err := tx.Exec(ctx, `
+DELETE FROM project_members
+WHERE user_id = $1;
+`, userID); err != nil {
+		return err
+	}
+
+	// Unlink user from assigned professor field in projects.
+	if _, err := tx.Exec(ctx, `
+UPDATE projects
+SET professor_id = NULL, updated_at = now()
+WHERE professor_id = $1;
+`, userID); err != nil {
+		return err
+	}
+
+	// project_files has uploaded_by FK ON DELETE RESTRICT.
+	if _, err := tx.Exec(ctx, `
+DELETE FROM project_files
+WHERE uploaded_by = $1;
+`, userID); err != nil {
+		return err
+	}
+
+	tag, err := tx.Exec(ctx, `
+DELETE FROM users
+WHERE id = $1;
+`, userID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (r *AdminRepo) DeleteProject(ctx context.Context, projectID uuid.UUID) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Keep RBAC clean because role_assignments.scope_id has no FK to projects.
+	if _, err := tx.Exec(ctx, `
+DELETE FROM role_assignments
+WHERE scope_type = 'PROJECT' AND scope_id = $1;
+`, projectID); err != nil {
+		return err
+	}
+
+	tag, err := tx.Exec(ctx, `
+DELETE FROM projects
+WHERE id = $1;
+`, projectID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+
+	return tx.Commit(ctx)
+}
+
 func (r *AdminRepo) GetProjectByID(ctx context.Context, projectID uuid.UUID) (svc.Project, error) {
 	const q = `
 SELECT
