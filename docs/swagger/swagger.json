@@ -1,8 +1,8 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "Core platform for IDSAI projects (RBAC-driven).",
-        "title": "IDSAI Core API",
+        "description": "Core platform for IDSAI Corp. projects (RBAC-driven).",
+        "title": "IDSAI Corp. API",
         "contact": {},
         "version": "0.1"
     },

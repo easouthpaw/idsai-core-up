@@ -1,6 +1,6 @@
-// @title IDSAI Core API
+// @title IDSAI Corp. API
 // @version 0.1
-// @description Core platform for IDSAI projects (RBAC-driven).
+// @description Core platform for IDSAI Corp. projects (RBAC-driven).
 // @BasePath /
 // @securityDefinitions.apikey BearerAuth
 // @in header
@@ -100,7 +100,8 @@ func main() {
 
 		baseURL := resolveBaseURL(a.Cfg.Addr)
 		log.Printf("listening on %s", a.Cfg.Addr)
-		log.Printf("authorization: %s/dev/login", baseURL)
+		log.Printf("home: %s", baseURL)
+		log.Printf("login: %s/dev/login", baseURL)
 		notifyStarted(notifier)
 
 		if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {

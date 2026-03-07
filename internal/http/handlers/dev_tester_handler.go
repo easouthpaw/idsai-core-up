@@ -13,6 +13,10 @@ func DevLandingPage(c *gin.Context) {
 	c.FileFromFS("landing.html", devFrontendFS)
 }
 
+func DevAuthorPage(c *gin.Context) {
+	c.FileFromFS("author.html", devFrontendFS)
+}
+
 func DevLoginPage(c *gin.Context) {
 	c.FileFromFS("login.html", devFrontendFS)
 }

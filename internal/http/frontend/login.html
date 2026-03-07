@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Student PM Login</title>
+  <title>IDSAI Corp. Login</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -12,29 +12,38 @@
 </head>
 <body class="auth-body">
   <main class="split">
-    <section class="left-pane">
+    <section id="authLeftPane" class="left-pane">
       <div class="left-content">
-        <span class="badge">v2.4.0-stable</span>
-        <h1>Создавайте лучшее ПО<br>вместе с коллегами.</h1>
-        <p>Единое рабочее пространство для студентов-разработчиков. Управляйте репозиториями, спринтами и документацией в одном месте.</p>
+        <section class="uni-collab">
+          <div class="collab-logos">
+            <div class="uni-logo-wrap">
+              <img src="/dev/static/assets/enu-logo.jpg" alt="Eurasian National University logo" />
+              <span>ENU</span>
+            </div>
+            <span class="collab-sign">×</span>
+            <div class="project-logo-wrap">
+              <img src="/dev/static/assets/idsai-corp-logo.png" alt="IDSAI Corp. logo" />
+              <span>IDSAI</span>
+            </div>
+          </div>
 
-        <figure class="code-shot">
-          <img src="/dev/static/assets/code-screen.jpg" alt="Code preview" loading="lazy" />
-        </figure>
-
-        <div class="left-foot">
-          <span>system.collab()</span>
-          <span>merge_requests.all()</span>
-        </div>
+          <h1>Eurasian National University</h1>
+          <p>
+            Совместная образовательная экосистема ENU × IDSAI Corp.
+          </p>
+          <p class="uni-note">
+            Платформа для студентов, преподавателей и командных проектных команд.
+          </p>
+        </section>
       </div>
     </section>
 
     <section class="right-pane">
       <div class="auth-card">
         <div class="logo-wrap">
-          <img src="/dev/static/assets/terminal-2.svg" alt="Logo" />
+          <img src="/dev/static/assets/idsai-corp-logo.png" alt="IDSAI Corp. logo" />
         </div>
-        <h2>Student PM</h2>
+        <h2>IDSAI Corp.</h2>
 
         <div class="tabs" role="tablist" aria-label="Auth tabs">
           <button id="tabLogin" class="tab active" type="button">Вход</button>
@@ -99,7 +108,7 @@
         <pre id="resp" class="resp"></pre>
 
         <footer class="foot-note">
-          <p>© 2026 Student PM. Все системы работают штатно.</p>
+          <p>© 2026 IDSAI Corp. Все системы работают штатно.</p>
           <nav>
             <a href="/swagger/index.html" target="_blank" rel="noreferrer">Swagger</a>
             <a href="#">Конфиденциальность</a>

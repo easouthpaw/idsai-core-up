@@ -75,18 +75,19 @@ body.modal-open {
 }
 
 .brand-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
+  width: 64px;
+  height: 64px;
+  border-radius: 0;
+  background: transparent;
   display: grid;
   place-items: center;
   flex-shrink: 0;
 }
 
 .brand-icon img {
-  width: 18px;
-  height: 18px;
+  width: 54px;
+  height: 54px;
+  object-fit: contain;
 }
 
 .logo-text {

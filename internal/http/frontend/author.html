@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Aibolat · IDSAI Corp.</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/dev/static/css/landing.css" />
+  <link rel="stylesheet" href="/dev/static/css/author.css" />
+</head>
+<body class="author-body">
+  <div class="author-shell">
+    <header class="site-header">
+      <a href="/" class="brand">
+        <img class="brand-logo" src="/dev/static/assets/idsai-corp-logo.png" alt="IDSAI Corp. logo" />
+        <span>IDSAI Corp.</span>
+      </a>
+      <nav class="site-nav" aria-label="Author navigation">
+        <a class="tab-link" data-pressable href="/#features">Возможности</a>
+        <a class="tab-link" data-pressable href="/#platform">О проекте</a>
+        <a class="tab-link" data-pressable href="/#reviews">Сообщество</a>
+        <a class="tab-link active" data-pressable href="/author">Отклик</a>
+      </nav>
+      <div class="header-actions">
+        <a class="text-link tab-link" data-pressable href="/dev/login">Вход</a>
+        <a class="join-btn tab-link" data-pressable href="/dev/login">Присоединиться</a>
+      </div>
+    </header>
+
+    <main class="author-main">
+      <section class="intro" id="about">
+        <div class="intro-copy">
+          <h1>Hi, I'm Aibolat</h1>
+          <p class="subtitle">
+            Backend / Fullstack developer. Building IDSAI Corp. as a practical platform
+            for student project management, collaboration and real delivery workflows.
+          </p>
+          <p class="stack-line">Go, PostgreSQL, Docker, Gin, TypeScript</p>
+          <div class="social">
+            <a class="btn primary" href="/dev/login">Resume</a>
+            <a class="btn" href="https://github.com" target="_blank" rel="noreferrer">GitHub</a>
+            <a class="btn" href="https://linkedin.com" target="_blank" rel="noreferrer">LinkedIn</a>
+          </div>
+        </div>
+        <img class="avatar" src="/dev/static/assets/author-rabbit.png" alt="Aibolat avatar" />
+      </section>
+
+      <section class="about-block">
+        <h2>About me</h2>
+        <p>
+          I'm focused on solving real workflow problems in educational teams:
+          project lifecycle, moderation, notifications and transparent contribution tracking.
+          My priority is reliable backend architecture with clean UX on top.
+        </p>
+      </section>
+
+      <section id="projects" class="projects-block">
+        <h2>Recent projects</h2>
+        <div class="projects-grid">
+          <article class="project-card">
+            <img src="/dev/static/assets/code-screen.jpg" alt="Project preview" loading="lazy" />
+            <strong>IDSAI Core API</strong>
+            <p>Multi-tenant backend with JWT, RBAC, workflows and notifications.</p>
+          </article>
+          <article class="project-card">
+            <img src="/dev/static/assets/code-screen.jpg" alt="Project preview" loading="lazy" />
+            <strong>ProjectFlow UI</strong>
+            <p>Operational dashboards for students, professors and moderators.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="tech-block">
+        <h2>Technologies</h2>
+        <div class="tech-grid">
+          <span>Go</span>
+          <span>PostgreSQL</span>
+          <span>Docker</span>
+          <span>Gin</span>
+          <span>TypeScript</span>
+          <span>React</span>
+          <span>OpenAPI</span>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <section id="contact" class="contact-wrap">
+    <div class="contact-left">
+      <h2>Contact</h2>
+      <p>
+        Discuss cooperation, implementation support, architecture review or custom development.
+        I can help launch and adapt IDSAI Corp. for your team.
+      </p>
+      <p class="contact-mail">sales@idsai.dev</p>
+      <ul>
+        <li>Documentation</li>
+        <li>Discord</li>
+      </ul>
+    </div>
+
+    <div class="contact-right">
+      <form id="authorContactForm" class="contact-form">
+        <label>Name * <input name="name" required /></label>
+        <label>Work email * <input type="email" name="email" required /></label>
+        <label>Company website * <input name="website" /></label>
+        <label>Monthly call volume * <input name="volume" /></label>
+        <label>Project goals / request * <input name="goal" required /></label>
+        <label>Phone number * <input name="phone" /></label>
+        <button type="submit">Send form</button>
+      </form>
+      <p id="authorFormStatus" class="form-status"></p>
+    </div>
+  </section>
+
+  <footer id="footer" class="site-footer">
+    <div class="footer-brand">
+      <img class="brand-logo small" src="/dev/static/assets/idsai-corp-logo.png" alt="IDSAI Corp. logo" />
+      <div>
+        <strong>IDSAI Corp.</strong>
+        <p>Профессиональная платформа для учебных проектных команд.</p>
+      </div>
+    </div>
+    <nav>
+      <a href="/#features">Продукт</a>
+      <a href="/swagger/index.html" target="_blank" rel="noreferrer">API</a>
+      <a href="/#reviews">Отзывы</a>
+      <a href="/author">Отклик</a>
+      <a href="/dev/login">Войти</a>
+    </nav>
+  </footer>
+
+  <script src="/dev/static/js/landing.js" defer></script>
+  <script src="/dev/static/js/author.js" defer></script>
+</body>
+</html>

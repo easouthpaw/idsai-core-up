@@ -92,6 +92,7 @@ func NewRouter(
 		r.StaticFS("/dev/static", http.FS(staticFS))
 	}
 	r.GET("/dev/login", handlers.DevLoginPage)
+	r.GET("/dev/author", handlers.DevAuthorPage)
 	r.GET("/dev/admin", handlers.DevAdminPage)
 	r.GET("/dev/projects", handlers.DevProjectsPage)
 	r.GET("/dev/projects/:project_id", handlers.DevProjectPage)
@@ -100,6 +101,7 @@ func NewRouter(
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	r.GET("/", handlers.DevLandingPage)
+	r.GET("/author", handlers.DevAuthorPage)
 
 	if projectFlowH != nil {
 		projectFlow := v2.Group("/projects/:project_id")

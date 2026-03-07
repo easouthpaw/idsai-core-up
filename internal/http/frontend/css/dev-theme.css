@@ -246,6 +246,7 @@ body.admin-body .admin-sidebar {
 body.projects-body .sidebar .user-info-text,
 body.projects-body .sidebar .nav-label,
 body.projects-body .sidebar .nav-title,
+body.projects-body .sidebar .logo-text,
 body.project-body .sidebar .user-info-text,
 body.project-body .sidebar .logo-text,
 body.project-body .sidebar .nav-label,
@@ -263,6 +264,7 @@ body.admin-body .admin-sidebar .logo-text {
 body.projects-body .sidebar:not(:hover):not(:focus-within) .nav-item,
 body.projects-body .sidebar:not(:hover):not(:focus-within) .nav-link,
 body.projects-body .sidebar:not(:hover):not(:focus-within) .bottom-link,
+body.projects-body .sidebar:not(:hover):not(:focus-within) .brand,
 body.project-body .sidebar:not(:hover):not(:focus-within) .side-link,
 body.project-body .sidebar:not(:hover):not(:focus-within) .bottom-link,
 body.project-body .sidebar:not(:hover):not(:focus-within) .profile-row,
@@ -1422,13 +1424,13 @@ body.auth-body .auth-card {
 }
 
 body.auth-body .logo-wrap {
-  border: 1px solid var(--ui-border);
-  border-radius: 12px;
-  background: #f7faff;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 body.auth-body .logo-wrap img {
-  opacity: 0.84;
+  opacity: 1;
 }
 
 body.auth-body .auth-card h2 {

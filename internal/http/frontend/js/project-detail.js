@@ -355,7 +355,7 @@
   function getRepoURL() {
     const custom = String(state.projectMeta.repo || "").trim();
     if (custom) return custom;
-    return `https://github.com/student-hub/${slugify(state.project?.title)}`;
+    return `https://github.com/idsai-corp/${slugify(state.project?.title)}`;
   }
 
   function getReadmeText() {
@@ -502,7 +502,7 @@
     if (!state.project) return;
 
     const status = statusPresentation(state.project.status);
-    document.title = `Student PM · ${state.project.title || "project"}`;
+    document.title = `IDSAI Corp. · ${state.project.title || "project"}`;
     ui.title.textContent = state.project.title || "project";
     ui.crumbProject.textContent = state.project.title || "project";
     ui.statusBadge.className = `status-pill ${status.cls}`;

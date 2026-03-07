@@ -59,6 +59,40 @@ body.modal-open {
   width: 224px;
 }
 
+.brand {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px 8px;
+  color: #f8fafc;
+  font: 800 14px "IBM Plex Mono", ui-monospace, monospace;
+}
+
+.brand-logo {
+  width: 50px;
+  height: 50px;
+  border-radius: 0;
+  border: 0;
+  background: transparent;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.logo-text {
+  opacity: 0;
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  margin-left: 0;
+  transition: opacity 0.22s 0.05s, max-width 0.28s, margin-left 0.28s;
+}
+
+.sidebar:hover .logo-text,
+.sidebar:focus-within .logo-text {
+  opacity: 1;
+  max-width: 160px;
+  margin-left: 10px;
+}
+
 .profile-row {
   display: flex;
   align-items: center;
@@ -157,6 +191,7 @@ body.modal-open {
   padding-right: 0;
 }
 
+.sidebar:not(:hover):not(:focus-within) .brand,
 .sidebar:not(:hover):not(:focus-within) .profile-row {
   justify-content: center;
   padding-left: 0;

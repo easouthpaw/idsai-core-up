@@ -108,6 +108,109 @@ body.auth-body {
   font: 14px "IBM Plex Mono", ui-monospace, monospace;
 }
 
+#authLeftPane {
+  overflow-y: auto;
+  background:
+    radial-gradient(circle at 14% 14%, rgba(24, 199, 110, 0.2), rgba(24, 199, 110, 0) 44%),
+    radial-gradient(circle at 88% 84%, rgba(11, 79, 196, 0.24), rgba(11, 79, 196, 0) 42%),
+    linear-gradient(180deg, #07112a 0%, #081029 100%);
+}
+
+#authLeftPane::before {
+  background-image:
+    linear-gradient(rgba(74, 105, 162, 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(74, 105, 162, 0.18) 1px, transparent 1px);
+  background-size: 32px 32px;
+  opacity: 0.18;
+}
+
+#authLeftPane .left-content {
+  max-width: none;
+  width: 100%;
+  min-height: 100vh;
+  padding: 0;
+}
+
+#authLeftPane .uni-collab {
+  width: 100%;
+  min-height: 100vh;
+  border: 0;
+  border-right: 1px solid #23495b;
+  border-radius: 0;
+  background: linear-gradient(160deg, rgba(4, 18, 14, 0.94) 0%, rgba(5, 24, 17, 0.94) 100%);
+  box-shadow: none;
+  padding: 72px 66px 58px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+#authLeftPane .collab-logos {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+#authLeftPane .uni-logo-wrap,
+#authLeftPane .project-logo-wrap {
+  border: 1px solid #2c4e3e;
+  border-radius: 999px;
+  background: rgba(8, 25, 18, 0.92);
+  padding: 10px 16px 10px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#authLeftPane .uni-logo-wrap img,
+#authLeftPane .project-logo-wrap img {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  object-fit: cover;
+  background: #08130f;
+}
+
+#authLeftPane .project-logo-wrap img {
+  object-fit: contain;
+  padding: 2px;
+}
+
+#authLeftPane .uni-logo-wrap span,
+#authLeftPane .project-logo-wrap span {
+  color: #f1f6f3;
+  font: 700 18px "JetBrains Mono", monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+#authLeftPane .collab-sign {
+  color: #86cfa9;
+  font: 700 28px "JetBrains Mono", monospace;
+}
+
+#authLeftPane .uni-collab h1 {
+  margin: 32px 0 0;
+  color: #f2f7f4;
+  font-size: clamp(52px, 4.8vw, 80px);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+#authLeftPane .uni-collab p {
+  margin: 20px 0 0;
+  color: #d8e4dd;
+  font-size: clamp(24px, 2vw, 34px);
+  line-height: 1.45;
+  max-width: 780px;
+}
+
+#authLeftPane .uni-collab .uni-note {
+  color: #aec1b6;
+  font-size: clamp(19px, 1.5vw, 24px);
+  line-height: 1.5;
+}
+
 .right-pane {
   background: #f6f6f7;
   display: grid;
@@ -120,20 +223,21 @@ body.auth-body {
 }
 
 .logo-wrap {
-  width: 58px;
-  height: 58px;
+  width: 170px;
+  height: 170px;
   margin: 0 auto 12px;
-  border-radius: 14px;
-  border: 1px solid #d4dae5;
-  background: linear-gradient(180deg, #f8fafc 0%, #eef2f8 100%);
+  border-radius: 0;
+  border: 0;
+  background: transparent;
   display: grid;
   place-items: center;
 }
 
 .logo-wrap img {
-  width: 27px;
-  height: 27px;
-  opacity: 0.88;
+  width: 142px;
+  height: 142px;
+  object-fit: contain;
+  opacity: 1;
 }
 
 .auth-card h2 {
@@ -326,6 +430,36 @@ input:focus, select:focus {
 
   .left-foot {
     grid-template-columns: 1fr;
+  }
+
+  #authLeftPane .left-content {
+    min-height: auto;
+  }
+
+  #authLeftPane .uni-collab {
+    min-height: auto;
+    border-right: 0;
+    border-bottom: 1px solid #23495b;
+    padding: 36px 24px 30px;
+  }
+
+  #authLeftPane .collab-logos {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  #authLeftPane .uni-collab h1 {
+    margin-top: 24px;
+    font-size: 44px;
+  }
+
+  #authLeftPane .uni-collab p {
+    margin-top: 14px;
+    font-size: 21px;
+  }
+
+  #authLeftPane .uni-collab .uni-note {
+    font-size: 17px;
   }
 
   .right-pane {

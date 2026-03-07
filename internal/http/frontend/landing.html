@@ -3,84 +3,202 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>StudentProject</title>
+  <title>IDSAI Corp.</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/dev/static/css/landing.css" />
 </head>
 <body class="landing-body">
+  <div class="bg-glow" aria-hidden="true"></div>
+
   <header class="site-header">
     <a href="/" class="brand">
-      <span class="brand-icon">▣</span>
-      <span>StudentProject</span>
+      <img class="brand-logo" src="/dev/static/assets/idsai-corp-logo.png" alt="IDSAI Corp. logo" />
+      <span>IDSAI Corp.</span>
     </a>
-    <nav class="site-nav">
-      <a href="#features">Возможности</a>
-      <a href="#about">О нас</a>
-      <a href="#community">Сообщество</a>
+    <nav class="site-nav" aria-label="Главная навигация">
+      <a class="tab-link active" data-pressable href="#features">Возможности</a>
+      <a class="tab-link" data-pressable href="#platform">О проекте</a>
+      <a class="tab-link" data-pressable href="#reviews">Сообщество</a>
+      <a class="tab-link" data-pressable href="/author">Отклик</a>
     </nav>
     <div class="header-actions">
-      <a class="text-link" href="/dev/login">Войти</a>
-      <a class="primary-btn small" href="/dev/login">Начать работу</a>
+      <a class="text-link tab-link" data-pressable href="/dev/login">Вход</a>
+      <a class="join-btn tab-link" data-pressable href="/dev/login">Присоединиться</a>
     </div>
   </header>
 
-  <main>
+  <main class="landing-main">
     <section class="hero">
-      <p class="hero-pill">Новый стандарт обучения 2026</p>
-      <h1>Управляйте учебными проектами <span>как профи</span></h1>
-      <p class="hero-sub">
-        Платформа для студентов и преподавателей, объединяющая управление проектами,
-        задачами, документацией и командной разработкой.
-      </p>
-      <div class="hero-actions">
-        <a class="primary-btn" href="/dev/login">Попробовать бесплатно →</a>
+      <div class="hero-main">
+        <p class="release-pill">v2.4.0 stable release</p>
+        <h1>Управление проектами для <span>студентов</span> нового поколения</h1>
+        <p>
+          IDSAI Corp. Инициализируйте проект, распределяйте задачи и ведите командную
+          разработку в едином пространстве.
+        </p>
+        <div class="hero-actions">
+          <a class="hero-btn primary" href="/dev/login">Попробовать бесплатно</a>
+          <a class="hero-btn ghost" href="/swagger/index.html" target="_blank" rel="noreferrer">Документация</a>
+        </div>
       </div>
-      <div class="hero-preview">
-        <img src="/dev/static/assets/code-screen.jpg" alt="Project dashboard preview" loading="lazy" />
+
+      <div class="hero-console">
+        <div class="console-top">
+          <span class="dots"><i></i><i></i><i></i></span>
+          <span>~/idsai-corp/project/alpha</span>
+        </div>
+        <pre>
+# Initializing new collaborative
+workspace ...
+$ idsai init my-thesis-project
+✓ Local repository created
+✓ Remote origin linked:
+  github.com/idsai-corp/alpha
+✓ Template "research-v3" applied
+
+$ idsai team invite @alice @bob
+$ idsai status
+        </pre>
+        <div class="progress-card">
+          <strong>План спринта #4</strong>
+          <div class="progress-line"><span></span></div>
+          <small>Задач: 14/20</small>
+        </div>
       </div>
     </section>
 
-    <section id="features" class="section">
-      <div class="section-head">
-        <h2>Возможности платформы</h2>
-        <p>Инструменты, которые помогают довести проект от идеи до защиты.</p>
+    <section id="features" class="block-section">
+      <h2>Ваш рабочий процесс</h2>
+      <div class="process-tabs" role="tablist" aria-label="Процессы">
+        <button class="process-tab active" data-pressable type="button">Задачи</button>
+        <button class="process-tab" data-pressable type="button">Тайм-трекинг</button>
+        <button class="process-tab" data-pressable type="button">Командный чат</button>
+        <button class="process-tab" data-pressable type="button">Аналитика</button>
       </div>
       <div class="feature-grid">
         <article class="feature-card">
-          <div class="feature-icon">☰</div>
-          <h3>Канбан-доски</h3>
-          <p>Статусы задач, дедлайны и распределение работы между участниками команды.</p>
+          <h3>Задачи</h3>
+          <p>Канбан-доски, приоритеты и дедлайны в одном потоке работы.</p>
+          <a href="/dev/login">Подробнее →</a>
         </article>
         <article class="feature-card">
-          <div class="feature-icon">{ }</div>
-          <h3>Документация</h3>
-          <p>README, заметки, ссылки и проектные документы в едином рабочем пространстве.</p>
+          <h3>Тайм-трекинг</h3>
+          <p>Отслеживание вклада участников и прозрачная история активности.</p>
+          <a href="/dev/login">Подробнее →</a>
         </article>
         <article class="feature-card">
-          <div class="feature-icon">⌁</div>
-          <h3>Интеграция с Git</h3>
-          <p>Привязка репозитория и прозрачная история прогресса для преподавателя.</p>
+          <h3>Командный чат</h3>
+          <p>Обсуждения по задачам и согласование решений в контексте проекта.</p>
+          <a href="/dev/login">Подробнее →</a>
+        </article>
+        <article class="feature-card">
+          <h3>Аналитика</h3>
+          <p>Панель метрик прогресса, скорости спринтов и выполненных целей.</p>
+          <a href="/dev/login">Подробнее →</a>
         </article>
       </div>
     </section>
 
-    <section id="about" class="cta">
-      <h2>Готовы начать свой лучший проект?</h2>
-      <p>Подключайтесь к платформе и запускайте рабочее пространство за пару минут.</p>
-      <a class="primary-btn" href="/dev/login">Создать первый проект</a>
+    <section id="platform" class="platform-card">
+      <div class="platform-left">
+        <p class="kicker">built for developers</p>
+        <h2>Платформа для разработчиков, построенная на <span>open source.</span></h2>
+        <ul>
+          <li>Документация мирового уровня</li>
+          <li>Интеграция с GitHub и API</li>
+          <li>Совместная работа студентов и преподавателей</li>
+          <li>Прозрачная модерация и управление ролями</li>
+        </ul>
+        <a class="hero-btn light" href="/dev/login">Начать работу →</a>
+      </div>
+      <div class="platform-code">
+        <div class="code-tabs">
+          <button class="code-tab active" data-pressable type="button">react</button>
+          <button class="code-tab" data-pressable type="button">angular</button>
+          <button class="code-tab" data-pressable type="button">vue</button>
+        </div>
+        <pre>
+1  &lt;h2&gt;Discover&lt;/h2&gt;
+2  &lt;h2&gt;Top albums&lt;/h2&gt;
+3  &lt;ionList&gt;
+4    {albums.map((album) =&gt;
+5      &lt;IonItem key={album.id}&gt;
+6        &lt;IonThumbnail slot="start"&gt;
+7          &lt;img src={album.artwork} /&gt;
+8        &lt;/IonThumbnail&gt;
+9      )}
+        </pre>
+      </div>
+    </section>
+
+    <section id="reviews" class="reviews-section">
+      <div class="reviews-head">
+        <p>our reviews</p>
+        <h2>Что говорят наши пользователи</h2>
+      </div>
+
+      <div class="reviews-viewport">
+        <div class="reviews-strip">
+          <div class="reviews-row">
+            <article class="review-card">
+              <strong>«Работа с IDSAI Corp. дала порядок в спринтах.»</strong>
+              <p>Jim Halpert · Lead Engineering</p>
+            </article>
+            <article class="review-card">
+              <strong>«Интерфейс интуитивный и помогает сфокусироваться.»</strong>
+              <p>Alexey Petrov · Student</p>
+            </article>
+            <article class="review-card">
+              <strong>«Лучший инструмент для учебных командных проектов.»</strong>
+              <p>Ivan Ivanov · Professor</p>
+            </article>
+            <article class="review-card">
+              <strong>«Преподавателю удобно отслеживать реальный вклад.»</strong>
+              <p>Sarah J. · Curator</p>
+            </article>
+          </div>
+          <div class="reviews-row" aria-hidden="true">
+            <article class="review-card">
+              <strong>«Работа с IDSAI Corp. дала порядок в спринтах.»</strong>
+              <p>Jim Halpert · Lead Engineering</p>
+            </article>
+            <article class="review-card">
+              <strong>«Интерфейс интуитивный и помогает сфокусироваться.»</strong>
+              <p>Alexey Petrov · Student</p>
+            </article>
+            <article class="review-card">
+              <strong>«Лучший инструмент для учебных командных проектов.»</strong>
+              <p>Ivan Ivanov · Professor</p>
+            </article>
+            <article class="review-card">
+              <strong>«Преподавателю удобно отслеживать реальный вклад.»</strong>
+              <p>Sarah J. · Curator</p>
+            </article>
+          </div>
+        </div>
+      </div>
     </section>
   </main>
 
-  <footer id="community" class="site-footer">
-    <p>STUDENTPROJECT</p>
+  <footer id="footer" class="site-footer">
+    <div class="footer-brand">
+      <img class="brand-logo small" src="/dev/static/assets/idsai-corp-logo.png" alt="IDSAI Corp. logo" />
+      <div>
+        <strong>IDSAI Corp.</strong>
+        <p>Профессиональная платформа для учебных проектных команд.</p>
+      </div>
+    </div>
     <nav>
-      <a href="#">Помощь</a>
-      <a href="#">Безопасность</a>
+      <a href="#features">Продукт</a>
       <a href="/swagger/index.html" target="_blank" rel="noreferrer">API</a>
-      <a href="#">GitHub</a>
+      <a href="#reviews">Отзывы</a>
+      <a href="/author">Отклик</a>
+      <a href="/dev/login">Войти</a>
     </nav>
   </footer>
+
+  <script src="/dev/static/js/landing.js" defer></script>
 </body>
 </html>

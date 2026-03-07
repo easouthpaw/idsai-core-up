@@ -123,8 +123,8 @@ definitions:
     type: object
 info:
   contact: {}
-  description: Core platform for IDSAI projects (RBAC-driven).
-  title: IDSAI Core API
+  description: Core platform for IDSAI Corp. projects (RBAC-driven).
+  title: IDSAI Corp. API
   version: "0.1"
 paths:
   /auth/login:
