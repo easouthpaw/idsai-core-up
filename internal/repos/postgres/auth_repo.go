@@ -104,7 +104,16 @@ SELECT
       AND ra.scope_type = 'SYSTEM'
       AND ra.scope_id IS NULL
       AND (ra.expires_at IS NULL OR ra.expires_at > now())
-  ) AS is_admin
+  ) AS is_admin,
+  EXISTS (
+    SELECT 1
+    FROM role_assignments ra
+    JOIN roles r ON r.id = ra.role_id
+    WHERE ra.tenant_id = u.tenant_id
+      AND ra.user_id = u.id
+      AND r.code = 'PROFESSOR'
+      AND (ra.expires_at IS NULL OR ra.expires_at > now())
+  ) AS is_professor
 FROM users u
 JOIN user_profiles p ON p.user_id=u.id
 WHERE u.tenant_id = $1
@@ -113,7 +122,7 @@ WHERE u.tenant_id = $1
 	var out svc.User
 	err := r.db.QueryRow(ctx, q, tenantID, email).Scan(
 		&out.ID, &out.TenantID, &out.Email, &out.PasswordHash, &out.Status,
-		&out.FacultyID, &out.DepartmentID, &out.FullName, &out.IsAdmin,
+		&out.FacultyID, &out.DepartmentID, &out.FullName, &out.IsAdmin, &out.IsProfessor,
 	)
 	return out, err
 }
@@ -139,7 +148,16 @@ SELECT
       AND ra.scope_type = 'SYSTEM'
       AND ra.scope_id IS NULL
       AND (ra.expires_at IS NULL OR ra.expires_at > now())
-  ) AS is_admin
+  ) AS is_admin,
+  EXISTS (
+    SELECT 1
+    FROM role_assignments ra
+    JOIN roles r ON r.id = ra.role_id
+    WHERE ra.tenant_id = u.tenant_id
+      AND ra.user_id = u.id
+      AND r.code = 'PROFESSOR'
+      AND (ra.expires_at IS NULL OR ra.expires_at > now())
+  ) AS is_professor
 FROM users u
 JOIN user_profiles p ON p.user_id=u.id
 WHERE u.tenant_id = $1
@@ -148,7 +166,7 @@ WHERE u.tenant_id = $1
 	var out svc.User
 	err := r.db.QueryRow(ctx, q, tenantID, userID).Scan(
 		&out.ID, &out.TenantID, &out.Email, &out.PasswordHash, &out.Status,
-		&out.FacultyID, &out.DepartmentID, &out.FullName, &out.IsAdmin,
+		&out.FacultyID, &out.DepartmentID, &out.FullName, &out.IsAdmin, &out.IsProfessor,
 	)
 	return out, err
 }

@@ -18,16 +18,17 @@ const (
 )
 
 type Project struct {
-	ID          uuid.UUID
-	Title       string
-	Description string
-	Status      ProjectStatus
-	IsPublic    bool
-	CreatedBy   uuid.UUID
-	ProfessorID *uuid.UUID
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	FacultyID   uuid.UUID
-	Visibility  string
-	GroupID     *uuid.UUID
+	ID                    uuid.UUID
+	Title                 string
+	Description           string
+	Status                ProjectStatus
+	IsPublic              bool
+	CreatedBy             uuid.UUID
+	ProfessorID           *uuid.UUID
+	ProfessorReviewStatus string
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	FacultyID             uuid.UUID
+	Visibility            string
+	GroupID               *uuid.UUID
 }

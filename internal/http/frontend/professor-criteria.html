@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>IDSAI Corp. Criteria Setup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/dev/static/css/professor.css" />
+  <link rel="stylesheet" href="/dev/static/css/notifications-popup.css" />
+  <link rel="stylesheet" href="/dev/static/css/dev-theme.css" />
+</head>
+<body class="professor-body">
+  <aside class="prof-sidebar">
+    <div class="prof-brand">
+      <img src="/dev/static/assets/idsai-corp-logo.png" alt="IDSAI Corp. logo" />
+      <div>
+        <strong>IDSAI Corp.</strong>
+        <p>Преподаватель</p>
+      </div>
+    </div>
+
+    <div class="prof-user">
+      <div id="profAvatar" class="avatar">PR</div>
+      <div>
+        <strong id="profName">Профессор</strong>
+        <p id="profEmail">professor@idsai.dev</p>
+      </div>
+    </div>
+
+    <nav class="prof-nav">
+      <a href="/dev/professor">Дашборд</a>
+      <a href="/dev/professor/reviews">Заявки на ревью</a>
+      <a class="active" href="/dev/professor/criteria">Критерии</a>
+      <a href="/dev/projects">Проекты</a>
+    </nav>
+
+    <footer class="prof-sidebar-foot">
+      <button id="logoutBtn" type="button">Выйти</button>
+    </footer>
+  </aside>
+
+  <main class="prof-main">
+    <header class="prof-header">
+      <div>
+        <p class="crumb">Критерии оценки</p>
+        <h1>Настройка критериев</h1>
+      </div>
+      <div class="head-actions">
+        <a id="openProjectBtn" class="ghost-btn" href="/dev/projects">Открыть проект</a>
+        <a id="openGradingBtn" class="primary-btn" href="#">Страница оценки</a>
+      </div>
+    </header>
+
+    <section class="table-card">
+      <div class="table-head">
+        <h2>Выбор проекта</h2>
+      </div>
+      <div class="criteria-topbar">
+        <label for="projectSelect">Проект</label>
+        <select id="projectSelect"></select>
+      </div>
+      <p class="hint">Изменения сразу видны команде проекта.</p>
+    </section>
+
+    <section class="table-card">
+      <div class="table-head">
+        <h2>CRITERIA_LIST.md</h2>
+      </div>
+      <div id="criteriaList" class="criteria-list"></div>
+    </section>
+
+    <section class="table-card">
+      <div class="table-head">
+        <h2>Добавить критерий</h2>
+      </div>
+      <form id="criterionForm" class="criterion-form-grid">
+        <div class="field-grid two">
+          <div>
+            <label for="criterionTitleInput">Название</label>
+            <input id="criterionTitleInput" type="text" placeholder="Например: Покрытие тестами" required />
+          </div>
+          <div>
+            <label for="criterionWeightInput">Вес (1-100)</label>
+            <input id="criterionWeightInput" type="number" min="1" max="100" value="10" required />
+          </div>
+        </div>
+        <div>
+          <label for="criterionDescInput">Описание</label>
+          <textarea id="criterionDescInput" placeholder="Что именно проверяет критерий"></textarea>
+        </div>
+        <div class="form-actions">
+          <button id="criterionSubmitBtn" class="primary-btn" type="submit">Сохранить критерий</button>
+        </div>
+      </form>
+    </section>
+
+    <p id="pageStatus" class="page-status"></p>
+  </main>
+
+  <script src="/dev/static/js/notifications-popup.js?v=20260307-2" defer></script>
+  <script src="/dev/static/js/professor-criteria.js" defer></script>
+</body>
+</html>

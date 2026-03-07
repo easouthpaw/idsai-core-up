@@ -600,6 +600,77 @@ body.project-body {
   gap: 8px;
 }
 
+.professor-assign {
+  position: relative;
+  display: grid;
+  gap: 6px;
+}
+
+.search-results {
+  position: absolute;
+  top: 42px;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(15, 23, 40, 0.12);
+  max-height: 220px;
+  overflow: auto;
+}
+
+.search-result {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  text-align: left;
+  padding: 9px 10px;
+  cursor: pointer;
+}
+
+.search-result:last-child {
+  border-bottom: 0;
+}
+
+.search-result:hover {
+  background: #f8fafc;
+}
+
+.search-result strong {
+  display: block;
+  font-size: 12px;
+}
+
+.search-result span {
+  display: block;
+  margin-top: 2px;
+  color: #667085;
+  font-size: 11px;
+}
+
+.professor-identity {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 8px;
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.professor-identity strong {
+  display: block;
+  font-size: 12px;
+}
+
+.professor-identity small {
+  color: #64748b;
+  font-size: 11px;
+}
+
 .criterion-form {
   display: grid;
   grid-template-columns: 1fr 96px;
@@ -761,6 +832,18 @@ body.project-body {
   color: #166534;
 }
 
+.status-badge.invited {
+  border-color: #e5e7eb;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.status-badge.rejected {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
 .status-badge.removed {
   border-color: #fecaca;
   background: #fef2f2;
@@ -787,10 +870,107 @@ body.project-body {
   font-size: 12px;
 }
 
+.invite-list {
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.invite-row {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 9px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.invite-user {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.invite-user strong {
+  display: block;
+  font-size: 12px;
+}
+
+.invite-user small {
+  color: #667085;
+  font-size: 11px;
+}
+
+.invite-comment-input {
+  min-width: 180px;
+}
+
+.invite-search-row {
+  min-width: min(440px, 84vw);
+}
+
 .tasks-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.75fr) 280px;
   gap: 10px;
+}
+
+.criteria-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) 280px;
+  gap: 10px;
+}
+
+.criteria-list-view {
+  display: grid;
+  gap: 8px;
+}
+
+.criteria-item {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+}
+
+.criteria-idx {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #dcfce7;
+  color: #166534;
+  display: grid;
+  place-items: center;
+  font: 700 11px "IBM Plex Mono", ui-monospace, monospace;
+}
+
+.criteria-item strong {
+  display: block;
+  font-size: 13px;
+}
+
+.criteria-item p {
+  margin: 3px 0 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.criteria-weight {
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: #fff;
+  color: #334155;
+  padding: 3px 8px;
+  font: 700 10px "IBM Plex Mono", ui-monospace, monospace;
+  white-space: nowrap;
 }
 
 .task-toolbar {
@@ -1194,7 +1374,8 @@ textarea:focus {
 
 @media (max-width: 1240px) {
   .overview-grid,
-  .tasks-layout {
+  .tasks-layout,
+  .criteria-layout {
     grid-template-columns: 1fr;
   }
 
@@ -1275,6 +1456,14 @@ textarea:focus {
 
   .position-form {
     grid-template-columns: 1fr;
+  }
+
+  .invite-row {
+    grid-template-columns: 1fr;
+  }
+
+  .invite-search-row {
+    min-width: 0;
   }
 
   .kanban-board {

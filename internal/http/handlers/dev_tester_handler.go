@@ -32,3 +32,19 @@ func DevAdminPage(c *gin.Context) {
 func DevProjectPage(c *gin.Context) {
 	c.FileFromFS("project.html", devFrontendFS)
 }
+
+func DevProfessorPage(c *gin.Context) {
+	c.FileFromFS("professor.html", devFrontendFS)
+}
+
+func DevProfessorReviewsPage(c *gin.Context) {
+	c.FileFromFS("professor-reviews.html", devFrontendFS)
+}
+
+func DevProfessorCriteriaPage(c *gin.Context) {
+	c.FileFromFS("professor-criteria.html", devFrontendFS)
+}
+
+func DevProfessorGradingPage(c *gin.Context) {
+	c.FileFromFS("professor-grading.html", devFrontendFS)
+}

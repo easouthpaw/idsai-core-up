@@ -106,6 +106,7 @@
           <button class="tab-btn active" type="button" data-view="overview">Описание</button>
           <button class="tab-btn" type="button" data-view="team">Команда</button>
           <button class="tab-btn" type="button" data-view="tasks">Задачи</button>
+          <button class="tab-btn" type="button" data-view="criteria">Критерии</button>
           <button class="tab-btn" type="button" data-view="review">Ревью</button>
         </nav>
 
@@ -148,12 +149,16 @@
                 <div class="card-body pipeline-body">
                   <div class="pipeline-actions">
                     <button id="openRecruitmentBtn" class="ghost-btn" type="button">Открыть набор</button>
-                    <button id="applyMemberBtn" class="ghost-btn" type="button">Подать заявку</button>
                   </div>
 
-                  <div class="split-row">
-                    <input id="professorIDInput" type="text" placeholder="UUID преподавателя" />
-                    <button id="assignProfessorBtn" class="ghost-btn" type="button">Назначить</button>
+                  <div class="professor-assign">
+                    <div class="split-row">
+                      <input id="professorSearchInput" type="text" placeholder="Поиск преподавателя по имени или email" />
+                      <button id="assignProfessorBtn" class="ghost-btn" type="button" disabled>Пригласить</button>
+                    </div>
+                    <div id="professorSearchResults" class="search-results" hidden></div>
+                    <div id="professorIdentity" class="professor-identity" hidden></div>
+                    <div id="professorInviteHint" class="muted-text"></div>
                   </div>
                   <div class="empty-state">Критерии задаются преподавателем в его кабинете.</div>
 
@@ -210,7 +215,27 @@
               <strong>Нужно больше рук?</strong>
               <p>Пригласите студентов из других групп присоединиться к проекту.</p>
             </div>
-            <button class="ghost-btn" type="button" data-switch-view="overview">Найти участников</button>
+            <button class="ghost-btn" type="button" data-switch-view="invite">Найти участников</button>
+          </article>
+        </section>
+
+        <section id="view-invite" class="view">
+          <article class="card team-card">
+            <header class="card-head team-head">
+              <div>
+                <h2>Поиск участников</h2>
+                <p>Найдите студентов и отправьте приглашение в команду проекта.</p>
+              </div>
+              <div class="team-head-actions">
+                <div class="split-row invite-search-row">
+                  <input id="inviteSearchInput" type="search" placeholder="Поиск по имени или email" />
+                  <button id="inviteRefreshBtn" class="ghost-btn" type="button">Обновить</button>
+                </div>
+                <button class="ghost-btn" type="button" data-switch-view="team">Назад к команде</button>
+              </div>
+            </header>
+
+            <div id="inviteCandidatesList" class="invite-list"></div>
           </article>
         </section>
 
@@ -270,6 +295,30 @@
 }</pre>
               </article>
             </div>
+          </div>
+        </section>
+
+        <section id="view-criteria" class="view">
+          <div class="criteria-layout">
+            <article class="card">
+              <header class="card-head">
+                <h2>Чек-лист требований</h2>
+                <span id="criteriaCountMeta">0 критериев</span>
+              </header>
+              <div class="card-body">
+                <div id="criteriaListView" class="criteria-list-view"></div>
+              </div>
+            </article>
+
+            <article class="card">
+              <header class="card-head">
+                <h2>Результат ревью</h2>
+              </header>
+              <div class="card-body">
+                <p class="muted-text">Оценивание выполняет преподаватель после завершения проекта на своей странице.</p>
+                <div id="criteriaReviewHint" class="empty-state">Пока нет опубликованной оценки.</div>
+              </div>
+            </article>
           </div>
         </section>
 

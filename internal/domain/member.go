@@ -9,9 +9,11 @@ import (
 type MemberStatus string
 
 const (
-	MemberApplied MemberStatus = "APPLIED"
-	MemberActive  MemberStatus = "ACTIVE"
-	MemberRemoved MemberStatus = "REMOVED"
+	MemberApplied  MemberStatus = "APPLIED"
+	MemberInvited  MemberStatus = "INVITED"
+	MemberActive   MemberStatus = "ACTIVE"
+	MemberRejected MemberStatus = "REJECTED"
+	MemberRemoved  MemberStatus = "REMOVED"
 )
 
 type ProjectMember struct {

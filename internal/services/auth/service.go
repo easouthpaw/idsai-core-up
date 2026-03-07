@@ -25,6 +25,7 @@ type User struct {
 	DepartmentID uuid.UUID
 	FullName     string
 	IsAdmin      bool
+	IsProfessor  bool
 }
 
 type Repository interface {
@@ -75,6 +76,7 @@ type accessClaims struct {
 	FacultyID    string `json:"faculty_id"`
 	DepartmentID string `json:"department_id"`
 	IsAdmin      bool   `json:"is_admin"`
+	IsProfessor  bool   `json:"is_professor"`
 	jwt.RegisteredClaims
 }
 
@@ -115,7 +117,7 @@ func (s *Service) RegisterStudent(ctx context.Context, tenantCode, email, passwo
 	}
 
 	// tokens
-	tokens, err := s.issueTokens(ctx, tenantID, userID, facultyID, deptID, false)
+	tokens, err := s.issueTokens(ctx, tenantID, userID, facultyID, deptID, false, false)
 	if err != nil {
 		return Tokens{}, err
 	}
@@ -159,7 +161,7 @@ func (s *Service) Login(ctx context.Context, tenantCode, email, password string)
 	if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)); err != nil {
 		return Tokens{}, errors.New("invalid credentials")
 	}
-	return s.issueTokens(ctx, u.TenantID, u.ID, u.FacultyID, u.DepartmentID, u.IsAdmin)
+	return s.issueTokens(ctx, u.TenantID, u.ID, u.FacultyID, u.DepartmentID, u.IsAdmin, u.IsProfessor)
 }
 
 func (s *Service) Refresh(ctx context.Context, refreshToken string) (string, error) {
@@ -189,6 +191,7 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (string, err
 		FacultyID:    u.FacultyID.String(),
 		DepartmentID: u.DepartmentID.String(),
 		IsAdmin:      u.IsAdmin,
+		IsProfessor:  u.IsProfessor,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   u.ID.String(),
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -200,7 +203,7 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (string, err
 	return tok.SignedString(s.jwtSecret)
 }
 
-func (s *Service) issueTokens(ctx context.Context, tenantID, userID, facultyID, deptID uuid.UUID, isAdmin bool) (Tokens, error) {
+func (s *Service) issueTokens(ctx context.Context, tenantID, userID, facultyID, deptID uuid.UUID, isAdmin bool, isProfessor bool) (Tokens, error) {
 	now := time.Now()
 
 	claims := accessClaims{
@@ -208,6 +211,7 @@ func (s *Service) issueTokens(ctx context.Context, tenantID, userID, facultyID, 
 		FacultyID:    facultyID.String(),
 		DepartmentID: deptID.String(),
 		IsAdmin:      isAdmin,
+		IsProfessor:  isProfessor,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID.String(),
 			IssuedAt:  jwt.NewNumericDate(now),

@@ -69,3 +69,51 @@ func TestAuthorRoute_Available(t *testing.T) {
 	require.Contains(t, w.Header().Get("Content-Type"), "text/html")
 	require.Contains(t, w.Body.String(), "Aibolat")
 }
+
+func TestDevProfessorRoute_Available(t *testing.T) {
+	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/dev/professor", nil)
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Header().Get("Content-Type"), "text/html")
+	require.Contains(t, w.Body.String(), "IDSAI Corp. Professor Dashboard")
+}
+
+func TestDevProfessorReviewsRoute_Available(t *testing.T) {
+	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/dev/professor/reviews", nil)
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Header().Get("Content-Type"), "text/html")
+	require.Contains(t, w.Body.String(), "IDSAI Corp. Review Requests")
+}
+
+func TestDevProfessorCriteriaRoute_Available(t *testing.T) {
+	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/dev/professor/criteria", nil)
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Header().Get("Content-Type"), "text/html")
+	require.Contains(t, w.Body.String(), "IDSAI Corp. Criteria Setup")
+}
+
+func TestDevProfessorGradingRoute_Available(t *testing.T) {
+	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/dev/professor/grading", nil)
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Header().Get("Content-Type"), "text/html")
+	require.Contains(t, w.Body.String(), "IDSAI Corp. Project Grading")
+}

@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -63,11 +64,24 @@ func handleFlowErr(c *gin.Context, err error) {
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 	case errors.Is(err, projectflow.ErrPositionFull):
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+	case errors.Is(err, projectflow.ErrInviteNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 	case errors.Is(err, pgx.ErrNoRows):
 		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 	}
+}
+
+func parseLimit(raw string, def, max int) int {
+	v, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || v <= 0 {
+		return def
+	}
+	if v > max {
+		return max
+	}
+	return v
 }
 
 type updateProjectReq struct {
@@ -238,6 +252,79 @@ func (h *ProjectFlowHandler) ListPositions(c *gin.Context) {
 	c.JSON(http.StatusOK, items)
 }
 
+func (h *ProjectFlowHandler) ListStudentCandidates(c *gin.Context) {
+	uid, ok := parseUserID(c)
+	if !ok {
+		return
+	}
+	pid, ok := parseProjectID(c)
+	if !ok {
+		return
+	}
+	q := c.Query("q")
+	limit := parseLimit(c.Query("limit"), 30, 100)
+
+	items, err := h.svc.ListStudentCandidates(c.Request.Context(), uid, pid, q, limit)
+	if err != nil {
+		handleFlowErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, items)
+}
+
+type inviteMemberReq struct {
+	UserID  string `json:"user_id" binding:"required"`
+	Comment string `json:"comment"`
+}
+
+func (h *ProjectFlowHandler) InviteMember(c *gin.Context) {
+	uid, ok := parseUserID(c)
+	if !ok {
+		return
+	}
+	tenantID, ok := middleware.TenantIDFromCtx(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	pid, ok := parseProjectID(c)
+	if !ok {
+		return
+	}
+
+	var req inviteMemberReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
+		return
+	}
+	memberID, err := uuid.Parse(strings.TrimSpace(req.UserID))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user_id"})
+		return
+	}
+
+	item, err := h.svc.InviteStudent(c.Request.Context(), uid, pid, memberID, req.Comment)
+	if err != nil {
+		handleFlowErr(c, err)
+		return
+	}
+
+	notifyBestEffort(h.notifier, c.Request.Context(), notifCreateInput(
+		tenantID,
+		memberID,
+		"project.member.invited",
+		"Новое приглашение в команду",
+		"Вас пригласили в проект. Вы можете принять или отклонить приглашение.",
+		map[string]any{
+			"project_id": pid.String(),
+			"comment":    strings.TrimSpace(req.Comment),
+		},
+		true,
+	))
+
+	c.JSON(http.StatusOK, item)
+}
+
 func (h *ProjectFlowHandler) ApplyMember(c *gin.Context) {
 	uid, ok := parseUserID(c)
 	if !ok {
@@ -253,6 +340,34 @@ func (h *ProjectFlowHandler) ApplyMember(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, item)
+}
+
+type respondInviteReq struct {
+	Accept bool `json:"accept"`
+}
+
+func (h *ProjectFlowHandler) RespondMemberInvite(c *gin.Context) {
+	uid, ok := parseUserID(c)
+	if !ok {
+		return
+	}
+	pid, ok := parseProjectID(c)
+	if !ok {
+		return
+	}
+
+	var req respondInviteReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
+		return
+	}
+
+	item, err := h.svc.RespondMemberInvite(c.Request.Context(), uid, pid, req.Accept)
+	if err != nil {
+		handleFlowErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, item)
 }
 
 func (h *ProjectFlowHandler) ListMembers(c *gin.Context) {
@@ -352,9 +467,51 @@ type assignProfessorReq struct {
 	ProfessorID string `json:"professor_id" binding:"required"`
 }
 
+func (h *ProjectFlowHandler) SearchProfessors(c *gin.Context) {
+	uid, ok := parseUserID(c)
+	if !ok {
+		return
+	}
+	pid, ok := parseProjectID(c)
+	if !ok {
+		return
+	}
+	q := c.Query("q")
+	limit := parseLimit(c.Query("limit"), 20, 50)
+
+	items, err := h.svc.SearchProfessors(c.Request.Context(), uid, pid, q, limit)
+	if err != nil {
+		handleFlowErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, items)
+}
+
+func (h *ProjectFlowHandler) GetAssignedProfessor(c *gin.Context) {
+	uid, ok := parseUserID(c)
+	if !ok {
+		return
+	}
+	pid, ok := parseProjectID(c)
+	if !ok {
+		return
+	}
+	item, err := h.svc.GetAssignedProfessor(c.Request.Context(), uid, pid)
+	if err != nil {
+		handleFlowErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"professor": item})
+}
+
 func (h *ProjectFlowHandler) AssignProfessor(c *gin.Context) {
 	uid, ok := parseUserID(c)
 	if !ok {
+		return
+	}
+	tenantID, ok := middleware.TenantIDFromCtx(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 	pid, ok := parseProjectID(c)
@@ -378,13 +535,110 @@ func (h *ProjectFlowHandler) AssignProfessor(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
+
+	notifyBestEffort(h.notifier, c.Request.Context(), notifCreateInput(
+		tenantID,
+		profID,
+		"project.professor.invited",
+		"Запрос на ревью проекта",
+		"Вас пригласили преподавателем-ревьюером. Подтвердите приглашение.",
+		map[string]any{
+			"project_id": pid.String(),
+			"title":      p.Title,
+		},
+		true,
+	))
+
 	c.JSON(http.StatusOK, projectToResponse(p))
+}
+
+func (h *ProjectFlowHandler) RespondProfessorInvite(c *gin.Context) {
+	uid, ok := parseUserID(c)
+	if !ok {
+		return
+	}
+	tenantID, ok := middleware.TenantIDFromCtx(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	pid, ok := parseProjectID(c)
+	if !ok {
+		return
+	}
+
+	var req respondInviteReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
+		return
+	}
+
+	p, err := h.svc.RespondProfessorInvite(c.Request.Context(), uid, pid, req.Accept)
+	if err != nil {
+		handleFlowErr(c, err)
+		return
+	}
+
+	title := "Преподаватель отклонил приглашение"
+	body := "Приглашение преподавателя в проект отклонено."
+	typ := "project.professor.rejected"
+	if req.Accept {
+		title = "Преподаватель подтвердил участие"
+		body = "Преподаватель принял приглашение и подключился к ревью."
+		typ = "project.professor.accepted"
+	}
+
+	notifyBestEffort(h.notifier, c.Request.Context(), notifCreateInput(
+		tenantID,
+		p.CreatedBy,
+		typ,
+		title,
+		body,
+		map[string]any{
+			"project_id": pid.String(),
+			"title":      p.Title,
+		},
+		true,
+	))
+
+	c.JSON(http.StatusOK, projectToResponse(p))
+}
+
+func (h *ProjectFlowHandler) ListProfessorReviewInvites(c *gin.Context) {
+	uid, ok := parseUserID(c)
+	if !ok {
+		return
+	}
+	q := c.Query("q")
+	limit := parseLimit(c.Query("limit"), 100, 100)
+
+	items, err := h.svc.ListProfessorReviewInvites(c.Request.Context(), uid, q, limit)
+	if err != nil {
+		handleFlowErr(c, err)
+		return
+	}
+
+	out := make([]projectResponse, 0, len(items))
+	for _, item := range items {
+		out = append(out, projectToResponse(item))
+	}
+	c.JSON(http.StatusOK, out)
 }
 
 type createCriterionReq struct {
 	Title       string `json:"title" binding:"required"`
 	Description string `json:"description"`
 	Weight      int    `json:"weight"`
+}
+
+type gradingItemReq struct {
+	CriterionID string `json:"criterion_id" binding:"required"`
+	IsMet       *bool  `json:"is_met"`
+	Comment     string `json:"comment"`
+}
+
+type upsertGradingReq struct {
+	Items []gradingItemReq `json:"items"`
 }
 
 func (h *ProjectFlowHandler) CreateCriterion(c *gin.Context) {
@@ -422,6 +676,56 @@ func (h *ProjectFlowHandler) ListCriteria(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, items)
+}
+
+func (h *ProjectFlowHandler) GetGrading(c *gin.Context) {
+	uid, ok := parseUserID(c)
+	if !ok {
+		return
+	}
+	pid, ok := parseProjectID(c)
+	if !ok {
+		return
+	}
+	items, err := h.svc.GetGrading(c.Request.Context(), uid, pid)
+	if err != nil {
+		handleFlowErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
+func (h *ProjectFlowHandler) UpsertGrading(c *gin.Context) {
+	uid, ok := parseUserID(c)
+	if !ok {
+		return
+	}
+	pid, ok := parseProjectID(c)
+	if !ok {
+		return
+	}
+
+	var req upsertGradingReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
+		return
+	}
+
+	payload := make([]projectflow.CriterionGrade, 0, len(req.Items))
+	for _, item := range req.Items {
+		payload = append(payload, projectflow.CriterionGrade{
+			CriterionID: strings.TrimSpace(item.CriterionID),
+			IsMet:       item.IsMet,
+			Comment:     strings.TrimSpace(item.Comment),
+		})
+	}
+
+	items, err := h.svc.UpsertGrading(c.Request.Context(), uid, pid, payload)
+	if err != nil {
+		handleFlowErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items})
 }
 
 func (h *ProjectFlowHandler) Readiness(c *gin.Context) {

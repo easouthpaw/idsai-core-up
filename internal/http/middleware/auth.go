@@ -14,6 +14,7 @@ type AccessClaims struct {
 	FacultyID    string `json:"faculty_id"`
 	DepartmentID string `json:"department_id"`
 	IsAdmin      bool   `json:"is_admin"`
+	IsProfessor  bool   `json:"is_professor"`
 	jwt.RegisteredClaims
 }
 
@@ -68,6 +69,7 @@ func AuthRequired(jwtSecret string) gin.HandlerFunc {
 		c.Set("facultyID", fid)
 		c.Set("departmentID", did)
 		c.Set("isAdmin", claims.IsAdmin)
+		c.Set("isProfessor", claims.IsProfessor)
 		c.Next()
 	}
 }
@@ -106,6 +108,15 @@ func IsAdminFromCtx(c *gin.Context) (bool, bool) {
 	}
 	isAdmin, ok := v.(bool)
 	return isAdmin, ok
+}
+
+func IsProfessorFromCtx(c *gin.Context) (bool, bool) {
+	v, ok := c.Get("isProfessor")
+	if !ok {
+		return false, false
+	}
+	isProfessor, ok := v.(bool)
+	return isProfessor, ok
 }
 
 func AdminRequired() gin.HandlerFunc {

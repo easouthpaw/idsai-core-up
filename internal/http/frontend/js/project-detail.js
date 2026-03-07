@@ -6,6 +6,8 @@
   const LS_STUDENT_NAME = "idsai_student_name";
   const LS_STUDENT_EMAIL = "idsai_student_email";
   const LS_SELECTED_PROJECT = "idsai_selected_project";
+  const LS_IS_ADMIN = "idsai_is_admin";
+  const LS_IS_PROFESSOR = "idsai_is_professor";
 
   const LS_PROJECT_META_PREFIX = "idsai_project_meta:";
   const LS_TASK_META_PREFIX = "idsai_task_meta:";
@@ -59,7 +61,9 @@
 
     viewOverview: document.getElementById("view-overview"),
     viewTeam: document.getElementById("view-team"),
+    viewInvite: document.getElementById("view-invite"),
     viewTasks: document.getElementById("view-tasks"),
+    viewCriteria: document.getElementById("view-criteria"),
     viewReview: document.getElementById("view-review"),
     viewEdit: document.getElementById("view-edit"),
 
@@ -70,8 +74,10 @@
     activityList: document.getElementById("activityList"),
 
     openRecruitmentBtn: document.getElementById("openRecruitmentBtn"),
-    applyMemberBtn: document.getElementById("applyMemberBtn"),
-    professorIDInput: document.getElementById("professorIDInput"),
+    professorSearchInput: document.getElementById("professorSearchInput"),
+    professorSearchResults: document.getElementById("professorSearchResults"),
+    professorIdentity: document.getElementById("professorIdentity"),
+    professorInviteHint: document.getElementById("professorInviteHint"),
     assignProfessorBtn: document.getElementById("assignProfessorBtn"),
     approveProjectBtn: document.getElementById("approveProjectBtn"),
 
@@ -80,6 +86,9 @@
     positionCodeInput: document.getElementById("positionCodeInput"),
     positionCapacityInput: document.getElementById("positionCapacityInput"),
     teamTableBody: document.getElementById("teamTableBody"),
+    inviteSearchInput: document.getElementById("inviteSearchInput"),
+    inviteRefreshBtn: document.getElementById("inviteRefreshBtn"),
+    inviteCandidatesList: document.getElementById("inviteCandidatesList"),
 
     progressBadge: document.getElementById("progressBadge"),
     openTaskModalBtn: document.getElementById("openTaskModalBtn"),
@@ -90,6 +99,9 @@
     countDoing: document.getElementById("countDoing"),
     countDone: document.getElementById("countDone"),
     tasksTeamList: document.getElementById("tasksTeamList"),
+    criteriaListView: document.getElementById("criteriaListView"),
+    criteriaCountMeta: document.getElementById("criteriaCountMeta"),
+    criteriaReviewHint: document.getElementById("criteriaReviewHint"),
 
     activeProgressWrap: document.getElementById("activeProgressWrap"),
     progressPercent: document.getElementById("progressPercent"),
@@ -138,6 +150,7 @@
     stacks: [],
     positions: [],
     members: [],
+    criteria: [],
     readiness: null,
     tasks: [],
     activeView: "overview",
@@ -148,6 +161,13 @@
     currentPermUserID: "",
     noticeTimer: null,
     favorite: false,
+    studentCandidates: [],
+    professorCandidates: [],
+    selectedProfessorID: "",
+    professorSummary: null,
+    professorSearchTimer: null,
+    studentSearchTimer: null,
+    userDirectory: {},
   };
 
   function escapeHTML(value) {
@@ -243,6 +263,16 @@
       if (!claims.sub || !claims.faculty_id) throw new Error("broken claims");
       localStorage.setItem(LS_USER, claims.sub);
       localStorage.setItem(LS_FACULTY, claims.faculty_id);
+      localStorage.setItem(LS_IS_ADMIN, claims.is_admin ? "1" : "0");
+      localStorage.setItem(LS_IS_PROFESSOR, claims.is_professor ? "1" : "0");
+      if (claims.is_admin) {
+        window.location.href = "/dev/admin";
+        return null;
+      }
+      if (claims.is_professor) {
+        window.location.href = "/dev/professor";
+        return null;
+      }
       return claims;
     } catch (_) {
       clearSession();
@@ -303,6 +333,8 @@
     localStorage.removeItem(LS_REFRESH);
     localStorage.removeItem(LS_USER);
     localStorage.removeItem(LS_FACULTY);
+    localStorage.removeItem(LS_IS_ADMIN);
+    localStorage.removeItem(LS_IS_PROFESSOR);
     localStorage.removeItem(LS_STUDENT_NAME);
     localStorage.removeItem(LS_STUDENT_EMAIL);
     localStorage.removeItem(LS_SELECTED_PROJECT);
@@ -364,12 +396,41 @@
     return String(state.project?.description || "").trim();
   }
 
+  function rememberUser(userID, fullName, email) {
+    const id = String(userID || "").trim();
+    if (!id) return;
+    state.userDirectory[id] = {
+      fullName: String(fullName || "").trim(),
+      email: String(email || "").trim(),
+    };
+  }
+
   function getDisplayName(userID) {
+    const id = String(userID || "").trim();
     const currentUser = localStorage.getItem(LS_USER) || "";
-    if (String(userID) === String(currentUser)) {
+    if (id === String(currentUser)) {
       return localStorage.getItem(LS_STUDENT_NAME) || "Текущий студент";
     }
-    return `Student ${shortID(userID)}`;
+    const known = state.userDirectory[id];
+    if (known && known.fullName) return known.fullName;
+    if (known && known.email) return known.email;
+    return `Student ${shortID(id)}`;
+  }
+
+  function allMembers() {
+    const members = Array.isArray(state.members) ? [...state.members] : [];
+    const leadID = String(state.project?.created_by || "").trim();
+    if (leadID && !members.some((m) => String(m.user_id) === leadID)) {
+      members.unshift({
+        id: `lead-${leadID}`,
+        project_id: state.projectID,
+        user_id: leadID,
+        status: "ACTIVE",
+        position_code: "TEAM_LEAD",
+        position_name: "Тимлид",
+      });
+    }
+    return members;
   }
 
   function getRoleLabel(member) {
@@ -379,11 +440,20 @@
   }
 
   function activeMembers() {
-    return state.members.filter((m) => String(m.status || "").toUpperCase() === "ACTIVE");
+    return allMembers().filter((m) => String(m.status || "").toUpperCase() === "ACTIVE");
   }
 
   function membersByPosition(positionID) {
     return activeMembers().filter((m) => String(m.position_id || "") === String(positionID));
+  }
+
+  function isCurrentUserLead() {
+    const current = String(localStorage.getItem(LS_USER) || "");
+    const creator = String(state.project?.created_by || "");
+    if (current && creator && current === creator) {
+      return true;
+    }
+    return allMembers().some((m) => String(m.user_id) === current && String(m.position_code || "").toUpperCase() === "TEAM_LEAD");
   }
 
   function toRFC3339(localDateTime) {
@@ -519,20 +589,12 @@
 
   function renderAbout() {
     const description = String(state.project?.description || "").trim();
-    const readme = String(getReadmeText() || description || "Описание проекта пока не заполнено.").trim();
-
-    const bullets = [
-      "Ролевой доступ и управление командой",
-      "Контроль задач через Kanban-колонки",
-      "Критерии преподавателя и этапы запуска",
-      "Прогресс проекта после перехода в ACTIVE",
-    ];
+    const readme = String(getReadmeText() || description).trim();
+    const content = readme || "Описание проекта пока не заполнено.";
 
     const html =
-      `<p><strong>${escapeHTML(state.project?.title || "Project")}</strong> — ${escapeHTML(description || "Описание отсутствует.")}</p>` +
-      `<p>${escapeHTML(readme).replaceAll("\n", "<br>")}</p>` +
-      `<p><strong>Ключевые особенности</strong></p>` +
-      `<ul>${bullets.map((b) => `<li>${escapeHTML(b)}</li>`).join("")}</ul>` +
+      `<p><strong>${escapeHTML(state.project?.title || "Project")}</strong></p>` +
+      `<p>${escapeHTML(content).replaceAll("\n", "<br>")}</p>` +
       `<p class="muted-text">Последнее обновление: ${escapeHTML(formatDate(state.project?.updated_at))}</p>`;
 
     ui.aboutContent.innerHTML = html;
@@ -578,13 +640,22 @@
     if (!state.readiness) {
       ui.readinessList.innerHTML = '<div class="empty-state">Данные о готовности не загружены.</div>';
       ui.approveProjectBtn.disabled = true;
+      renderProfessorInviteArea(String(state.project?.professor_review_status || "NONE"));
       return;
     }
+
+    const professorStatusCode = String(state.readiness.professor_status || state.project?.professor_review_status || "NONE").toUpperCase();
+    const professorStatusLabel = (() => {
+      if (professorStatusCode === "PENDING") return "Ожидаем ответа";
+      if (professorStatusCode === "ACCEPTED") return "Подтвержден";
+      if (professorStatusCode === "REJECTED") return "Отклонено";
+      return state.readiness.has_professor ? "Назначен" : "Не назначен";
+    })();
 
     const items = [
       ["Статус", state.readiness.status],
       ["Участники", `${state.readiness.active_members}/${state.readiness.required_members}`],
-      ["Преподаватель", state.readiness.has_professor ? "Назначен" : "Не назначен"],
+      ["Преподаватель", professorStatusLabel],
       ["Критерии", String(state.readiness.criteria_count)],
       ["Можно активировать", state.readiness.can_activate ? "Да" : "Нет"],
     ];
@@ -597,6 +668,42 @@
     });
 
     ui.approveProjectBtn.disabled = !state.readiness.can_activate;
+    renderProfessorInviteArea(professorStatusCode);
+  }
+
+  function renderProfessorInviteArea(professorStatusCode) {
+    const status = String(professorStatusCode || state.project?.professor_review_status || "NONE").toUpperCase();
+    if (!ui.professorInviteHint) return;
+    const currentUser = String(localStorage.getItem(LS_USER) || "");
+    const isInvitedProfessor = String(state.project?.professor_id || "") === currentUser;
+
+    if (ui.professorIdentity) {
+      if (state.professorSummary && state.professorSummary.user_id) {
+        const fullName = state.professorSummary.full_name || state.professorSummary.email || "Преподаватель";
+        const dep = state.professorSummary.department_code ? ` · ${state.professorSummary.department_code}` : "";
+        ui.professorIdentity.hidden = false;
+        ui.professorIdentity.innerHTML =
+          `<div class="member-avatar">${escapeHTML(initials(fullName, state.professorSummary.email))}</div>` +
+          `<div><strong>${escapeHTML(fullName)}</strong><small>${escapeHTML(state.professorSummary.email || "")}${escapeHTML(dep)}</small></div>`;
+      } else {
+        ui.professorIdentity.hidden = true;
+        ui.professorIdentity.innerHTML = "";
+      }
+    }
+
+    if (status === "PENDING") {
+      if (isInvitedProfessor) {
+        ui.professorInviteHint.innerHTML = 'У вас есть приглашение на ревью. Откройте страницу <a href="/dev/professor/reviews">/dev/professor/reviews</a> и примите его.';
+      } else {
+        ui.professorInviteHint.innerHTML = 'Ожидаем подтверждения преподавателя в его кабинете ревью.';
+      }
+    } else if (status === "ACCEPTED") {
+      ui.professorInviteHint.innerHTML = "Преподаватель подтвердил участие в ревью.";
+    } else if (status === "REJECTED") {
+      ui.professorInviteHint.innerHTML = "Преподаватель отклонил приглашение. Выберите другого преподавателя.";
+    } else {
+      ui.professorInviteHint.innerHTML = "Преподаватель пока не приглашён.";
+    }
   }
 
   function renderActivity() {
@@ -622,7 +729,8 @@
 
   function renderTeamTable() {
     const query = state.searchQuery;
-    const filtered = state.members.filter((m) => {
+    const members = allMembers();
+    const filtered = members.filter((m) => {
       if (!query) return true;
       const hay = `${getDisplayName(m.user_id)} ${m.user_id} ${m.position_name || ""} ${m.position_code || ""}`.toLowerCase();
       return hay.includes(query);
@@ -635,10 +743,21 @@
       return;
     }
 
+    const currentUser = String(localStorage.getItem(LS_USER) || "");
+    const canManageTeam = isCurrentUserLead();
+
     filtered.forEach((m) => {
       const status = String(m.status || "").toUpperCase();
       const github = `https://github.com/${slugify(getDisplayName(m.user_id))}`;
-      const roleOptions = projectPositionOptions(m.position_id || "");
+      const isLeadRow = String(m.user_id) === String(state.project?.created_by || "");
+      const roleOptions = isLeadRow
+        ? `<option value="">Тимлид</option>${projectPositionOptions("").replace('<option value="">Выберите роль</option>', "")}`
+        : projectPositionOptions(m.position_id || "");
+      const roleSelectDisabled = isLeadRow || status !== "ACTIVE";
+      const canApprove = canManageTeam && status === "APPLIED" && state.positions.length > 0;
+      const canSetPosition = canManageTeam && status === "ACTIVE" && !isLeadRow && state.positions.length > 0;
+      const canRespondInvite = status === "INVITED" && String(m.user_id) === currentUser;
+      const canManagePerms = status === "ACTIVE" && !isLeadRow;
 
       const row = document.createElement("tr");
       row.setAttribute("data-user-id", m.user_id || "");
@@ -650,18 +769,68 @@
           `</div>` +
         `</td>` +
         `<td><span class="status-badge ${status.toLowerCase()}">${escapeHTML(status)}</span></td>` +
-        `<td><select class="member-role-select">${roleOptions}</select></td>` +
+        `<td><select class="member-role-select" ${roleSelectDisabled ? "disabled" : ""}>${roleOptions}</select></td>` +
         `<td><a class="meta-link" href="${escapeHTML(github)}" target="_blank" rel="noreferrer">${escapeHTML(github.replace("https://", ""))}</a></td>` +
         `<td>` +
           `<div class="task-toolbar">` +
-            `<button class="ghost-btn" data-member-action="approve" ${status === "APPLIED" && state.positions.length > 0 ? "" : "disabled"}>Одобрить</button>` +
-            `<button class="ghost-btn" data-member-action="set-position" ${status === "ACTIVE" && state.positions.length > 0 ? "" : "disabled"}>Сменить роль</button>` +
-            `<button class="ghost-btn" data-member-action="permissions">Права</button>` +
+            `<button class="ghost-btn" data-member-action="approve" ${canApprove ? "" : "disabled"}>Одобрить</button>` +
+            `<button class="ghost-btn" data-member-action="set-position" ${canSetPosition ? "" : "disabled"}>Сменить роль</button>` +
+            `<button class="ghost-btn" data-member-action="accept-invite" ${canRespondInvite ? "" : "disabled"}>Принять</button>` +
+            `<button class="ghost-btn" data-member-action="reject-invite" ${canRespondInvite ? "" : "disabled"}>Отклонить</button>` +
+            `<button class="ghost-btn" data-member-action="permissions" ${canManagePerms ? "" : "disabled"}>Права</button>` +
           `</div>` +
         `</td>`;
 
       ui.teamTableBody.appendChild(row);
     });
+  }
+
+  function renderInviteCandidates() {
+    if (!ui.inviteCandidatesList) return;
+    ui.inviteCandidatesList.innerHTML = "";
+
+    if (!Array.isArray(state.studentCandidates) || state.studentCandidates.length === 0) {
+      ui.inviteCandidatesList.innerHTML = '<div class="empty-state">Подходящие студенты не найдены.</div>';
+      return;
+    }
+
+    state.studentCandidates.forEach((item) => {
+      rememberUser(item.user_id, item.full_name, item.email);
+      const row = document.createElement("div");
+      row.className = "invite-row";
+      row.innerHTML =
+        `<div class="invite-user">` +
+          `<div class="member-avatar">${escapeHTML(initials(item.full_name, item.email))}</div>` +
+          `<div><strong>${escapeHTML(item.full_name || item.email)}</strong><small>${escapeHTML(item.email || "")} · ${escapeHTML(item.department_code || "-")}</small></div>` +
+        `</div>` +
+        `<input class="invite-comment-input" type="text" placeholder="Комментарий к приглашению" />` +
+        `<button class="ghost-btn" data-invite-user="${escapeHTML(item.user_id)}">Пригласить</button>`;
+      ui.inviteCandidatesList.appendChild(row);
+    });
+  }
+
+  function renderProfessorSearchResults() {
+    if (!ui.professorSearchResults) return;
+    ui.professorSearchResults.innerHTML = "";
+    const raw = String(ui.professorSearchInput ? ui.professorSearchInput.value : "").trim();
+    const canAssignByRawID = /^[0-9a-f-]{36}$/i.test(raw);
+
+    if (!Array.isArray(state.professorCandidates) || state.professorCandidates.length === 0) {
+      ui.professorSearchResults.hidden = true;
+      ui.assignProfessorBtn.disabled = !(state.selectedProfessorID || canAssignByRawID);
+      return;
+    }
+
+    state.professorCandidates.forEach((item) => {
+      rememberUser(item.user_id, item.full_name, item.email);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "search-result";
+      btn.setAttribute("data-prof-id", item.user_id);
+      btn.innerHTML = `<strong>${escapeHTML(item.full_name || item.email)}</strong><span>${escapeHTML(item.email || "")} · ${escapeHTML(item.department_code || "-")}</span>`;
+      ui.professorSearchResults.appendChild(btn);
+    });
+    ui.professorSearchResults.hidden = false;
   }
 
   function renderProgress() {
@@ -796,6 +965,44 @@
     renderStackInfoConsole();
   }
 
+  function renderCriteriaView() {
+    if (!ui.criteriaListView) return;
+    const criteria = Array.isArray(state.criteria) ? state.criteria : [];
+    const count = criteria.length;
+    if (ui.criteriaCountMeta) {
+      ui.criteriaCountMeta.textContent = `${count} ${count === 1 ? "критерий" : count < 5 ? "критерия" : "критериев"}`;
+    }
+
+    if (!criteria.length) {
+      ui.criteriaListView.innerHTML = '<div class="empty-state">Преподаватель еще не добавил критерии.</div>';
+    } else {
+      ui.criteriaListView.innerHTML = criteria
+        .map((item, idx) => {
+          const weight = Number(item.weight || 0);
+          return (
+            `<article class="criteria-item">` +
+              `<div class="criteria-idx">${idx + 1}</div>` +
+              `<div>` +
+                `<strong>${escapeHTML(item.title || "Без названия")}</strong>` +
+                `<p>${escapeHTML(item.description || "Описание отсутствует")}</p>` +
+              `</div>` +
+              `<span class="criteria-weight">Вес ${escapeHTML(weight > 0 ? weight : 1)}</span>` +
+            `</article>`
+          );
+        })
+        .join("");
+    }
+
+    if (ui.criteriaReviewHint) {
+      const status = projectStatusCode();
+      if (status === "REVIEW" || status === "GRADING" || status === "ARCHIVE") {
+        ui.criteriaReviewHint.textContent = "Проект на этапе ревью. Итоговая оценка будет доступна после проверки преподавателем.";
+      } else {
+        ui.criteriaReviewHint.textContent = "Оценивание появится после завершения проекта и начала ревью.";
+      }
+    }
+  }
+
   function renderOverview() {
     renderAbout();
     renderStackChips();
@@ -824,13 +1031,15 @@
     renderHero();
     renderOverview();
     renderTeamTable();
+    renderInviteCandidates();
     renderTasks();
+    renderCriteriaView();
     bindProjectMetaToUI();
     renderTaskModalSelects();
   }
 
   function setView(viewName) {
-    const target = ["overview", "team", "tasks", "review", "edit"].includes(viewName)
+    const target = ["overview", "team", "invite", "tasks", "criteria", "review", "edit"].includes(viewName)
       ? viewName
       : "overview";
 
@@ -839,7 +1048,9 @@
     const viewMap = {
       overview: ui.viewOverview,
       team: ui.viewTeam,
+      invite: ui.viewInvite,
       tasks: ui.viewTasks,
+      criteria: ui.viewCriteria,
       review: ui.viewReview,
       edit: ui.viewEdit,
     };
@@ -855,6 +1066,10 @@
 
     if (target === "edit") {
       bindProjectMetaToUI();
+    }
+    if (target === "invite") {
+      loadStudentCandidates(ui.inviteSearchInput ? ui.inviteSearchInput.value : "")
+        .catch((err) => setNotice(err.message || String(err), true));
     }
   }
 
@@ -959,7 +1174,7 @@
   }
 
   function openPermissionsModal(userID) {
-    const member = state.members.find((m) => String(m.user_id) === String(userID));
+    const member = allMembers().find((m) => String(m.user_id) === String(userID));
     if (!member) return;
 
     state.currentPermUserID = userID;
@@ -1082,9 +1297,23 @@
     const roleSelect = row.querySelector("select.member-role-select");
     const positionID = roleSelect ? roleSelect.value : "";
     const action = actionBtn.getAttribute("data-member-action");
+    const statusBadge = row.querySelector(".status-badge");
+    const status = String(statusBadge ? statusBadge.textContent : "").trim().toUpperCase();
 
     if (action === "permissions") {
+      if (status !== "ACTIVE") {
+        throw new Error("Права можно настраивать только для ACTIVE участников.");
+      }
       openPermissionsModal(userID);
+      return;
+    }
+
+    if (action === "accept-invite" || action === "reject-invite") {
+      await request("POST", `/v2/projects/${state.projectID}/members/respond`, {
+        accept: action === "accept-invite",
+      });
+      setNotice(action === "accept-invite" ? "Приглашение принято." : "Приглашение отклонено.", false);
+      await refreshData();
       return;
     }
 
@@ -1158,23 +1387,56 @@
     await refreshData();
   }
 
-  async function onApplyMember() {
-    await request("POST", `/v2/projects/${state.projectID}/members/apply`, {});
-    setNotice("Заявка на вступление отправлена.", false);
+  async function loadStudentCandidates(query) {
+    const q = String(query || "").trim();
+    const encoded = encodeURIComponent(q);
+    const items = await request("GET", `/v2/projects/${state.projectID}/candidates/students?q=${encoded}&limit=60`);
+    state.studentCandidates = Array.isArray(items) ? items : [];
+    renderInviteCandidates();
+  }
+
+  async function inviteCandidate(userID, comment) {
+    await request("POST", `/v2/projects/${state.projectID}/members/invite`, {
+      user_id: userID,
+      comment: String(comment || "").trim(),
+    });
+    setNotice("Приглашение отправлено.", false);
     await refreshData();
+    if (state.activeView === "invite") {
+      await loadStudentCandidates(ui.inviteSearchInput ? ui.inviteSearchInput.value : "");
+    }
+  }
+
+  async function searchProfessors(query) {
+    const q = String(query || "").trim();
+    if (q.length < 2) {
+      state.professorCandidates = [];
+      renderProfessorSearchResults();
+      return;
+    }
+    const encoded = encodeURIComponent(q);
+    const items = await request("GET", `/v2/projects/${state.projectID}/candidates/professors?q=${encoded}&limit=20`);
+    state.professorCandidates = Array.isArray(items) ? items : [];
+    renderProfessorSearchResults();
   }
 
   async function onAssignProfessor() {
-    const professorID = ui.professorIDInput.value.trim();
+    const fallbackUUID = String(ui.professorSearchInput.value || "").trim();
+    const professorID = state.selectedProfessorID || fallbackUUID;
     if (!professorID) {
-      throw new Error("Введите UUID преподавателя.");
+      throw new Error("Выберите преподавателя из подсказок.");
     }
 
     await request("POST", `/v2/projects/${state.projectID}/professor`, {
       professor_id: professorID,
     });
-    ui.professorIDInput.value = "";
-    setNotice("Преподаватель назначен.", false);
+    state.selectedProfessorID = "";
+    state.professorCandidates = [];
+    ui.professorSearchInput.value = "";
+    ui.professorSearchResults.hidden = true;
+    ui.professorSearchResults.innerHTML = "";
+    ui.assignProfessorBtn.disabled = true;
+    setNotice("Приглашение преподавателю отправлено.", false);
     await refreshData();
   }
 
@@ -1199,13 +1461,16 @@
 
   async function refreshData() {
     state.project = await request("GET", `/v2/projects/${state.projectID}`);
+    rememberUser(localStorage.getItem(LS_USER), localStorage.getItem(LS_STUDENT_NAME), localStorage.getItem(LS_STUDENT_EMAIL));
 
-    const [stacks, positions, members, readiness, tasks] = await Promise.all([
+    const [stacks, positions, members, readiness, criteria, tasks, professorResp] = await Promise.all([
       loadOptional("stacks", "GET", `/v2/projects/${state.projectID}/stacks`, []),
       loadOptional("positions", "GET", `/v2/projects/${state.projectID}/positions`, []),
       loadOptional("members", "GET", `/v2/projects/${state.projectID}/members`, []),
       loadOptional("readiness", "GET", `/v2/projects/${state.projectID}/readiness`, null),
+      loadOptional("criteria", "GET", `/v2/projects/${state.projectID}/criteria`, []),
       loadOptional("tasks", "GET", `/v2/projects/${state.projectID}/tasks`, []),
+      loadOptional("assigned professor", "GET", `/v2/projects/${state.projectID}/professor`, { professor: null }),
     ]);
 
     state.stacks = Array.isArray(stacks) ? stacks : [];
@@ -1221,7 +1486,12 @@
     state.positions = Array.isArray(positions) ? positions : [];
     state.members = Array.isArray(members) ? members : [];
     state.readiness = readiness && typeof readiness === "object" ? readiness : null;
+    state.criteria = Array.isArray(criteria) ? criteria : [];
     state.tasks = Array.isArray(tasks) ? tasks : [];
+    state.professorSummary = professorResp && typeof professorResp === "object" ? professorResp.professor || null : null;
+    if (state.professorSummary && state.professorSummary.user_id) {
+      rememberUser(state.professorSummary.user_id, state.professorSummary.full_name, state.professorSummary.email);
+    }
 
     localStorage.setItem(LS_SELECTED_PROJECT, JSON.stringify(state.project));
 
@@ -1334,14 +1604,6 @@
       }
     });
 
-    ui.applyMemberBtn.addEventListener("click", async () => {
-      try {
-        await onApplyMember();
-      } catch (err) {
-        setNotice(err.message || String(err), true);
-      }
-    });
-
     ui.assignProfessorBtn.addEventListener("click", async () => {
       try {
         await onAssignProfessor();
@@ -1349,6 +1611,69 @@
         setNotice(err.message || String(err), true);
       }
     });
+
+    ui.professorSearchInput.addEventListener("input", () => {
+      const raw = String(ui.professorSearchInput.value || "").trim();
+      state.selectedProfessorID = "";
+      ui.assignProfessorBtn.disabled = !/^[0-9a-f-]{36}$/i.test(raw);
+      if (state.professorSearchTimer) clearTimeout(state.professorSearchTimer);
+      state.professorSearchTimer = setTimeout(() => {
+        searchProfessors(ui.professorSearchInput.value).catch((err) => setNotice(err.message || String(err), true));
+      }, 250);
+    });
+
+    ui.professorSearchResults.addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-prof-id]");
+      if (!btn) return;
+      const profID = btn.getAttribute("data-prof-id") || "";
+      const item = state.professorCandidates.find((x) => String(x.user_id) === String(profID));
+      if (!item) return;
+      state.selectedProfessorID = profID;
+      ui.professorSearchInput.value = `${item.full_name || item.email} <${item.email}>`;
+      ui.professorSearchResults.hidden = true;
+      ui.assignProfessorBtn.disabled = false;
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!ui.professorSearchResults || ui.professorSearchResults.hidden) return;
+      if (e.target === ui.professorSearchInput || ui.professorSearchResults.contains(e.target)) return;
+      ui.professorSearchResults.hidden = true;
+    });
+
+    if (ui.inviteRefreshBtn) {
+      ui.inviteRefreshBtn.addEventListener("click", async () => {
+        try {
+          await loadStudentCandidates(ui.inviteSearchInput ? ui.inviteSearchInput.value : "");
+        } catch (err) {
+          setNotice(err.message || String(err), true);
+        }
+      });
+    }
+
+    if (ui.inviteSearchInput) {
+      ui.inviteSearchInput.addEventListener("input", () => {
+        if (state.studentSearchTimer) clearTimeout(state.studentSearchTimer);
+        state.studentSearchTimer = setTimeout(() => {
+          loadStudentCandidates(ui.inviteSearchInput.value).catch((err) => setNotice(err.message || String(err), true));
+        }, 250);
+      });
+    }
+
+    if (ui.inviteCandidatesList) {
+      ui.inviteCandidatesList.addEventListener("click", async (e) => {
+        const btn = e.target.closest("button[data-invite-user]");
+        if (!btn) return;
+        const userID = btn.getAttribute("data-invite-user") || "";
+        const row = btn.closest(".invite-row");
+        const commentInput = row ? row.querySelector(".invite-comment-input") : null;
+        const comment = commentInput ? commentInput.value : "";
+        try {
+          await inviteCandidate(userID, comment);
+        } catch (err) {
+          setNotice(err.message || String(err), true);
+        }
+      });
+    }
 
     ui.approveProjectBtn.addEventListener("click", async () => {
       try {

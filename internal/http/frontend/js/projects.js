@@ -6,6 +6,8 @@
   const LS_STUDENT_NAME = "idsai_student_name";
   const LS_STUDENT_EMAIL = "idsai_student_email";
   const LS_SELECTED_PROJECT = "idsai_selected_project";
+  const LS_IS_ADMIN = "idsai_is_admin";
+  const LS_IS_PROFESSOR = "idsai_is_professor";
 
   const createStatusEl = document.getElementById("createStatus");
   const myProjectsEl = document.getElementById("myProjects");
@@ -91,12 +93,24 @@
       if (!claims.sub || !claims.faculty_id) throw new Error("broken claims");
       localStorage.setItem(LS_USER, claims.sub);
       localStorage.setItem(LS_FACULTY, claims.faculty_id);
+      localStorage.setItem(LS_IS_ADMIN, claims.is_admin ? "1" : "0");
+      localStorage.setItem(LS_IS_PROFESSOR, claims.is_professor ? "1" : "0");
+      if (claims.is_admin) {
+        window.location.href = "/dev/admin";
+        return null;
+      }
+      if (claims.is_professor) {
+        window.location.href = "/dev/professor";
+        return null;
+      }
       return claims;
     } catch (_) {
       localStorage.removeItem(LS_ACCESS);
       localStorage.removeItem(LS_REFRESH);
       localStorage.removeItem(LS_USER);
       localStorage.removeItem(LS_FACULTY);
+      localStorage.removeItem(LS_IS_ADMIN);
+      localStorage.removeItem(LS_IS_PROFESSOR);
       localStorage.removeItem(LS_STUDENT_NAME);
       localStorage.removeItem(LS_STUDENT_EMAIL);
       window.location.href = "/dev/login";
@@ -236,6 +250,19 @@
 
     if (tags.length === 0) tags.push("General");
     return tags.slice(0, 3);
+  }
+
+  function parseStacks(input) {
+    const seen = new Set();
+    return String(input || "")
+      .split(",")
+      .map((x) => x.trim().toUpperCase())
+      .filter((x) => {
+        if (!x) return false;
+        if (seen.has(x)) return false;
+        seen.add(x);
+        return true;
+      });
   }
 
   function isRecruiting(project) {
@@ -420,26 +447,9 @@
         `</div>` +
         `<div class="community-footer">` +
           `<span class="participants">👥 ${membersCur}/${membersMax} участников</span>` +
-          `<button class="apply-btn ${recruiting ? "" : "closed"}" ${recruiting ? "" : "disabled"} data-id="${pid}">${recruiting ? "Подать заявку" : "Набор закрыт"}</button>` +
+          `<button class="detail-btn" data-open-id="${pid}" type="button">${recruiting ? "Открыть проект" : "Набор закрыт"}</button>` +
         `</div>`;
       publicProjectsEl.appendChild(article);
-    });
-
-    publicProjectsEl.querySelectorAll(".apply-btn[data-id]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        if (btn.classList.contains("closed")) return;
-        const id = btn.getAttribute("data-id");
-        if (!id) return;
-        btn.disabled = true;
-        try {
-          await applyToProject(id);
-          btn.textContent = "Заявка отправлена";
-          logLine(`application sent for project ${id}`);
-        } catch (e) {
-          btn.disabled = false;
-          logLine(`application failed for project ${id}: ${e.message || String(e)}`);
-        }
-      });
     });
 
     publicProjectsEl.querySelectorAll("[data-open-id]").forEach((btn) => {
@@ -662,6 +672,7 @@
   async function createProject() {
     const title = document.getElementById("title").value.trim();
     const description = document.getElementById("description").value.trim();
+    const stacks = parseStacks(document.getElementById("stacks").value);
     if (!title) {
       throw new Error("Название проекта обязательно");
     }
@@ -701,31 +712,24 @@
       return;
     }
 
+    const createdID = typeof data === "object" && data ? String(data.project_id || "") : "";
+    if (createdID && stacks.length > 0) {
+      const stacksResp = await fetch(`/v2/projects/${createdID}/stacks`, {
+        method: "PUT",
+        headers: authHeaders(true),
+        body: JSON.stringify({ stacks }),
+      });
+      if (!stacksResp.ok) {
+        const stacksText = await stacksResp.text();
+        logLine(`stacks save failed for ${createdID}: ${stacksResp.status} ${stacksText}`);
+      }
+    }
+
     setStatus(createStatusEl, `Project created (${elapsed} ms)`, true);
     await loadMineProjects();
     await loadCommunityProjects();
     switchTab("mine");
     closeCreateModal();
-  }
-
-  async function applyToProject(projectID) {
-    const started = performance.now();
-    const resp = await fetch(`/v2/projects/${projectID}/members/apply`, {
-      method: "POST",
-      headers: authHeaders(false),
-    });
-
-    const elapsed = Math.round(performance.now() - started);
-    const text = await resp.text();
-    let data = text;
-    try {
-      data = JSON.parse(text);
-    } catch (_) {}
-
-    if (!resp.ok) {
-      const msg = typeof data === "object" && data && data.error ? data.error : resp.statusText;
-      throw new Error(`${msg} (${resp.status}, ${elapsed} ms)`);
-    }
   }
 
   function logout() {

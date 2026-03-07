@@ -3,6 +3,7 @@ package httpx
 import (
 	"io/fs"
 	"net/http"
+	"strings"
 
 	"idsai-core-up/internal/http/frontend"
 	"idsai-core-up/internal/http/handlers"
@@ -32,6 +33,14 @@ func NewRouter(
 ) *gin.Engine {
 	r := gin.New()
 	r.Use(middleware.RequestLogger(), gin.Recovery())
+	r.Use(func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.URL.Path, "/dev") {
+			c.Header("Cache-Control", "no-store, max-age=0")
+			c.Header("Pragma", "no-cache")
+			c.Header("Expires", "0")
+		}
+		c.Next()
+	})
 
 	v2 := r.Group("/v2")
 	authMW := middleware.AuthRequired(jwtSecret)
@@ -52,8 +61,10 @@ func NewRouter(
 		admin.POST("/users/students", adminHandler.CreateStudent)
 		admin.POST("/users/professors", adminHandler.CreateProfessor)
 		admin.PATCH("/users/:user_id/status", adminHandler.SetStatus)
+		admin.DELETE("/users/:user_id", adminHandler.DeleteUser)
 		admin.GET("/projects", adminHandler.ListProjects)
 		admin.PATCH("/projects/:project_id/status", adminHandler.SetProjectStatus)
+		admin.DELETE("/projects/:project_id", adminHandler.DeleteProject)
 	}
 
 	projectsH := handlers.NewProjectsHandler(projectsSvc)
@@ -96,6 +107,10 @@ func NewRouter(
 	r.GET("/dev/admin", handlers.DevAdminPage)
 	r.GET("/dev/projects", handlers.DevProjectsPage)
 	r.GET("/dev/projects/:project_id", handlers.DevProjectPage)
+	r.GET("/dev/professor", handlers.DevProfessorPage)
+	r.GET("/dev/professor/reviews", handlers.DevProfessorReviewsPage)
+	r.GET("/dev/professor/criteria", handlers.DevProfessorCriteriaPage)
+	r.GET("/dev/professor/grading", handlers.DevProfessorGradingPage)
 	r.GET("/dev/tester", handlers.DevLoginPage)
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
@@ -112,13 +127,21 @@ func NewRouter(
 		projectFlow.POST("/recruitment/open", projectFlowH.OpenRecruitment)
 		projectFlow.POST("/positions", projectFlowH.CreatePosition)
 		projectFlow.GET("/positions", projectFlowH.ListPositions)
+		projectFlow.GET("/candidates/students", projectFlowH.ListStudentCandidates)
+		projectFlow.GET("/candidates/professors", projectFlowH.SearchProfessors)
 		projectFlow.POST("/members/apply", projectFlowH.ApplyMember)
+		projectFlow.POST("/members/invite", projectFlowH.InviteMember)
+		projectFlow.POST("/members/respond", projectFlowH.RespondMemberInvite)
 		projectFlow.GET("/members", projectFlowH.ListMembers)
 		projectFlow.POST("/members/:user_id/approve", projectFlowH.ApproveMember)
 		projectFlow.PATCH("/members/:user_id/position", projectFlowH.SetMemberPosition)
+		projectFlow.GET("/professor", projectFlowH.GetAssignedProfessor)
 		projectFlow.POST("/professor", projectFlowH.AssignProfessor)
+		projectFlow.POST("/professor/respond", projectFlowH.RespondProfessorInvite)
 		projectFlow.POST("/criteria", projectFlowH.CreateCriterion)
 		projectFlow.GET("/criteria", projectFlowH.ListCriteria)
+		projectFlow.GET("/grading", projectFlowH.GetGrading)
+		projectFlow.PUT("/grading", projectFlowH.UpsertGrading)
 		projectFlow.GET("/readiness", projectFlowH.Readiness)
 		projectFlow.POST("/approve", projectFlowH.ApproveProject)
 		projectFlow.GET("/tasks", projectFlowH.ListTasks)
@@ -126,6 +149,10 @@ func NewRouter(
 		projectFlow.PATCH("/tasks/:task_id/status", projectFlowH.UpdateTaskStatus)
 		projectFlow.PATCH("/tasks/:task_id/assignee", projectFlowH.AssignTask)
 		projectFlow.POST("/tasks/:task_id/claim", projectFlowH.ClaimTask)
+
+		professor := v2.Group("/professor")
+		professor.Use(authMW)
+		professor.GET("/review-invites", projectFlowH.ListProfessorReviewInvites)
 	}
 
 	return r

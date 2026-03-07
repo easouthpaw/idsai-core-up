@@ -6,6 +6,7 @@
   const LS_STUDENT_NAME = "idsai_student_name";
   const LS_STUDENT_EMAIL = "idsai_student_email";
   const LS_IS_ADMIN = "idsai_is_admin";
+  const LS_IS_PROFESSOR = "idsai_is_professor";
 
   const statusEl = document.getElementById("status");
   const respEl = document.getElementById("resp");
@@ -62,11 +63,14 @@
     localStorage.setItem(LS_USER, claims.sub);
     localStorage.setItem(LS_FACULTY, claims.faculty_id);
     localStorage.setItem(LS_IS_ADMIN, claims.is_admin ? "1" : "0");
+    localStorage.setItem(LS_IS_PROFESSOR, claims.is_professor ? "1" : "0");
     return claims;
   }
 
   function targetByClaims(claims) {
-    return claims && claims.is_admin ? "/dev/admin" : "/dev/projects";
+    if (claims && claims.is_admin) return "/dev/admin";
+    if (claims && claims.is_professor) return "/dev/professor";
+    return "/dev/projects";
   }
 
   async function callJSON(url, payload) {
@@ -175,6 +179,7 @@
         localStorage.setItem(LS_USER, claims.sub);
         localStorage.setItem(LS_FACULTY, claims.faculty_id);
         localStorage.setItem(LS_IS_ADMIN, claims.is_admin ? "1" : "0");
+        localStorage.setItem(LS_IS_PROFESSOR, claims.is_professor ? "1" : "0");
         window.location.href = targetByClaims(claims);
       }
     } catch (_) {}

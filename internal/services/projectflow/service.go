@@ -23,6 +23,7 @@ var (
 	ErrProjectNotReady  = errors.New("project is not ready for activation")
 	ErrProjectNotActive = errors.New("project is not active")
 	ErrPositionFull     = errors.New("position capacity reached")
+	ErrInviteNotFound   = errors.New("invite not found")
 )
 
 type RoleGrantor interface {
@@ -54,6 +55,13 @@ type Criterion struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
+type CriterionGrade struct {
+	CriterionID string     `json:"criterion_id"`
+	IsMet       *bool      `json:"is_met,omitempty"`
+	Comment     string     `json:"comment,omitempty"`
+	UpdatedAt   *time.Time `json:"updated_at,omitempty"`
+}
+
 type Position struct {
 	ID        string    `json:"id"`
 	ProjectID string    `json:"project_id"`
@@ -64,15 +72,18 @@ type Position struct {
 }
 
 type Member struct {
-	ID           string     `json:"id"`
-	ProjectID    string     `json:"project_id"`
-	UserID       string     `json:"user_id"`
-	PositionID   *string    `json:"position_id,omitempty"`
-	PositionCode *string    `json:"position_code,omitempty"`
-	PositionName *string    `json:"position_name,omitempty"`
-	Status       string     `json:"status"`
-	JoinedAt     *time.Time `json:"joined_at,omitempty"`
-	CreatedAt    time.Time  `json:"created_at"`
+	ID            string     `json:"id"`
+	ProjectID     string     `json:"project_id"`
+	UserID        string     `json:"user_id"`
+	PositionID    *string    `json:"position_id,omitempty"`
+	PositionCode  *string    `json:"position_code,omitempty"`
+	PositionName  *string    `json:"position_name,omitempty"`
+	Status        string     `json:"status"`
+	InviteComment string     `json:"invite_comment,omitempty"`
+	InvitedBy     *string    `json:"invited_by,omitempty"`
+	RespondedAt   *time.Time `json:"responded_at,omitempty"`
+	JoinedAt      *time.Time `json:"joined_at,omitempty"`
+	CreatedAt     time.Time  `json:"created_at"`
 }
 
 type Task struct {
@@ -91,12 +102,27 @@ type Task struct {
 	UpdatedAt      time.Time  `json:"updated_at"`
 }
 
+type StudentCandidate struct {
+	UserID         string `json:"user_id"`
+	FullName       string `json:"full_name"`
+	Email          string `json:"email"`
+	DepartmentCode string `json:"department_code"`
+}
+
+type ProfessorCandidate struct {
+	UserID         string `json:"user_id"`
+	FullName       string `json:"full_name"`
+	Email          string `json:"email"`
+	DepartmentCode string `json:"department_code"`
+}
+
 type Readiness struct {
 	ProjectID       string `json:"project_id"`
 	Status          string `json:"status"`
 	RequiredMembers int    `json:"required_members"`
 	ActiveMembers   int    `json:"active_members"`
 	HasProfessor    bool   `json:"has_professor"`
+	ProfessorStatus string `json:"professor_status"`
 	CriteriaCount   int    `json:"criteria_count"`
 	CanActivate     bool   `json:"can_activate"`
 }
@@ -104,6 +130,7 @@ type Readiness struct {
 func (s *Service) projectByID(ctx context.Context, projectID uuid.UUID) (domain.Project, error) {
 	const q = `
 SELECT id, title, description, status, is_public, created_by, professor_id,
+       professor_review_status,
        faculty_id, visibility, group_id,
        created_at, updated_at
 FROM projects
@@ -121,6 +148,7 @@ WHERE id = $1;
 		&p.IsPublic,
 		&p.CreatedBy,
 		&professorID,
+		&p.ProfessorReviewStatus,
 		&p.FacultyID,
 		&p.Visibility,
 		&groupID,
@@ -235,6 +263,23 @@ func normalizePositionCode(code, name string) string {
 		v = v[:40]
 	}
 	return v
+}
+
+func normalizeSearchQuery(raw string) string {
+	return strings.ToLower(strings.TrimSpace(raw))
+}
+
+func clampLimit(limit, max int) int {
+	if limit <= 0 {
+		limit = 20
+	}
+	if max <= 0 {
+		max = 20
+	}
+	if limit > max {
+		return max
+	}
+	return limit
 }
 
 func (s *Service) ensurePositionExists(ctx context.Context, projectID, positionID uuid.UUID) (capacity int, err error) {
@@ -527,6 +572,142 @@ ORDER BY created_at ASC;
 	return out, rows.Err()
 }
 
+func (s *Service) ListStudentCandidates(ctx context.Context, userID, projectID uuid.UUID, query string, limit int) ([]StudentCandidate, error) {
+	if err := s.requireProjectPermission(ctx, userID, "member.approve", projectID); err != nil {
+		return nil, err
+	}
+	p, err := s.projectByID(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	term := normalizeSearchQuery(query)
+	limit = clampLimit(limit, 100)
+
+	const q = `
+SELECT u.id,
+       COALESCE(NULLIF(TRIM(up.full_name), ''), split_part(u.email, '@', 1)) AS full_name,
+       u.email,
+       COALESCE(d.code, '') AS department_code
+FROM users u
+JOIN user_profiles up ON up.user_id = u.id
+LEFT JOIN departments d ON d.id = up.department_id
+WHERE u.status = 'ACTIVE'
+  AND up.faculty_id = $1
+  AND u.id <> $3
+  AND u.id <> $4
+  AND EXISTS (
+    SELECT 1
+    FROM role_assignments ra
+    JOIN roles r ON r.id = ra.role_id
+    WHERE ra.user_id = u.id
+      AND r.code = 'STUDENT'
+  )
+  AND NOT EXISTS (
+    SELECT 1
+    FROM project_members pm
+    WHERE pm.project_id = $2
+      AND pm.user_id = u.id
+      AND pm.status IN ('ACTIVE', 'INVITED', 'APPLIED')
+  )
+  AND ($5 = '' OR lower(up.full_name) LIKE '%' || $5 || '%' OR lower(u.email) LIKE '%' || $5 || '%')
+ORDER BY up.full_name ASC, u.email ASC
+LIMIT $6;
+`
+	rows, err := s.db.Query(ctx, q, p.FacultyID, projectID, userID, p.CreatedBy, term, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]StudentCandidate, 0, limit)
+	for rows.Next() {
+		var item StudentCandidate
+		if err := rows.Scan(&item.UserID, &item.FullName, &item.Email, &item.DepartmentCode); err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
+func (s *Service) InviteStudent(ctx context.Context, userID, projectID, studentID uuid.UUID, comment string) (Member, error) {
+	if err := s.requireProjectPermission(ctx, userID, "member.approve", projectID); err != nil {
+		return Member{}, err
+	}
+	p, err := s.projectByID(ctx, projectID)
+	if err != nil {
+		return Member{}, err
+	}
+	if studentID == userID || studentID == p.CreatedBy {
+		return Member{}, ErrInvalidInput
+	}
+
+	const verifyStudentQ = `
+SELECT EXISTS (
+  SELECT 1
+  FROM users u
+  JOIN user_profiles up ON up.user_id = u.id
+  WHERE u.id = $1
+    AND u.status = 'ACTIVE'
+    AND up.faculty_id = $2
+    AND EXISTS (
+      SELECT 1
+      FROM role_assignments ra
+      JOIN roles r ON r.id = ra.role_id
+      WHERE ra.user_id = u.id
+        AND r.code = 'STUDENT'
+    )
+) AS ok;
+`
+	var ok bool
+	if err := s.db.QueryRow(ctx, verifyStudentQ, studentID, p.FacultyID).Scan(&ok); err != nil {
+		return Member{}, err
+	}
+	if !ok {
+		return Member{}, ErrInvalidInput
+	}
+
+	comment = strings.TrimSpace(comment)
+	if len(comment) > 500 {
+		comment = comment[:500]
+	}
+
+	const q = `
+INSERT INTO project_members(project_id, user_id, status, position_id, joined_at, invite_comment, invited_by, responded_at)
+VALUES ($1, $2, 'INVITED', NULL, NULL, $3, $4, NULL)
+ON CONFLICT (project_id, user_id)
+DO UPDATE SET status='INVITED', position_id=NULL, joined_at=NULL, invite_comment=EXCLUDED.invite_comment, invited_by=EXCLUDED.invited_by, responded_at=NULL
+RETURNING id, project_id, user_id, position_id, status, invite_comment, invited_by, responded_at, joined_at, created_at;
+`
+	var m Member
+	var posID *uuid.UUID
+	var invitedBy *uuid.UUID
+	if err := s.db.QueryRow(ctx, q, projectID, studentID, comment, userID).Scan(
+		&m.ID,
+		&m.ProjectID,
+		&m.UserID,
+		&posID,
+		&m.Status,
+		&m.InviteComment,
+		&invitedBy,
+		&m.RespondedAt,
+		&m.JoinedAt,
+		&m.CreatedAt,
+	); err != nil {
+		return Member{}, err
+	}
+	if posID != nil {
+		s := posID.String()
+		m.PositionID = &s
+	}
+	if invitedBy != nil {
+		s := invitedBy.String()
+		m.InvitedBy = &s
+	}
+	return m, nil
+}
+
 func (s *Service) ApplyMember(ctx context.Context, userID, projectID uuid.UUID) (Member, error) {
 	p, err := s.projectByID(ctx, projectID)
 	if err != nil {
@@ -540,20 +721,24 @@ func (s *Service) ApplyMember(ctx context.Context, userID, projectID uuid.UUID) 
 	}
 
 	const q = `
-INSERT INTO project_members(project_id, user_id, status, position_id, joined_at)
-VALUES ($1, $2, 'APPLIED', NULL, NULL)
+INSERT INTO project_members(project_id, user_id, status, position_id, joined_at, invite_comment, invited_by, responded_at)
+VALUES ($1, $2, 'APPLIED', NULL, NULL, '', NULL, now())
 ON CONFLICT (project_id, user_id)
-DO UPDATE SET status='APPLIED', position_id=NULL, joined_at=NULL
-RETURNING id, project_id, user_id, position_id, status, joined_at, created_at;
+DO UPDATE SET status='APPLIED', position_id=NULL, joined_at=NULL, invite_comment='', invited_by=NULL, responded_at=now()
+RETURNING id, project_id, user_id, position_id, status, invite_comment, invited_by, responded_at, joined_at, created_at;
 `
 	var m Member
 	var positionID *uuid.UUID
+	var invitedBy *uuid.UUID
 	err = s.db.QueryRow(ctx, q, projectID, userID).Scan(
 		&m.ID,
 		&m.ProjectID,
 		&m.UserID,
 		&positionID,
 		&m.Status,
+		&m.InviteComment,
+		&invitedBy,
+		&m.RespondedAt,
 		&m.JoinedAt,
 		&m.CreatedAt,
 	)
@@ -564,12 +749,16 @@ RETURNING id, project_id, user_id, position_id, status, joined_at, created_at;
 		s := positionID.String()
 		m.PositionID = &s
 	}
+	if invitedBy != nil {
+		s := invitedBy.String()
+		m.InvitedBy = &s
+	}
 	return m, nil
 }
 
 func (s *Service) ListMembers(ctx context.Context, projectID uuid.UUID) ([]Member, error) {
 	const q = `
-SELECT m.id, m.project_id, m.user_id, m.position_id, m.status, m.joined_at, m.created_at,
+SELECT m.id, m.project_id, m.user_id, m.position_id, m.status, m.invite_comment, m.invited_by, m.responded_at, m.joined_at, m.created_at,
        p.code, p.name
 FROM project_members m
 LEFT JOIN project_positions p ON p.id = m.position_id
@@ -586,6 +775,7 @@ ORDER BY m.created_at ASC;
 	for rows.Next() {
 		var m Member
 		var positionID *uuid.UUID
+		var invitedBy *uuid.UUID
 		var posCode *string
 		var posName *string
 		if err := rows.Scan(
@@ -594,6 +784,9 @@ ORDER BY m.created_at ASC;
 			&m.UserID,
 			&positionID,
 			&m.Status,
+			&m.InviteComment,
+			&invitedBy,
+			&m.RespondedAt,
 			&m.JoinedAt,
 			&m.CreatedAt,
 			&posCode,
@@ -604,6 +797,10 @@ ORDER BY m.created_at ASC;
 		if positionID != nil {
 			s := positionID.String()
 			m.PositionID = &s
+		}
+		if invitedBy != nil {
+			s := invitedBy.String()
+			m.InvitedBy = &s
 		}
 		m.PositionCode = posCode
 		m.PositionName = posName
@@ -629,18 +826,22 @@ func (s *Service) ApproveMember(ctx context.Context, userID, projectID, memberUs
 
 	const q = `
 UPDATE project_members
-SET status='ACTIVE', position_id=$3, joined_at=now()
-WHERE project_id=$1 AND user_id=$2 AND status IN ('APPLIED', 'ACTIVE')
-RETURNING id, project_id, user_id, position_id, status, joined_at, created_at;
+SET status='ACTIVE', position_id=$3, joined_at=now(), responded_at=now()
+	WHERE project_id=$1 AND user_id=$2 AND status IN ('APPLIED', 'ACTIVE')
+RETURNING id, project_id, user_id, position_id, status, invite_comment, invited_by, responded_at, joined_at, created_at;
 `
 	var m Member
 	var posID *uuid.UUID
+	var invitedBy *uuid.UUID
 	err = s.db.QueryRow(ctx, q, projectID, memberUserID, positionID).Scan(
 		&m.ID,
 		&m.ProjectID,
 		&m.UserID,
 		&posID,
 		&m.Status,
+		&m.InviteComment,
+		&invitedBy,
+		&m.RespondedAt,
 		&m.JoinedAt,
 		&m.CreatedAt,
 	)
@@ -650,6 +851,10 @@ RETURNING id, project_id, user_id, position_id, status, joined_at, created_at;
 	if posID != nil {
 		s := posID.String()
 		m.PositionID = &s
+	}
+	if invitedBy != nil {
+		s := invitedBy.String()
+		m.InvitedBy = &s
 	}
 	if err := s.ensureProjectRole(ctx, memberUserID, "MEMBER", projectID); err != nil {
 		return Member{}, err
@@ -692,13 +897,158 @@ RETURNING id, project_id, user_id, position_id, status, joined_at, created_at;
 	return m, nil
 }
 
+func (s *Service) RespondMemberInvite(ctx context.Context, userID, projectID uuid.UUID, accept bool) (Member, error) {
+	p, err := s.projectByID(ctx, projectID)
+	if err != nil {
+		return Member{}, err
+	}
+	if err := s.requireFacultyPermission(ctx, userID, "member.apply", p.FacultyID); err != nil {
+		return Member{}, err
+	}
+
+	q := `
+UPDATE project_members
+SET status = CASE WHEN $3::boolean THEN 'ACTIVE' ELSE 'REJECTED' END,
+    joined_at = CASE WHEN $3::boolean THEN now() ELSE NULL END,
+    responded_at = now()
+WHERE project_id = $1
+  AND user_id = $2
+  AND status = 'INVITED'
+RETURNING id, project_id, user_id, position_id, status, invite_comment, invited_by, responded_at, joined_at, created_at;
+`
+
+	var m Member
+	var posID *uuid.UUID
+	var invitedBy *uuid.UUID
+	err = s.db.QueryRow(ctx, q, projectID, userID, accept).Scan(
+		&m.ID,
+		&m.ProjectID,
+		&m.UserID,
+		&posID,
+		&m.Status,
+		&m.InviteComment,
+		&invitedBy,
+		&m.RespondedAt,
+		&m.JoinedAt,
+		&m.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Member{}, ErrInviteNotFound
+		}
+		return Member{}, err
+	}
+	if posID != nil {
+		s := posID.String()
+		m.PositionID = &s
+	}
+	if invitedBy != nil {
+		s := invitedBy.String()
+		m.InvitedBy = &s
+	}
+	if accept {
+		if err := s.ensureProjectRole(ctx, userID, "MEMBER", projectID); err != nil {
+			return Member{}, err
+		}
+	}
+	return m, nil
+}
+
+func (s *Service) SearchProfessors(ctx context.Context, userID, projectID uuid.UUID, query string, limit int) ([]ProfessorCandidate, error) {
+	if err := s.requireProjectPermission(ctx, userID, "project.invite_professor", projectID); err != nil {
+		return nil, err
+	}
+	p, err := s.projectByID(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	term := normalizeSearchQuery(query)
+	limit = clampLimit(limit, 50)
+
+	const q = `
+SELECT u.id,
+       COALESCE(NULLIF(TRIM(up.full_name), ''), split_part(u.email, '@', 1)) AS full_name,
+       u.email,
+       COALESCE(d.code, '') AS department_code
+FROM users u
+JOIN user_profiles up ON up.user_id = u.id
+LEFT JOIN departments d ON d.id = up.department_id
+WHERE u.status = 'ACTIVE'
+  AND up.faculty_id = $1
+  AND u.id <> $4
+  AND u.id <> $5
+  AND EXISTS (
+    SELECT 1
+    FROM role_assignments ra
+    JOIN roles r ON r.id = ra.role_id
+    WHERE ra.user_id = u.id
+      AND r.code = 'PROFESSOR'
+  )
+  AND ($2 = '' OR lower(up.full_name) LIKE '%' || $2 || '%' OR lower(u.email) LIKE '%' || $2 || '%')
+ORDER BY up.full_name ASC, u.email ASC
+LIMIT $3;
+`
+	rows, err := s.db.Query(ctx, q, p.FacultyID, term, limit, userID, p.CreatedBy)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]ProfessorCandidate, 0, limit)
+	for rows.Next() {
+		var item ProfessorCandidate
+		if err := rows.Scan(&item.UserID, &item.FullName, &item.Email, &item.DepartmentCode); err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
 func (s *Service) AssignProfessor(ctx context.Context, userID, projectID, professorID uuid.UUID) (domain.Project, error) {
 	if err := s.requireProjectPermission(ctx, userID, "project.invite_professor", projectID); err != nil {
 		return domain.Project{}, err
 	}
+	p, err := s.projectByID(ctx, projectID)
+	if err != nil {
+		return domain.Project{}, err
+	}
+	if professorID == userID || professorID == p.CreatedBy {
+		return domain.Project{}, ErrInvalidInput
+	}
+
+	const verifyProfessorQ = `
+SELECT EXISTS (
+  SELECT 1
+  FROM users u
+  JOIN user_profiles up ON up.user_id = u.id
+  WHERE u.id = $1
+    AND u.status = 'ACTIVE'
+    AND up.faculty_id = $2
+    AND EXISTS (
+      SELECT 1
+      FROM role_assignments ra
+      JOIN roles r ON r.id = ra.role_id
+      WHERE ra.user_id = u.id
+        AND r.code = 'PROFESSOR'
+    )
+) AS ok;
+`
+	var professorOK bool
+	if err := s.db.QueryRow(ctx, verifyProfessorQ, professorID, p.FacultyID).Scan(&professorOK); err != nil {
+		return domain.Project{}, err
+	}
+	if !professorOK {
+		return domain.Project{}, ErrInvalidInput
+	}
+
 	const q = `
 UPDATE projects
 SET professor_id = $2,
+    professor_review_status = 'PENDING',
+    professor_invited_at = now(),
+    professor_responded_at = NULL,
     status = CASE WHEN status IN ('DRAFT','RECRUITMENT') THEN 'REVIEW' ELSE status END,
     updated_at = now()
 WHERE id = $1;
@@ -710,10 +1060,147 @@ WHERE id = $1;
 	if ct.RowsAffected() == 0 {
 		return domain.Project{}, pgx.ErrNoRows
 	}
-	if err := s.ensureProjectRole(ctx, professorID, "PROJECT_PROFESSOR", projectID); err != nil {
+	return s.projectByID(ctx, projectID)
+}
+
+func (s *Service) GetAssignedProfessor(ctx context.Context, userID, projectID uuid.UUID) (*ProfessorCandidate, error) {
+	if err := s.requireProjectPermission(ctx, userID, "project.view", projectID); err != nil {
+		return nil, err
+	}
+	p, err := s.projectByID(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	if p.ProfessorID == nil {
+		return nil, nil
+	}
+
+	const q = `
+SELECT u.id,
+       COALESCE(NULLIF(TRIM(up.full_name), ''), split_part(u.email, '@', 1)) AS full_name,
+       u.email,
+       COALESCE(d.code, '') AS department_code
+FROM users u
+JOIN user_profiles up ON up.user_id = u.id
+LEFT JOIN departments d ON d.id = up.department_id
+WHERE u.id = $1
+  AND up.faculty_id = $2
+LIMIT 1;
+`
+	var item ProfessorCandidate
+	if err := s.db.QueryRow(ctx, q, *p.ProfessorID, p.FacultyID).Scan(
+		&item.UserID,
+		&item.FullName,
+		&item.Email,
+		&item.DepartmentCode,
+	); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &item, nil
+}
+
+func (s *Service) RespondProfessorInvite(ctx context.Context, professorID, projectID uuid.UUID, accept bool) (domain.Project, error) {
+	nextStatus := "REJECTED"
+	if accept {
+		nextStatus = "ACCEPTED"
+	}
+
+	const q = `
+UPDATE projects
+SET professor_review_status = $3,
+    professor_responded_at = now(),
+    updated_at = now()
+WHERE id = $1
+  AND professor_id = $2
+  AND professor_review_status = 'PENDING'
+RETURNING id, title, description, status, is_public, created_by, professor_id,
+          professor_review_status, faculty_id, visibility, group_id, created_at, updated_at;
+`
+	var p domain.Project
+	var profID *uuid.UUID
+	var groupID *uuid.UUID
+	err := s.db.QueryRow(ctx, q, projectID, professorID, nextStatus).Scan(
+		&p.ID,
+		&p.Title,
+		&p.Description,
+		&p.Status,
+		&p.IsPublic,
+		&p.CreatedBy,
+		&profID,
+		&p.ProfessorReviewStatus,
+		&p.FacultyID,
+		&p.Visibility,
+		&groupID,
+		&p.CreatedAt,
+		&p.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.Project{}, ErrInviteNotFound
+		}
 		return domain.Project{}, err
 	}
-	return s.projectByID(ctx, projectID)
+	p.ProfessorID = profID
+	p.GroupID = groupID
+
+	if accept {
+		if err := s.ensureProjectRole(ctx, professorID, "PROJECT_PROFESSOR", projectID); err != nil {
+			return domain.Project{}, err
+		}
+	}
+	return p, nil
+}
+
+func (s *Service) ListProfessorReviewInvites(ctx context.Context, professorID uuid.UUID, query string, limit int) ([]domain.Project, error) {
+	term := normalizeSearchQuery(query)
+	limit = clampLimit(limit, 100)
+
+	const q = `
+SELECT id, title, description, status, is_public, created_by, professor_id,
+       professor_review_status, faculty_id, visibility, group_id, created_at, updated_at
+FROM projects
+WHERE professor_id = $1
+  AND professor_review_status = 'PENDING'
+  AND ($2 = '' OR lower(title) LIKE '%' || $2 || '%' OR lower(description) LIKE '%' || $2 || '%')
+ORDER BY updated_at DESC
+LIMIT $3;
+`
+	rows, err := s.db.Query(ctx, q, professorID, term, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]domain.Project, 0, limit)
+	for rows.Next() {
+		var p domain.Project
+		var profID *uuid.UUID
+		var groupID *uuid.UUID
+		if err := rows.Scan(
+			&p.ID,
+			&p.Title,
+			&p.Description,
+			&p.Status,
+			&p.IsPublic,
+			&p.CreatedBy,
+			&profID,
+			&p.ProfessorReviewStatus,
+			&p.FacultyID,
+			&p.Visibility,
+			&groupID,
+			&p.CreatedAt,
+			&p.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		p.ProfessorID = profID
+		p.GroupID = groupID
+		out = append(out, p)
+	}
+	return out, rows.Err()
 }
 
 func (s *Service) CreateCriterion(ctx context.Context, userID, projectID uuid.UUID, title, description string, weight int) (Criterion, error) {
@@ -774,6 +1261,109 @@ ORDER BY created_at ASC;
 	return out, rows.Err()
 }
 
+func (s *Service) GetGrading(ctx context.Context, userID, projectID uuid.UUID) ([]CriterionGrade, error) {
+	if err := s.requireProjectPermission(ctx, userID, "project.view", projectID); err != nil {
+		return nil, err
+	}
+	const q = `
+SELECT criterion_id, is_met, comment, updated_at
+FROM project_criterion_reviews
+WHERE project_id = $1
+  AND professor_id = $2
+ORDER BY updated_at DESC;
+`
+	rows, err := s.db.Query(ctx, q, projectID, userID)
+	if err != nil {
+		if isUndefinedRelation(err, "project_criterion_reviews") {
+			return []CriterionGrade{}, nil
+		}
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]CriterionGrade, 0, 16)
+	for rows.Next() {
+		var item CriterionGrade
+		if err := rows.Scan(&item.CriterionID, &item.IsMet, &item.Comment, &item.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
+func (s *Service) UpsertGrading(ctx context.Context, userID, projectID uuid.UUID, items []CriterionGrade) ([]CriterionGrade, error) {
+	if err := s.requireProjectPermission(ctx, userID, "grading.mark_criteria", projectID); err != nil {
+		return nil, err
+	}
+	p, err := s.projectByID(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	if p.Status != domain.ProjectReview && p.Status != domain.ProjectGrading && p.Status != domain.ProjectArchive {
+		return nil, ErrInvalidInput
+	}
+
+	uniq := make(map[uuid.UUID]CriterionGrade, len(items))
+	for _, item := range items {
+		cid, err := uuid.Parse(strings.TrimSpace(item.CriterionID))
+		if err != nil {
+			return nil, ErrInvalidInput
+		}
+		comment := strings.TrimSpace(item.Comment)
+		if len(comment) > 3000 {
+			comment = comment[:3000]
+		}
+		uniq[cid] = CriterionGrade{
+			CriterionID: cid.String(),
+			IsMet:       item.IsMet,
+			Comment:     comment,
+		}
+	}
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	const qExists = `
+SELECT EXISTS (
+  SELECT 1
+  FROM project_criteria
+  WHERE id = $1
+    AND project_id = $2
+) AS ok;
+`
+	const qUpsert = `
+INSERT INTO project_criterion_reviews(tenant_id, project_id, criterion_id, professor_id, is_met, comment)
+VALUES ((SELECT tenant_id FROM projects WHERE id = $1), $1, $2, $3, $4, $5)
+ON CONFLICT (project_id, criterion_id, professor_id)
+DO UPDATE SET is_met = EXCLUDED.is_met, comment = EXCLUDED.comment, updated_at = now();
+`
+
+	for cid, item := range uniq {
+		var ok bool
+		if err := tx.QueryRow(ctx, qExists, cid, projectID).Scan(&ok); err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, ErrInvalidInput
+		}
+		if _, err := tx.Exec(ctx, qUpsert, projectID, cid, userID, item.IsMet, item.Comment); err != nil {
+			if isUndefinedRelation(err, "project_criterion_reviews") {
+				return nil, ErrInvalidInput
+			}
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return s.GetGrading(ctx, userID, projectID)
+}
+
 func (s *Service) Readiness(ctx context.Context, projectID uuid.UUID) (Readiness, error) {
 	p, err := s.projectByID(ctx, projectID)
 	if err != nil {
@@ -796,7 +1386,12 @@ func (s *Service) Readiness(ctx context.Context, projectID uuid.UUID) (Readiness
 	}
 
 	hasProfessor := p.ProfessorID != nil
-	canActivate := requiredMembers > 0 && activeMembers >= requiredMembers && hasProfessor && criteriaCount > 0
+	professorStatus := strings.ToUpper(strings.TrimSpace(p.ProfessorReviewStatus))
+	if professorStatus == "" {
+		professorStatus = "NONE"
+	}
+	professorAccepted := professorStatus == "ACCEPTED"
+	canActivate := requiredMembers > 0 && activeMembers >= requiredMembers && professorAccepted && criteriaCount > 0
 
 	return Readiness{
 		ProjectID:       projectID.String(),
@@ -804,6 +1399,7 @@ func (s *Service) Readiness(ctx context.Context, projectID uuid.UUID) (Readiness
 		RequiredMembers: requiredMembers,
 		ActiveMembers:   activeMembers,
 		HasProfessor:    hasProfessor,
+		ProfessorStatus: professorStatus,
 		CriteriaCount:   criteriaCount,
 		CanActivate:     canActivate,
 	}, nil
@@ -818,7 +1414,7 @@ func (s *Service) ApproveProject(ctx context.Context, userID, projectID uuid.UUI
 		return domain.Project{}, Readiness{}, err
 	}
 	if !ready.CanActivate {
-		return domain.Project{}, ready, fmt.Errorf("%w: members=%d/%d professor=%v criteria=%d", ErrProjectNotReady, ready.ActiveMembers, ready.RequiredMembers, ready.HasProfessor, ready.CriteriaCount)
+		return domain.Project{}, ready, fmt.Errorf("%w: members=%d/%d professor=%s criteria=%d", ErrProjectNotReady, ready.ActiveMembers, ready.RequiredMembers, ready.ProfessorStatus, ready.CriteriaCount)
 	}
 
 	const q = `

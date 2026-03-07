@@ -6,6 +6,7 @@
   const LS_STUDENT_NAME = "idsai_student_name";
   const LS_STUDENT_EMAIL = "idsai_student_email";
   const LS_IS_ADMIN = "idsai_is_admin";
+  const LS_IS_PROFESSOR = "idsai_is_professor";
 
   const viewButtons = Array.from(document.querySelectorAll(".side-link[data-view]"));
   const viewEls = Array.from(document.querySelectorAll(".view"));
@@ -120,6 +121,7 @@
     localStorage.removeItem(LS_STUDENT_NAME);
     localStorage.removeItem(LS_STUDENT_EMAIL);
     localStorage.removeItem(LS_IS_ADMIN);
+    localStorage.removeItem(LS_IS_PROFESSOR);
   }
 
   function ensureAdminSession() {
@@ -135,8 +137,9 @@
       localStorage.setItem(LS_USER, claims.sub);
       localStorage.setItem(LS_FACULTY, claims.faculty_id);
       localStorage.setItem(LS_IS_ADMIN, claims.is_admin ? "1" : "0");
+      localStorage.setItem(LS_IS_PROFESSOR, claims.is_professor ? "1" : "0");
       if (!claims.is_admin) {
-        window.location.href = "/dev/projects";
+        window.location.href = claims.is_professor ? "/dev/professor" : "/dev/projects";
         return null;
       }
       return claims;
@@ -440,6 +443,7 @@
         <td>
           <div class="row-actions">
             <button type="button" class="action-btn" data-act="set-user-status" data-id="${u.id}" data-status="${actionStatus}">${escapeHTML(actionLabel)}</button>
+            <button type="button" class="action-btn reject" data-act="delete-user" data-id="${u.id}" data-name="${escapeHTML(u.full_name || u.email || "Пользователь")}">Удалить</button>
           </div>
         </td>
       `;
@@ -469,11 +473,18 @@
         actions = `
           <button class="action-btn approve" data-project-act="set-status" data-id="${p.id}" data-next="ACTIVE">Одобрить</button>
           <button class="action-btn reject" data-project-act="set-status" data-id="${p.id}" data-next="ARCHIVE" data-title="${escapeHTML(p.title || "")}">Отклонить</button>
+          <button class="action-btn reject" data-project-act="delete" data-id="${p.id}" data-title="${escapeHTML(p.title || "")}">Удалить</button>
         `;
       } else if (status === "ARCHIVE") {
-        actions = `<button class="action-btn" data-project-act="set-status" data-id="${p.id}" data-next="ACTIVE">Активировать</button>`;
+        actions = `
+          <button class="action-btn" data-project-act="set-status" data-id="${p.id}" data-next="ACTIVE">Активировать</button>
+          <button class="action-btn reject" data-project-act="delete" data-id="${p.id}" data-title="${escapeHTML(p.title || "")}">Удалить</button>
+        `;
       } else {
-        actions = `<button class="action-btn reject" data-project-act="set-status" data-id="${p.id}" data-next="ARCHIVE" data-title="${escapeHTML(p.title || "")}">В архив</button>`;
+        actions = `
+          <button class="action-btn reject" data-project-act="set-status" data-id="${p.id}" data-next="ARCHIVE" data-title="${escapeHTML(p.title || "")}">В архив</button>
+          <button class="action-btn reject" data-project-act="delete" data-id="${p.id}" data-title="${escapeHTML(p.title || "")}">Удалить</button>
+        `;
       }
 
       const tr = document.createElement("tr");
@@ -671,6 +682,36 @@
     if (!resp.ok) {
       if (handleAuthFail(resp.status)) return false;
       projectModalStatusEl.textContent = data.error || `Ошибка смены статуса: ${resp.status}`;
+      return false;
+    }
+
+    return true;
+  }
+
+  async function deleteUser(userID) {
+    const { resp, data } = await requestJSON(`/v2/admin/users/${userID}`, {
+      method: "DELETE",
+      headers: authHeaders(false),
+    });
+
+    if (!resp.ok) {
+      if (handleAuthFail(resp.status)) return false;
+      alert(data.error || `Ошибка удаления пользователя: ${resp.status}`);
+      return false;
+    }
+
+    return true;
+  }
+
+  async function deleteProject(projectID) {
+    const { resp, data } = await requestJSON(`/v2/admin/projects/${projectID}`, {
+      method: "DELETE",
+      headers: authHeaders(false),
+    });
+
+    if (!resp.ok) {
+      if (handleAuthFail(resp.status)) return false;
+      alert(data.error || `Ошибка удаления проекта: ${resp.status}`);
       return false;
     }
 
@@ -892,23 +933,45 @@
     usersBodyEl.addEventListener("click", async (e) => {
       const target = e.target;
       if (!(target instanceof HTMLElement)) return;
-      if (target.dataset.act !== "set-user-status") return;
+      const action = target.dataset.act || "";
       const userID = target.dataset.id || "";
-      const status = target.dataset.status || "";
-      if (!userID || !status) return;
-      await setUserStatus(userID, status);
+      if (!userID) return;
+
+      if (action === "set-user-status") {
+        const status = target.dataset.status || "";
+        if (!status) return;
+        await setUserStatus(userID, status);
+        return;
+      }
+
+      if (action === "delete-user") {
+        const name = target.dataset.name || "пользователь";
+        if (!window.confirm(`Удалить пользователя "${name}"?`)) return;
+        const ok = await deleteUser(userID);
+        if (!ok) return;
+        await reloadAll();
+      }
     });
 
     projectsBodyEl.addEventListener("click", async (e) => {
       const target = e.target;
       if (!(target instanceof HTMLElement)) return;
-      if (target.dataset.projectAct !== "set-status") return;
-
+      const action = target.dataset.projectAct || "";
       const projectID = target.dataset.id || "";
-      const nextStatus = String(target.dataset.next || "").toUpperCase();
       const projectTitle = target.dataset.title || "";
+      if (!projectID || !action) return;
 
-      if (!projectID || !nextStatus) return;
+      if (action === "delete") {
+        if (!window.confirm(`Удалить проект "${projectTitle || "без названия"}"?`)) return;
+        const ok = await deleteProject(projectID);
+        if (!ok) return;
+        await reloadAll();
+        return;
+      }
+
+      if (action !== "set-status") return;
+      const nextStatus = String(target.dataset.next || "").toUpperCase();
+      if (!nextStatus) return;
 
       if (nextStatus === "ARCHIVE") {
         openProjectStatusModal(projectID, projectTitle, nextStatus);

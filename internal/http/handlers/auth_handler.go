@@ -44,6 +44,7 @@ type meResp struct {
 	FacultyID    string `json:"faculty_id"`
 	DepartmentID string `json:"department_id"`
 	IsAdmin      bool   `json:"is_admin"`
+	IsProfessor  bool   `json:"is_professor"`
 }
 
 func tenantCodeFromHeader(c *gin.Context) string {
@@ -159,6 +160,7 @@ func (h *AuthHandler) Me(c *gin.Context) {
 		return
 	}
 	isAdmin, _ := middleware.IsAdminFromCtx(c)
+	isProfessor, _ := middleware.IsProfessorFromCtx(c)
 
 	c.JSON(http.StatusOK, meResp{
 		UserID:       uid.String(),
@@ -166,5 +168,6 @@ func (h *AuthHandler) Me(c *gin.Context) {
 		FacultyID:    fid.String(),
 		DepartmentID: didAny.(interface{ String() string }).String(),
 		IsAdmin:      isAdmin,
+		IsProfessor:  isProfessor,
 	})
 }
