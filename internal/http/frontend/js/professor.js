@@ -31,6 +31,14 @@
     return JSON.parse(atob(payload));
   }
 
+  function clearSession() {
+    localStorage.removeItem(LS_ACCESS);
+    localStorage.removeItem(LS_REFRESH);
+    localStorage.removeItem(LS_USER);
+    localStorage.removeItem(LS_IS_ADMIN);
+    localStorage.removeItem(LS_IS_PROFESSOR);
+  }
+
   function ensureSession() {
     const access = localStorage.getItem(LS_ACCESS) || "";
     if (!access) {
@@ -53,11 +61,7 @@
       }
       return c;
     } catch (_) {
-      localStorage.removeItem(LS_ACCESS);
-      localStorage.removeItem(LS_REFRESH);
-      localStorage.removeItem(LS_USER);
-      localStorage.removeItem(LS_IS_ADMIN);
-      localStorage.removeItem(LS_IS_PROFESSOR);
+      clearSession();
       window.location.href = "/dev/login";
       return null;
     }
@@ -84,6 +88,7 @@
       body: body ? JSON.stringify(body) : undefined,
     });
     if (resp.status === 401) {
+      clearSession();
       window.location.href = "/dev/login";
       return null;
     }
@@ -351,9 +356,7 @@
     }
     if (logoutBtn) {
       logoutBtn.addEventListener("click", () => {
-        localStorage.removeItem(LS_ACCESS);
-        localStorage.removeItem(LS_REFRESH);
-        localStorage.removeItem(LS_USER);
+        clearSession();
         window.location.href = "/dev/login";
       });
     }

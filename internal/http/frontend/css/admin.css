@@ -1118,6 +1118,51 @@ tbody tr:last-child td {
   cursor: not-allowed;
 }
 
+.observe-card {
+  width: min(1080px, 100%);
+}
+
+.observe-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.obs-pill {
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
+}
+
+.obs-pill strong {
+  color: #0f1728;
+}
+
+.observe-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.observe-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.observe-panel h4 {
+  margin: 0;
+  color: #334155;
+  font-size: 14px;
+}
+
+.observe-panel table {
+  min-width: 560px;
+}
+
 @media (max-width: 1240px) {
   .hero-card {
     grid-template-columns: 1fr;
@@ -1128,6 +1173,10 @@ tbody tr:last-child td {
   }
 
   .quick-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .observe-grid {
     grid-template-columns: 1fr;
   }
 }

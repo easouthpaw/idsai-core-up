@@ -33,6 +33,10 @@ func DevProjectPage(c *gin.Context) {
 	c.FileFromFS("project.html", devFrontendFS)
 }
 
+func DevInvitesPage(c *gin.Context) {
+	c.FileFromFS("invites.html", devFrontendFS)
+}
+
 func DevProfessorPage(c *gin.Context) {
 	c.FileFromFS("professor.html", devFrontendFS)
 }

@@ -46,6 +46,14 @@ type setStatusReq struct {
 	Status string `json:"status"`
 }
 
+type setRoleReq struct {
+	Role string `json:"role"`
+}
+
+type resetPasswordReq struct {
+	Password string `json:"password"`
+}
+
 type setProjectStatusReq struct {
 	Status string `json:"status"`
 }
@@ -115,6 +123,65 @@ func (h *AdminHandler) SetStatus(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update status"})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+func (h *AdminHandler) SetRole(c *gin.Context) {
+	userID, err := uuid.Parse(c.Param("user_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	var req setRoleReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
+		return
+	}
+
+	user, err := h.svc.SetUserRole(c.Request.Context(), userID, req.Role)
+	if err != nil {
+		if errors.Is(err, admin.ErrInvalidRole) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update role"})
+		return
+	}
+
+	c.JSON(http.StatusOK, user)
+}
+
+func (h *AdminHandler) ResetPassword(c *gin.Context) {
+	userID, err := uuid.Parse(c.Param("user_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	var req resetPasswordReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
+		return
+	}
+
+	if err := h.svc.ResetUserPassword(c.Request.Context(), userID, req.Password); err != nil {
+		if errors.Is(err, admin.ErrInvalidInput) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to reset password"})
 		return
 	}
 
@@ -232,6 +299,26 @@ func (h *AdminHandler) DeleteProject(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+func (h *AdminHandler) ObserveProject(c *gin.Context) {
+	projectID, err := uuid.Parse(c.Param("project_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid project id"})
+		return
+	}
+
+	ob, err := h.svc.ObserveProject(c.Request.Context(), projectID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "project not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to observe project"})
+		return
+	}
+
+	c.JSON(http.StatusOK, ob)
 }
 
 func (h *AdminHandler) createByRole(c *gin.Context, role string) {

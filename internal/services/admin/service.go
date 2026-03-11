@@ -52,6 +52,66 @@ type Project struct {
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 
+type ProjectPosition struct {
+	ID       uuid.UUID `json:"id"`
+	Code     string    `json:"code"`
+	Name     string    `json:"name"`
+	Capacity int       `json:"capacity"`
+}
+
+type ProjectMember struct {
+	UserID       uuid.UUID  `json:"user_id"`
+	FullName     string     `json:"full_name"`
+	Email        string     `json:"email"`
+	RoleCode     string     `json:"role_code"`
+	Status       string     `json:"status"`
+	PositionCode string     `json:"position_code"`
+	PositionName string     `json:"position_name"`
+	JoinedAt     *time.Time `json:"joined_at,omitempty"`
+	RespondedAt  *time.Time `json:"responded_at,omitempty"`
+}
+
+type ProjectTask struct {
+	ID             uuid.UUID  `json:"id"`
+	Title          string     `json:"title"`
+	Status         string     `json:"status"`
+	PositionCode   string     `json:"position_code"`
+	AssigneeUserID *uuid.UUID `json:"assignee_user_id,omitempty"`
+	AssigneeName   string     `json:"assignee_name"`
+	DueAt          *time.Time `json:"due_at,omitempty"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+}
+
+type ProjectCriterion struct {
+	ID        uuid.UUID  `json:"id"`
+	Title     string     `json:"title"`
+	Weight    int        `json:"weight"`
+	CreatedBy uuid.UUID  `json:"created_by"`
+	CreatedAt time.Time  `json:"created_at"`
+	IsMet     *bool      `json:"is_met,omitempty"`
+	Comment   string     `json:"comment,omitempty"`
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+}
+
+type ProjectObservationSummary struct {
+	MembersTotal   int `json:"members_total"`
+	MembersActive  int `json:"members_active"`
+	MembersApplied int `json:"members_applied"`
+	MembersInvited int `json:"members_invited"`
+	TasksTotal     int `json:"tasks_total"`
+	TasksDone      int `json:"tasks_done"`
+	CriteriaTotal  int `json:"criteria_total"`
+}
+
+type ProjectObservation struct {
+	Project   Project                   `json:"project"`
+	Positions []ProjectPosition         `json:"positions"`
+	Members   []ProjectMember           `json:"members"`
+	Tasks     []ProjectTask             `json:"tasks"`
+	Criteria  []ProjectCriterion        `json:"criteria"`
+	Summary   ProjectObservationSummary `json:"summary"`
+}
+
 type CreateUserInput struct {
 	Email          string
 	Password       string
@@ -71,8 +131,12 @@ type CreateUserParams struct {
 type Repository interface {
 	ListUsers(ctx context.Context, roleCode, search string) ([]User, error)
 	ListProjects(ctx context.Context, status, search string) ([]Project, error)
+	GetProjectObservation(ctx context.Context, projectID uuid.UUID) (ProjectObservation, error)
 	CreateUser(ctx context.Context, in CreateUserParams) (User, error)
+	GetUserByID(ctx context.Context, userID uuid.UUID) (User, error)
 	UpdateUserStatus(ctx context.Context, userID uuid.UUID, status string) error
+	UpdateUserRole(ctx context.Context, userID uuid.UUID, roleCode string) error
+	UpdateUserPasswordHash(ctx context.Context, userID uuid.UUID, passwordHash string) error
 	UpdateProjectStatus(ctx context.Context, projectID uuid.UUID, status string) error
 	DeleteUser(ctx context.Context, userID uuid.UUID) error
 	DeleteProject(ctx context.Context, projectID uuid.UUID) error
@@ -141,6 +205,29 @@ func (s *Service) SetUserStatus(ctx context.Context, userID uuid.UUID, status st
 	return s.repo.UpdateUserStatus(ctx, userID, normalized)
 }
 
+func (s *Service) SetUserRole(ctx context.Context, userID uuid.UUID, roleCode string) (User, error) {
+	role, err := normalizeRole(roleCode)
+	if err != nil {
+		return User{}, err
+	}
+	if err := s.repo.UpdateUserRole(ctx, userID, role); err != nil {
+		return User{}, err
+	}
+	return s.repo.GetUserByID(ctx, userID)
+}
+
+func (s *Service) ResetUserPassword(ctx context.Context, userID uuid.UUID, password string) error {
+	password = strings.TrimSpace(password)
+	if len(password) < 6 {
+		return ErrInvalidInput
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	return s.repo.UpdateUserPasswordHash(ctx, userID, string(hash))
+}
+
 func (s *Service) SetProjectStatus(ctx context.Context, projectID uuid.UUID, status string) (Project, error) {
 	normalized, err := normalizeProjectStatus(status)
 	if err != nil {
@@ -158,6 +245,10 @@ func (s *Service) DeleteUser(ctx context.Context, userID uuid.UUID) error {
 
 func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) error {
 	return s.repo.DeleteProject(ctx, projectID)
+}
+
+func (s *Service) ObserveProject(ctx context.Context, projectID uuid.UUID) (ProjectObservation, error) {
+	return s.repo.GetProjectObservation(ctx, projectID)
 }
 
 func normalizeRole(role string) (string, error) {

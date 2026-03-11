@@ -2,6 +2,7 @@ package projectflow
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -75,6 +76,8 @@ type Member struct {
 	ID            string     `json:"id"`
 	ProjectID     string     `json:"project_id"`
 	UserID        string     `json:"user_id"`
+	FullName      string     `json:"full_name,omitempty"`
+	Email         string     `json:"email,omitempty"`
 	PositionID    *string    `json:"position_id,omitempty"`
 	PositionCode  *string    `json:"position_code,omitempty"`
 	PositionName  *string    `json:"position_name,omitempty"`
@@ -102,6 +105,22 @@ type Task struct {
 	UpdatedAt      time.Time  `json:"updated_at"`
 }
 
+type TaskActivity struct {
+	ID          string    `json:"id"`
+	ProjectID   string    `json:"project_id"`
+	TaskID      string    `json:"task_id"`
+	ActorUserID *string   `json:"actor_user_id,omitempty"`
+	ActorName   string    `json:"actor_name,omitempty"`
+	ActorEmail  string    `json:"actor_email,omitempty"`
+	EventType   string    `json:"event_type"`
+	FromStatus  string    `json:"from_status,omitempty"`
+	ToStatus    string    `json:"to_status,omitempty"`
+	Title       string    `json:"title,omitempty"`
+	Comment     string    `json:"comment,omitempty"`
+	Attachments []string  `json:"attachments,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
 type StudentCandidate struct {
 	UserID         string `json:"user_id"`
 	FullName       string `json:"full_name"`
@@ -114,6 +133,27 @@ type ProfessorCandidate struct {
 	FullName       string `json:"full_name"`
 	Email          string `json:"email"`
 	DepartmentCode string `json:"department_code"`
+}
+
+type IncomingInvite struct {
+	ProjectID     string     `json:"project_id"`
+	ProjectTitle  string     `json:"project_title"`
+	ProjectStatus string     `json:"project_status"`
+	InviteComment string     `json:"invite_comment,omitempty"`
+	InvitedBy     *string    `json:"invited_by,omitempty"`
+	InviterName   string     `json:"inviter_name,omitempty"`
+	InviterEmail  string     `json:"inviter_email,omitempty"`
+	CreatedAt     time.Time  `json:"created_at"`
+	RespondedAt   *time.Time `json:"responded_at,omitempty"`
+}
+
+type OutgoingApplication struct {
+	ProjectID     string     `json:"project_id"`
+	ProjectTitle  string     `json:"project_title"`
+	ProjectStatus string     `json:"project_status"`
+	Status        string     `json:"status"`
+	CreatedAt     time.Time  `json:"created_at"`
+	RespondedAt   *time.Time `json:"responded_at,omitempty"`
 }
 
 type Readiness struct {
@@ -187,6 +227,65 @@ func (s *Service) requireFacultyPermission(ctx context.Context, userID uuid.UUID
 	return nil
 }
 
+func (s *Service) isActiveProjectMember(ctx context.Context, userID, projectID uuid.UUID) (bool, error) {
+	const q = `
+SELECT EXISTS (
+  SELECT 1
+  FROM projects p
+  WHERE p.id = $1
+    AND (
+      p.created_by = $2
+      OR EXISTS (
+        SELECT 1
+        FROM project_members pm
+        WHERE pm.project_id = p.id
+          AND pm.user_id = $2
+          AND pm.status = 'ACTIVE'
+      )
+    )
+) AS ok;
+`
+	var ok bool
+	if err := s.db.QueryRow(ctx, q, projectID, userID).Scan(&ok); err != nil {
+		return false, err
+	}
+	return ok, nil
+}
+
+func (s *Service) requireProjectEditAccess(ctx context.Context, userID, projectID uuid.UUID) error {
+	if err := s.requireProjectPermission(ctx, userID, "project.edit", projectID); err == nil {
+		return nil
+	} else if !errors.Is(err, domain.ErrForbidden) {
+		return err
+	}
+
+	ok, err := s.isActiveProjectMember(ctx, userID, projectID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return domain.ErrForbidden
+	}
+	return nil
+}
+
+func (s *Service) requireProjectSubmitAccess(ctx context.Context, userID, projectID uuid.UUID) error {
+	if err := s.requireProjectPermission(ctx, userID, "project.submit_for_review", projectID); err == nil {
+		return nil
+	} else if !errors.Is(err, domain.ErrForbidden) {
+		return err
+	}
+
+	ok, err := s.isActiveProjectMember(ctx, userID, projectID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return domain.ErrForbidden
+	}
+	return nil
+}
+
 func (s *Service) ensureProjectRole(ctx context.Context, userID uuid.UUID, roleCode string, projectID uuid.UUID) error {
 	const q = `
 SELECT EXISTS (
@@ -207,6 +306,20 @@ SELECT EXISTS (
 		return nil
 	}
 	return s.grantor.GrantRoleByCode(ctx, userID, roleCode, rbac.Scope{Type: rbac.ScopeProject, ID: &projectID}, nil)
+}
+
+func (s *Service) revokeProjectRole(ctx context.Context, userID uuid.UUID, roleCode string, projectID uuid.UUID) error {
+	const q = `
+DELETE FROM role_assignments ra
+USING roles r
+WHERE ra.role_id = r.id
+  AND ra.user_id = $1
+  AND ra.scope_type = 'PROJECT'
+  AND ra.scope_id = $2
+  AND r.code = $3;
+`
+	_, err := s.db.Exec(ctx, q, userID, projectID, roleCode)
+	return err
 }
 
 func normalizeStackCodes(input []string) []string {
@@ -280,6 +393,85 @@ func clampLimit(limit, max int) int {
 		return max
 	}
 	return limit
+}
+
+func normalizeTaskAttachments(items []string) []string {
+	out := make([]string, 0, len(items))
+	seen := make(map[string]struct{}, len(items))
+	for _, raw := range items {
+		v := strings.TrimSpace(raw)
+		if v == "" {
+			continue
+		}
+		if len(v) > 1000 {
+			v = v[:1000]
+		}
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		seen[v] = struct{}{}
+		out = append(out, v)
+		if len(out) >= 10 {
+			break
+		}
+	}
+	return out
+}
+
+func encodeStringSliceJSON(items []string) []byte {
+	b, err := json.Marshal(items)
+	if err != nil {
+		return []byte("[]")
+	}
+	return b
+}
+
+func decodeStringSliceJSON(raw []byte) []string {
+	if len(raw) == 0 {
+		return []string{}
+	}
+	var out []string
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return []string{}
+	}
+	return normalizeTaskAttachments(out)
+}
+
+func (s *Service) appendTaskActivity(
+	ctx context.Context,
+	projectID, taskID uuid.UUID,
+	actorUserID *uuid.UUID,
+	eventType, fromStatus, toStatus, title, comment string,
+	attachments []string,
+) error {
+	eventType = strings.ToUpper(strings.TrimSpace(eventType))
+	if eventType == "" {
+		eventType = "STATUS_CHANGED"
+	}
+	fromStatus = strings.ToUpper(strings.TrimSpace(fromStatus))
+	toStatus = strings.ToUpper(strings.TrimSpace(toStatus))
+	title = strings.TrimSpace(title)
+	comment = strings.TrimSpace(comment)
+	if len(comment) > 3000 {
+		comment = comment[:3000]
+	}
+	attachments = normalizeTaskAttachments(attachments)
+
+	const q = `
+INSERT INTO task_activity_logs(
+  tenant_id, project_id, task_id, actor_user_id, event_type,
+  from_status, to_status, title, comment, attachments
+)
+VALUES (
+  (SELECT tenant_id FROM projects WHERE id = $1),
+  $1, $2, $3, $4, NULLIF($5, ''), NULLIF($6, ''), $7, $8, $9::jsonb
+);
+`
+	_, err := s.db.Exec(ctx, q, projectID, taskID, actorUserID, eventType, fromStatus, toStatus, title, comment, encodeStringSliceJSON(attachments))
+	if err != nil && isUndefinedRelation(err, "task_activity_logs") {
+		return nil
+	}
+	return err
 }
 
 func (s *Service) ensurePositionExists(ctx context.Context, projectID, positionID uuid.UUID) (capacity int, err error) {
@@ -405,7 +597,7 @@ func (s *Service) UpdateProject(ctx context.Context, userID, projectID uuid.UUID
 	if title == nil && description == nil {
 		return domain.Project{}, ErrInvalidInput
 	}
-	if err := s.requireProjectPermission(ctx, userID, "project.edit", projectID); err != nil {
+	if err := s.requireProjectEditAccess(ctx, userID, projectID); err != nil {
 		return domain.Project{}, err
 	}
 
@@ -443,7 +635,7 @@ WHERE id = $1;
 }
 
 func (s *Service) SetStacks(ctx context.Context, userID, projectID uuid.UUID, stacks []string) ([]Stack, error) {
-	if err := s.requireProjectPermission(ctx, userID, "project.edit", projectID); err != nil {
+	if err := s.requireProjectEditAccess(ctx, userID, projectID); err != nil {
 		return nil, err
 	}
 	norm := normalizeStackCodes(stacks)
@@ -461,7 +653,7 @@ func (s *Service) SetStacks(ctx context.Context, userID, projectID uuid.UUID, st
 		return nil, err
 	}
 	for _, code := range norm {
-		if _, err := tx.Exec(ctx, `INSERT INTO project_stacks(project_id, stack_code) VALUES ($1, $2)`, projectID, code); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO project_stacks(tenant_id, project_id, stack_code) VALUES ((SELECT tenant_id FROM projects WHERE id = $1), $1, $2)`, projectID, code); err != nil {
 			if isUndefinedRelation(err, "project_stacks") {
 				return stacksFromCodes(norm), nil
 			}
@@ -532,8 +724,8 @@ func (s *Service) CreatePosition(ctx context.Context, userID, projectID uuid.UUI
 	}
 
 	const q = `
-INSERT INTO project_positions(project_id, code, name, capacity)
-VALUES ($1, $2, $3, $4)
+INSERT INTO project_positions(tenant_id, project_id, code, name, capacity)
+VALUES ((SELECT tenant_id FROM projects WHERE id = $1), $1, $2, $3, $4)
 RETURNING id, project_id, code, name, capacity, created_at;
 `
 	var p Position
@@ -601,6 +793,7 @@ WHERE u.status = 'ACTIVE'
     FROM role_assignments ra
     JOIN roles r ON r.id = ra.role_id
     WHERE ra.user_id = u.id
+      AND ra.tenant_id = u.tenant_id
       AND r.code = 'STUDENT'
   )
   AND NOT EXISTS (
@@ -639,6 +832,9 @@ func (s *Service) InviteStudent(ctx context.Context, userID, projectID, studentI
 	if err != nil {
 		return Member{}, err
 	}
+	if p.Status != domain.ProjectRecruitment {
+		return Member{}, ErrRecruitmentOpen
+	}
 	if studentID == userID || studentID == p.CreatedBy {
 		return Member{}, ErrInvalidInput
 	}
@@ -650,12 +846,14 @@ SELECT EXISTS (
   JOIN user_profiles up ON up.user_id = u.id
   WHERE u.id = $1
     AND u.status = 'ACTIVE'
+    AND up.tenant_id = u.tenant_id
     AND up.faculty_id = $2
     AND EXISTS (
       SELECT 1
       FROM role_assignments ra
       JOIN roles r ON r.id = ra.role_id
       WHERE ra.user_id = u.id
+        AND ra.tenant_id = u.tenant_id
         AND r.code = 'STUDENT'
     )
 ) AS ok;
@@ -674,10 +872,11 @@ SELECT EXISTS (
 	}
 
 	const q = `
-INSERT INTO project_members(project_id, user_id, status, position_id, joined_at, invite_comment, invited_by, responded_at)
-VALUES ($1, $2, 'INVITED', NULL, NULL, $3, $4, NULL)
+INSERT INTO project_members(tenant_id, project_id, user_id, status, position_id, joined_at, invite_comment, invited_by, responded_at)
+VALUES ((SELECT tenant_id FROM projects WHERE id = $1), $1, $2, 'INVITED', NULL, NULL, $3, $4, NULL)
 ON CONFLICT (project_id, user_id)
 DO UPDATE SET status='INVITED', position_id=NULL, joined_at=NULL, invite_comment=EXCLUDED.invite_comment, invited_by=EXCLUDED.invited_by, responded_at=NULL
+WHERE project_members.status IN ('INVITED', 'APPLIED', 'REJECTED', 'REMOVED')
 RETURNING id, project_id, user_id, position_id, status, invite_comment, invited_by, responded_at, joined_at, created_at;
 `
 	var m Member
@@ -695,6 +894,9 @@ RETURNING id, project_id, user_id, position_id, status, invite_comment, invited_
 		&m.JoinedAt,
 		&m.CreatedAt,
 	); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Member{}, ErrInvalidInput
+		}
 		return Member{}, err
 	}
 	if posID != nil {
@@ -704,6 +906,9 @@ RETURNING id, project_id, user_id, position_id, status, invite_comment, invited_
 	if invitedBy != nil {
 		s := invitedBy.String()
 		m.InvitedBy = &s
+	}
+	if err := s.ensureProjectRole(ctx, studentID, "INVITED_MEMBER", projectID); err != nil {
+		return Member{}, err
 	}
 	return m, nil
 }
@@ -721,10 +926,11 @@ func (s *Service) ApplyMember(ctx context.Context, userID, projectID uuid.UUID) 
 	}
 
 	const q = `
-INSERT INTO project_members(project_id, user_id, status, position_id, joined_at, invite_comment, invited_by, responded_at)
-VALUES ($1, $2, 'APPLIED', NULL, NULL, '', NULL, now())
+INSERT INTO project_members(tenant_id, project_id, user_id, status, position_id, joined_at, invite_comment, invited_by, responded_at)
+VALUES ((SELECT tenant_id FROM projects WHERE id = $1), $1, $2, 'APPLIED', NULL, NULL, '', NULL, now())
 ON CONFLICT (project_id, user_id)
 DO UPDATE SET status='APPLIED', position_id=NULL, joined_at=NULL, invite_comment='', invited_by=NULL, responded_at=now()
+WHERE project_members.status IN ('APPLIED', 'INVITED', 'REJECTED', 'REMOVED')
 RETURNING id, project_id, user_id, position_id, status, invite_comment, invited_by, responded_at, joined_at, created_at;
 `
 	var m Member
@@ -743,6 +949,9 @@ RETURNING id, project_id, user_id, position_id, status, invite_comment, invited_
 		&m.CreatedAt,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Member{}, ErrInvalidInput
+		}
 		return Member{}, err
 	}
 	if positionID != nil {
@@ -759,9 +968,13 @@ RETURNING id, project_id, user_id, position_id, status, invite_comment, invited_
 func (s *Service) ListMembers(ctx context.Context, projectID uuid.UUID) ([]Member, error) {
 	const q = `
 SELECT m.id, m.project_id, m.user_id, m.position_id, m.status, m.invite_comment, m.invited_by, m.responded_at, m.joined_at, m.created_at,
-       p.code, p.name
+       p.code, p.name,
+       COALESCE(NULLIF(TRIM(up.full_name), ''), split_part(COALESCE(u.email, ''), '@', 1), '') AS full_name,
+       COALESCE(u.email, '') AS email
 FROM project_members m
 LEFT JOIN project_positions p ON p.id = m.position_id
+LEFT JOIN users u ON u.id = m.user_id
+LEFT JOIN user_profiles up ON up.user_id = m.user_id
 WHERE m.project_id = $1
 ORDER BY m.created_at ASC;
 `
@@ -791,6 +1004,8 @@ ORDER BY m.created_at ASC;
 			&m.CreatedAt,
 			&posCode,
 			&posName,
+			&m.FullName,
+			&m.Email,
 		); err != nil {
 			return nil, err
 		}
@@ -905,6 +1120,31 @@ func (s *Service) RespondMemberInvite(ctx context.Context, userID, projectID uui
 	if err := s.requireFacultyPermission(ctx, userID, "member.apply", p.FacultyID); err != nil {
 		return Member{}, err
 	}
+	if p.Status != domain.ProjectRecruitment {
+		return Member{}, ErrRecruitmentOpen
+	}
+
+	if accept {
+		var invitePositionID *uuid.UUID
+		err := s.db.QueryRow(ctx, `
+SELECT position_id
+FROM project_members
+WHERE project_id = $1
+  AND user_id = $2
+  AND status = 'INVITED'
+`, projectID, userID).Scan(&invitePositionID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return Member{}, ErrInviteNotFound
+			}
+			return Member{}, err
+		}
+		if invitePositionID != nil {
+			if err := s.ensurePositionCapacity(ctx, projectID, *invitePositionID, &userID); err != nil {
+				return Member{}, err
+			}
+		}
+	}
 
 	q := `
 UPDATE project_members
@@ -950,6 +1190,13 @@ RETURNING id, project_id, user_id, position_id, status, invite_comment, invited_
 		if err := s.ensureProjectRole(ctx, userID, "MEMBER", projectID); err != nil {
 			return Member{}, err
 		}
+		if err := s.revokeProjectRole(ctx, userID, "INVITED_MEMBER", projectID); err != nil {
+			return Member{}, err
+		}
+	} else {
+		if err := s.revokeProjectRole(ctx, userID, "INVITED_MEMBER", projectID); err != nil {
+			return Member{}, err
+		}
 	}
 	return m, nil
 }
@@ -983,6 +1230,7 @@ WHERE u.status = 'ACTIVE'
     FROM role_assignments ra
     JOIN roles r ON r.id = ra.role_id
     WHERE ra.user_id = u.id
+      AND ra.tenant_id = u.tenant_id
       AND r.code = 'PROFESSOR'
   )
   AND ($2 = '' OR lower(up.full_name) LIKE '%' || $2 || '%' OR lower(u.email) LIKE '%' || $2 || '%')
@@ -1025,12 +1273,14 @@ SELECT EXISTS (
   JOIN user_profiles up ON up.user_id = u.id
   WHERE u.id = $1
     AND u.status = 'ACTIVE'
+    AND up.tenant_id = u.tenant_id
     AND up.faculty_id = $2
     AND EXISTS (
       SELECT 1
       FROM role_assignments ra
       JOIN roles r ON r.id = ra.role_id
       WHERE ra.user_id = u.id
+        AND ra.tenant_id = u.tenant_id
         AND r.code = 'PROFESSOR'
     )
 ) AS ok;
@@ -1049,7 +1299,6 @@ SET professor_id = $2,
     professor_review_status = 'PENDING',
     professor_invited_at = now(),
     professor_responded_at = NULL,
-    status = CASE WHEN status IN ('DRAFT','RECRUITMENT') THEN 'REVIEW' ELSE status END,
     updated_at = now()
 WHERE id = $1;
 `
@@ -1203,6 +1452,108 @@ LIMIT $3;
 	return out, rows.Err()
 }
 
+func (s *Service) ListIncomingInvites(ctx context.Context, userID uuid.UUID, limit int) ([]IncomingInvite, error) {
+	limit = clampLimit(limit, 100)
+
+	const q = `
+SELECT
+  p.id,
+  p.title,
+  p.status,
+  pm.invite_comment,
+  pm.invited_by,
+  COALESCE(NULLIF(TRIM(inv.full_name), ''), split_part(inv_u.email, '@', 1), '') AS inviter_name,
+  COALESCE(inv_u.email, '') AS inviter_email,
+  pm.created_at,
+  pm.responded_at
+FROM project_members pm
+JOIN projects p ON p.id = pm.project_id
+LEFT JOIN users inv_u ON inv_u.id = pm.invited_by
+LEFT JOIN user_profiles inv ON inv.user_id = pm.invited_by
+WHERE pm.user_id = $1
+  AND pm.status = 'INVITED'
+ORDER BY pm.created_at DESC
+LIMIT $2;
+`
+	rows, err := s.db.Query(ctx, q, userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]IncomingInvite, 0, limit)
+	for rows.Next() {
+		var item IncomingInvite
+		var projectID uuid.UUID
+		var invitedBy *uuid.UUID
+		if err := rows.Scan(
+			&projectID,
+			&item.ProjectTitle,
+			&item.ProjectStatus,
+			&item.InviteComment,
+			&invitedBy,
+			&item.InviterName,
+			&item.InviterEmail,
+			&item.CreatedAt,
+			&item.RespondedAt,
+		); err != nil {
+			return nil, err
+		}
+		item.ProjectID = projectID.String()
+		if invitedBy != nil {
+			s := invitedBy.String()
+			item.InvitedBy = &s
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
+func (s *Service) ListOutgoingApplications(ctx context.Context, userID uuid.UUID, limit int) ([]OutgoingApplication, error) {
+	limit = clampLimit(limit, 100)
+
+	const q = `
+SELECT
+  p.id,
+  p.title,
+  p.status,
+  pm.status,
+  pm.created_at,
+  pm.responded_at
+FROM project_members pm
+JOIN projects p ON p.id = pm.project_id
+WHERE pm.user_id = $1
+  AND pm.invited_by IS NULL
+  AND pm.status IN ('APPLIED', 'REJECTED', 'ACTIVE', 'REMOVED')
+ORDER BY COALESCE(pm.responded_at, pm.created_at) DESC
+LIMIT $2;
+`
+	rows, err := s.db.Query(ctx, q, userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]OutgoingApplication, 0, limit)
+	for rows.Next() {
+		var item OutgoingApplication
+		var projectID uuid.UUID
+		if err := rows.Scan(
+			&projectID,
+			&item.ProjectTitle,
+			&item.ProjectStatus,
+			&item.Status,
+			&item.CreatedAt,
+			&item.RespondedAt,
+		); err != nil {
+			return nil, err
+		}
+		item.ProjectID = projectID.String()
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
 func (s *Service) CreateCriterion(ctx context.Context, userID, projectID uuid.UUID, title, description string, weight int) (Criterion, error) {
 	if err := s.requireProjectPermission(ctx, userID, "project.set_criteria", projectID); err != nil {
 		return Criterion{}, err
@@ -1218,10 +1569,21 @@ func (s *Service) CreateCriterion(ctx context.Context, userID, projectID uuid.UU
 	if weight > 100 {
 		weight = 100
 	}
+	var currentWeight int
+	if err := s.db.QueryRow(ctx, `
+SELECT COALESCE(SUM(weight), 0)
+FROM project_criteria
+WHERE project_id = $1
+`, projectID).Scan(&currentWeight); err != nil {
+		return Criterion{}, err
+	}
+	if currentWeight+weight > 100 {
+		return Criterion{}, fmt.Errorf("%w: total criteria weight exceeds 100", ErrInvalidInput)
+	}
 
 	const q = `
-INSERT INTO project_criteria(project_id, title, description, weight, created_by)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO project_criteria(tenant_id, project_id, title, description, weight, created_by)
+VALUES ((SELECT tenant_id FROM projects WHERE id = $1), $1, $2, $3, $4, $5)
 RETURNING id, project_id, title, description, weight, created_by, created_at;
 `
 	var c Criterion
@@ -1265,6 +1627,14 @@ func (s *Service) GetGrading(ctx context.Context, userID, projectID uuid.UUID) (
 	if err := s.requireProjectPermission(ctx, userID, "project.view", projectID); err != nil {
 		return nil, err
 	}
+	p, err := s.projectByID(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	professorID := userID
+	if p.ProfessorID != nil {
+		professorID = *p.ProfessorID
+	}
 	const q = `
 SELECT criterion_id, is_met, comment, updated_at
 FROM project_criterion_reviews
@@ -1272,7 +1642,7 @@ WHERE project_id = $1
   AND professor_id = $2
 ORDER BY updated_at DESC;
 `
-	rows, err := s.db.Query(ctx, q, projectID, userID)
+	rows, err := s.db.Query(ctx, q, projectID, professorID)
 	if err != nil {
 		if isUndefinedRelation(err, "project_criterion_reviews") {
 			return []CriterionGrade{}, nil
@@ -1300,7 +1670,7 @@ func (s *Service) UpsertGrading(ctx context.Context, userID, projectID uuid.UUID
 	if err != nil {
 		return nil, err
 	}
-	if p.Status != domain.ProjectReview && p.Status != domain.ProjectGrading && p.Status != domain.ProjectArchive {
+	if p.Status != domain.ProjectReview && p.Status != domain.ProjectGrading {
 		return nil, ErrInvalidInput
 	}
 
@@ -1376,7 +1746,7 @@ func (s *Service) Readiness(ctx context.Context, projectID uuid.UUID) (Readiness
 	}
 
 	var activeMembers int
-	if err := s.db.QueryRow(ctx, `SELECT COUNT(*) FROM project_members WHERE project_id=$1 AND status='ACTIVE'`, projectID).Scan(&activeMembers); err != nil {
+	if err := s.db.QueryRow(ctx, `SELECT COUNT(*) FROM project_members WHERE project_id=$1 AND status='ACTIVE' AND position_id IS NOT NULL`, projectID).Scan(&activeMembers); err != nil {
 		return Readiness{}, err
 	}
 
@@ -1420,17 +1790,168 @@ func (s *Service) ApproveProject(ctx context.Context, userID, projectID uuid.UUI
 	const q = `
 UPDATE projects
 SET status='ACTIVE', updated_at=now()
-WHERE id=$1;
+WHERE id=$1
+  AND status IN ('REVIEW', 'RECRUITMENT');
 `
 	ct, err := s.db.Exec(ctx, q, projectID)
 	if err != nil {
 		return domain.Project{}, Readiness{}, err
 	}
 	if ct.RowsAffected() == 0 {
-		return domain.Project{}, Readiness{}, pgx.ErrNoRows
+		return domain.Project{}, Readiness{}, ErrInvalidInput
 	}
 	p, err := s.projectByID(ctx, projectID)
 	return p, ready, err
+}
+
+func (s *Service) SubmitProjectForGrading(ctx context.Context, userID, projectID uuid.UUID) (domain.Project, error) {
+	if err := s.requireProjectSubmitAccess(ctx, userID, projectID); err != nil {
+		return domain.Project{}, err
+	}
+
+	p, err := s.projectByID(ctx, projectID)
+	if err != nil {
+		return domain.Project{}, err
+	}
+	if p.Status != domain.ProjectActive {
+		return domain.Project{}, fmt.Errorf("%w: project status must be ACTIVE", ErrInvalidInput)
+	}
+	if p.ProfessorID == nil {
+		return domain.Project{}, fmt.Errorf("%w: professor is not assigned", ErrInvalidInput)
+	}
+	if strings.ToUpper(strings.TrimSpace(p.ProfessorReviewStatus)) != "ACCEPTED" {
+		return domain.Project{}, fmt.Errorf("%w: professor invitation is not accepted", ErrInvalidInput)
+	}
+
+	var tasksTotal int
+	var tasksDone int
+	if err := s.db.QueryRow(ctx, `
+SELECT
+  COUNT(*) AS total,
+  COUNT(*) FILTER (WHERE status = 'DONE') AS done
+FROM tasks
+WHERE project_id = $1;
+`, projectID).Scan(&tasksTotal, &tasksDone); err != nil {
+		return domain.Project{}, err
+	}
+	if tasksTotal == 0 {
+		return domain.Project{}, fmt.Errorf("%w: at least one task is required", ErrInvalidInput)
+	}
+	if tasksDone < tasksTotal {
+		return domain.Project{}, fmt.Errorf("%w: all tasks must be DONE before grading", ErrInvalidInput)
+	}
+
+	ct, err := s.db.Exec(ctx, `
+UPDATE projects
+SET status = 'GRADING', updated_at = now()
+WHERE id = $1
+  AND status = 'ACTIVE';
+`, projectID)
+	if err != nil {
+		return domain.Project{}, err
+	}
+	if ct.RowsAffected() == 0 {
+		return domain.Project{}, ErrInvalidInput
+	}
+	return s.projectByID(ctx, projectID)
+}
+
+func (s *Service) PublishGrading(ctx context.Context, userID, projectID uuid.UUID) (domain.Project, error) {
+	if err := s.requireProjectPermission(ctx, userID, "grading.publish", projectID); err != nil {
+		return domain.Project{}, err
+	}
+
+	p, err := s.projectByID(ctx, projectID)
+	if err != nil {
+		return domain.Project{}, err
+	}
+	if p.Status != domain.ProjectGrading {
+		return domain.Project{}, fmt.Errorf("%w: project status must be GRADING", ErrInvalidInput)
+	}
+	if p.ProfessorID == nil || *p.ProfessorID != userID {
+		return domain.Project{}, domain.ErrForbidden
+	}
+
+	var criteriaTotal int
+	if err := s.db.QueryRow(ctx, `
+SELECT COUNT(*)
+FROM project_criteria
+WHERE project_id = $1;
+`, projectID).Scan(&criteriaTotal); err != nil {
+		return domain.Project{}, err
+	}
+	if criteriaTotal == 0 {
+		return domain.Project{}, fmt.Errorf("%w: criteria are not configured", ErrInvalidInput)
+	}
+
+	var gradedTotal int
+	rowsQ := `
+SELECT COUNT(*)
+FROM project_criterion_reviews
+WHERE project_id = $1
+  AND professor_id = $2
+  AND is_met IS NOT NULL;
+`
+	if err := s.db.QueryRow(ctx, rowsQ, projectID, userID).Scan(&gradedTotal); err != nil {
+		if isUndefinedRelation(err, "project_criterion_reviews") {
+			return domain.Project{}, fmt.Errorf("%w: grading table is missing", ErrInvalidInput)
+		}
+		return domain.Project{}, err
+	}
+	if gradedTotal < criteriaTotal {
+		return domain.Project{}, fmt.Errorf("%w: grading is incomplete (%d/%d)", ErrInvalidInput, gradedTotal, criteriaTotal)
+	}
+
+	ct, err := s.db.Exec(ctx, `
+UPDATE projects
+SET status = 'ARCHIVE', updated_at = now()
+WHERE id = $1
+  AND status = 'GRADING';
+`, projectID)
+	if err != nil {
+		return domain.Project{}, err
+	}
+	if ct.RowsAffected() == 0 {
+		return domain.Project{}, ErrInvalidInput
+	}
+	return s.projectByID(ctx, projectID)
+}
+
+func (s *Service) DeleteProject(ctx context.Context, userID, projectID uuid.UUID) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	var ownerID uuid.UUID
+	if err := tx.QueryRow(ctx, `SELECT created_by FROM projects WHERE id = $1`, projectID).Scan(&ownerID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return pgx.ErrNoRows
+		}
+		return err
+	}
+	if ownerID != userID {
+		return domain.ErrForbidden
+	}
+
+	if _, err := tx.Exec(ctx, `
+DELETE FROM role_assignments
+WHERE scope_type = 'PROJECT'
+  AND scope_id = $1;
+`, projectID); err != nil {
+		return err
+	}
+
+	ct, err := tx.Exec(ctx, `DELETE FROM projects WHERE id = $1`, projectID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (s *Service) ensureActiveProject(ctx context.Context, projectID uuid.UUID) error {
@@ -1474,19 +1995,35 @@ func (s *Service) CreateTask(ctx context.Context, userID, projectID uuid.UUID, t
 	}
 
 	status := "OPEN"
-	if assigneeUserID != nil {
-		status = "IN_PROGRESS"
-	}
 
 	const q = `
-INSERT INTO tasks(project_id, title, description, position_id, assignee_user_id, status, created_by, due_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO tasks(tenant_id, project_id, title, description, position_id, assignee_user_id, status, created_by, due_at)
+VALUES ((SELECT tenant_id FROM projects WHERE id = $1), $1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING id;
 `
 	var taskID uuid.UUID
 	err := s.db.QueryRow(ctx, q, projectID, title, description, positionID, assigneeUserID, status, userID, dueAt).Scan(&taskID)
 	if err != nil {
 		return Task{}, err
+	}
+	if err := s.appendTaskActivity(ctx, projectID, taskID, &userID, "CREATED", "", status, title, description, nil); err != nil {
+		return Task{}, err
+	}
+	if assigneeUserID != nil {
+		if err := s.appendTaskActivity(
+			ctx,
+			projectID,
+			taskID,
+			&userID,
+			"ASSIGNED",
+			status,
+			status,
+			title,
+			fmt.Sprintf("Назначен исполнитель: %s", assigneeUserID.String()),
+			nil,
+		); err != nil {
+			return Task{}, err
+		}
 	}
 	return s.taskByID(ctx, projectID, taskID)
 }
@@ -1559,6 +2096,16 @@ func (s *Service) UpdateTaskStatus(ctx context.Context, userID, projectID, taskI
 	if !ok {
 		return Task{}, ErrInvalidInput
 	}
+	var prevStatus string
+	var taskTitle string
+	if err := s.db.QueryRow(ctx, `
+SELECT status, title
+FROM tasks
+WHERE project_id=$1 AND id=$2
+`, projectID, taskID).Scan(&prevStatus, &taskTitle); err != nil {
+		return Task{}, err
+	}
+	prevStatus = strings.ToUpper(strings.TrimSpace(prevStatus))
 
 	const q = `
 UPDATE tasks
@@ -1570,6 +2117,11 @@ RETURNING id;
 	err := s.db.QueryRow(ctx, q, projectID, taskID, status).Scan(&outTaskID)
 	if err != nil {
 		return Task{}, err
+	}
+	if prevStatus != status {
+		if err := s.appendTaskActivity(ctx, projectID, taskID, &userID, "STATUS_CHANGED", prevStatus, status, taskTitle, "", nil); err != nil {
+			return Task{}, err
+		}
 	}
 	return s.taskByID(ctx, projectID, outTaskID)
 }
@@ -1583,13 +2135,17 @@ func (s *Service) AssignTask(ctx context.Context, userID, projectID, taskID, ass
 	}
 
 	var positionID uuid.UUID
+	var prevStatus string
+	var taskTitle string
+	var prevAssignee *uuid.UUID
 	if err := s.db.QueryRow(ctx, `
-SELECT position_id
+SELECT position_id, status, title, assignee_user_id
 FROM tasks
 WHERE project_id = $1 AND id = $2
-`, projectID, taskID).Scan(&positionID); err != nil {
+`, projectID, taskID).Scan(&positionID, &prevStatus, &taskTitle, &prevAssignee); err != nil {
 		return Task{}, err
 	}
+	prevStatus = strings.ToUpper(strings.TrimSpace(prevStatus))
 	if err := s.ensureAssigneeMatchesPosition(ctx, projectID, assigneeUserID, positionID); err != nil {
 		return Task{}, err
 	}
@@ -1597,7 +2153,6 @@ WHERE project_id = $1 AND id = $2
 	const q = `
 UPDATE tasks
 SET assignee_user_id = $3,
-    status = CASE WHEN status='OPEN' THEN 'IN_PROGRESS' ELSE status END,
     updated_at = now()
 WHERE project_id=$1 AND id=$2
 RETURNING id;
@@ -1605,6 +2160,150 @@ RETURNING id;
 	var outTaskID uuid.UUID
 	err := s.db.QueryRow(ctx, q, projectID, taskID, assigneeUserID).Scan(&outTaskID)
 	if err != nil {
+		return Task{}, err
+	}
+	if prevAssignee == nil || *prevAssignee != assigneeUserID {
+		if err := s.appendTaskActivity(ctx, projectID, taskID, &userID, "ASSIGNED", prevStatus, prevStatus, taskTitle, fmt.Sprintf("Назначен исполнитель: %s", assigneeUserID.String()), nil); err != nil {
+			return Task{}, err
+		}
+	}
+	return s.taskByID(ctx, projectID, outTaskID)
+}
+
+func (s *Service) ListTaskActivities(ctx context.Context, userID, projectID uuid.UUID, taskID *uuid.UUID) ([]TaskActivity, error) {
+	if err := s.requireProjectPermission(ctx, userID, "task.view", projectID); err != nil {
+		return nil, err
+	}
+
+	baseQ := `
+SELECT
+  a.id, a.project_id, a.task_id, a.actor_user_id,
+  COALESCE(NULLIF(TRIM(up.full_name), ''), split_part(COALESCE(u.email, ''), '@', 1), '') AS actor_name,
+  COALESCE(u.email, '') AS actor_email,
+  a.event_type,
+  COALESCE(a.from_status, '') AS from_status,
+  COALESCE(a.to_status, '') AS to_status,
+  COALESCE(a.title, '') AS title,
+  COALESCE(a.comment, '') AS comment,
+  a.attachments,
+  a.created_at
+FROM task_activity_logs a
+LEFT JOIN users u ON u.id = a.actor_user_id
+LEFT JOIN user_profiles up ON up.user_id = a.actor_user_id
+WHERE a.project_id = $1
+`
+	args := []any{projectID}
+	if taskID != nil {
+		baseQ += ` AND a.task_id = $2`
+		args = append(args, *taskID)
+	}
+	baseQ += ` ORDER BY a.created_at ASC;`
+
+	rows, err := s.db.Query(ctx, baseQ, args...)
+	if err != nil {
+		if isUndefinedRelation(err, "task_activity_logs") {
+			return []TaskActivity{}, nil
+		}
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]TaskActivity, 0, 32)
+	for rows.Next() {
+		var item TaskActivity
+		var id uuid.UUID
+		var pid uuid.UUID
+		var tid uuid.UUID
+		var actorID *uuid.UUID
+		var rawAttachments []byte
+		if err := rows.Scan(
+			&id,
+			&pid,
+			&tid,
+			&actorID,
+			&item.ActorName,
+			&item.ActorEmail,
+			&item.EventType,
+			&item.FromStatus,
+			&item.ToStatus,
+			&item.Title,
+			&item.Comment,
+			&rawAttachments,
+			&item.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		item.ID = id.String()
+		item.ProjectID = pid.String()
+		item.TaskID = tid.String()
+		item.EventType = strings.ToUpper(strings.TrimSpace(item.EventType))
+		item.FromStatus = strings.ToUpper(strings.TrimSpace(item.FromStatus))
+		item.ToStatus = strings.ToUpper(strings.TrimSpace(item.ToStatus))
+		item.Attachments = decodeStringSliceJSON(rawAttachments)
+		if actorID != nil {
+			s := actorID.String()
+			item.ActorUserID = &s
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
+func (s *Service) CompleteTask(ctx context.Context, userID, projectID, taskID uuid.UUID, comment string, attachments []string) (Task, error) {
+	if err := s.requireProjectPermission(ctx, userID, "task.update", projectID); err != nil {
+		return Task{}, err
+	}
+	if err := s.ensureActiveProject(ctx, projectID); err != nil {
+		return Task{}, err
+	}
+	comment = strings.TrimSpace(comment)
+	if len(comment) > 3000 {
+		comment = comment[:3000]
+	}
+	attachments = normalizeTaskAttachments(attachments)
+
+	var assigneeID *uuid.UUID
+	var currentStatus string
+	var taskTitle string
+	if err := s.db.QueryRow(ctx, `
+SELECT assignee_user_id, status, title
+FROM tasks
+WHERE project_id=$1 AND id=$2
+`, projectID, taskID).Scan(&assigneeID, &currentStatus, &taskTitle); err != nil {
+		return Task{}, err
+	}
+	if assigneeID == nil || *assigneeID != userID {
+		return Task{}, domain.ErrForbidden
+	}
+	currentStatus = strings.ToUpper(strings.TrimSpace(currentStatus))
+	if currentStatus != "IN_PROGRESS" {
+		return Task{}, ErrInvalidInput
+	}
+
+	const upsertSubmissionQ = `
+INSERT INTO task_submissions(tenant_id, project_id, task_id, user_id, comment, attachments)
+VALUES ((SELECT tenant_id FROM projects WHERE id = $1), $1, $2, $3, $4, $5::jsonb)
+ON CONFLICT (task_id)
+DO UPDATE SET comment = EXCLUDED.comment, attachments = EXCLUDED.attachments, updated_at = now(), submitted_at = now();
+`
+	if _, err := s.db.Exec(ctx, upsertSubmissionQ, projectID, taskID, userID, comment, encodeStringSliceJSON(attachments)); err != nil {
+		if !isUndefinedRelation(err, "task_submissions") {
+			return Task{}, err
+		}
+	}
+
+	const q = `
+UPDATE tasks
+SET status='DONE', updated_at=now()
+WHERE project_id=$1 AND id=$2
+RETURNING id;
+`
+	var outTaskID uuid.UUID
+	if err := s.db.QueryRow(ctx, q, projectID, taskID).Scan(&outTaskID); err != nil {
+		return Task{}, err
+	}
+
+	if err := s.appendTaskActivity(ctx, projectID, taskID, &userID, "COMPLETED", "IN_PROGRESS", "DONE", taskTitle, comment, attachments); err != nil {
 		return Task{}, err
 	}
 	return s.taskByID(ctx, projectID, outTaskID)
@@ -1617,19 +2316,36 @@ func (s *Service) ClaimTask(ctx context.Context, userID, projectID, taskID uuid.
 	if err := s.ensureActiveProject(ctx, projectID); err != nil {
 		return err
 	}
+
+	var prevStatus string
+	var taskTitle string
+	if err := s.db.QueryRow(ctx, `
+SELECT status, title
+FROM tasks
+WHERE project_id=$1 AND id=$2
+`, projectID, taskID).Scan(&prevStatus, &taskTitle); err != nil {
+		return err
+	}
+	prevStatus = strings.ToUpper(strings.TrimSpace(prevStatus))
+
 	const q = `
 UPDATE tasks t
-SET assignee_user_id = $3, status='IN_PROGRESS', updated_at=now()
+SET assignee_user_id = COALESCE(t.assignee_user_id, $3), status='IN_PROGRESS', updated_at=now()
 WHERE t.id=$2
   AND t.project_id=$1
   AND t.status='OPEN'
-  AND t.assignee_user_id IS NULL
-  AND EXISTS (
-    SELECT 1 FROM project_members m
-    WHERE m.project_id=$1
-      AND m.user_id=$3
-      AND m.status='ACTIVE'
-      AND m.position_id = t.position_id
+  AND (
+    (
+      t.assignee_user_id IS NULL
+      AND EXISTS (
+        SELECT 1 FROM project_members m
+        WHERE m.project_id=$1
+          AND m.user_id=$3
+          AND m.status='ACTIVE'
+          AND m.position_id = t.position_id
+      )
+    )
+    OR t.assignee_user_id = $3
   );
 `
 	ct, err := s.db.Exec(ctx, q, projectID, taskID, userID)
@@ -1638,6 +2354,9 @@ WHERE t.id=$2
 	}
 	if ct.RowsAffected() == 0 {
 		return domain.ErrForbidden
+	}
+	if err := s.appendTaskActivity(ctx, projectID, taskID, &userID, "CLAIMED", prevStatus, "IN_PROGRESS", taskTitle, "", nil); err != nil {
+		return err
 	}
 	return nil
 }

@@ -23,9 +23,11 @@ func (r *RBACRepo) HasPermission(ctx context.Context, userID uuid.UUID, permissi
 SELECT EXISTS (
   SELECT 1
   FROM role_assignments ra
+  JOIN users u ON u.id = ra.user_id
   JOIN role_permissions rp ON rp.role_id = ra.role_id
   JOIN permissions p ON p.id = rp.permission_id
   WHERE ra.user_id = $1
+    AND u.tenant_id = ra.tenant_id
     AND ra.scope_type = $2
     AND (
       ($3::uuid IS NULL AND ra.scope_id IS NULL)
@@ -55,8 +57,8 @@ func (r *RBACRepo) GrantRoleByCode(
 	}
 
 	_, err = r.db.Exec(ctx, `
-INSERT INTO role_assignments(user_id, role_id, scope_type, scope_id, expires_at)
-VALUES ($1, $2, $3, $4, $5);
+INSERT INTO role_assignments(tenant_id, user_id, role_id, scope_type, scope_id, expires_at)
+VALUES ((SELECT tenant_id FROM users WHERE id = $1), $1, $2, $3, $4, $5);
 `, userID, roleID, string(scope.Type), scope.ID, expiresAt)
 
 	return err

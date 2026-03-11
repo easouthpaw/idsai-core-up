@@ -4,6 +4,7 @@ package projects_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -36,6 +37,11 @@ func TestProjectsService_Integration_CreateProject_GrantsTeamLeadPermissions(t *
 	require.NoError(t, err)
 
 	creator := uuid.New()
+	_, err = pool.Exec(ctx, `
+INSERT INTO users(id, tenant_id, email, password_hash, status)
+VALUES ($1, (SELECT tenant_id FROM faculties WHERE id = $2), $3, 'integration-hash', 'ACTIVE');
+`, creator, facultyID, fmt.Sprintf("projects-creator-%s@example.local", creator.String()))
+	require.NoError(t, err)
 
 	projectID, err := svc.CreateProject(ctx, "RBAC Demo Project", "desc", facultyID, "FACULTY", nil, creator)
 	require.NoError(t, err)

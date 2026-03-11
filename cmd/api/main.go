@@ -41,6 +41,9 @@ func main() {
 		time.Duration(cfg.TelegramRequestTimeoutS)*time.Second,
 		time.Duration(cfg.TelegramDedupeWindowS)*time.Second,
 	)
+	if !notifier.Enabled() {
+		log.Printf("telegram alerts disabled: set TELEGRAM_BOT_TOKEN and TELEGRAM_SUPERADMIN_CHAT_ID")
+	}
 
 	defer func() {
 		if recovered := recover(); recovered != nil {

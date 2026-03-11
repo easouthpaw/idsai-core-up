@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"log"
+	"strings"
 	"time"
 
 	"idsai-core-up/internal/config"
@@ -59,13 +61,36 @@ func New(ctx context.Context) (*App, error) {
 	projectFlowHandler.SetNotifier(notificationsSvc)
 
 	if cfg.EmailEnable {
-		emailSender := email.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom)
-		dispatcher := notifications.NewOutboxDispatcher(notificationsRepo, emailSender)
-		pollEvery := time.Duration(cfg.OutboxPollS) * time.Second
-		go dispatcher.Start(ctx, pollEvery)
+		host := strings.TrimSpace(cfg.SMTPHost)
+		port := strings.TrimSpace(cfg.SMTPPort)
+		from := strings.TrimSpace(cfg.SMTPFrom)
+		if host == "" || port == "" || from == "" {
+			log.Printf("email outbox dispatcher disabled: SMTP config incomplete (SMTP_HOST/SMTP_PORT/SMTP_FROM)")
+		} else {
+			if looksLikePlaceholder(cfg.SMTPUser) || looksLikePlaceholder(cfg.SMTPPass) || looksLikePlaceholder(cfg.SMTPFrom) {
+				log.Printf("email config appears to use placeholder values; update SMTP_USER/SMTP_PASS/SMTP_FROM")
+			}
+			emailSender := email.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom)
+			dispatcher := notifications.NewOutboxDispatcher(notificationsRepo, emailSender)
+			pollEvery := time.Duration(cfg.OutboxPollS) * time.Second
+			go dispatcher.Start(ctx, pollEvery)
+		}
+	} else {
+		log.Printf("email notifications disabled by EMAIL_ENABLED=false")
 	}
 
 	router := httpx.NewRouter(pool, rbacSvc, projectsSvc, projectFlowHandler, authHandler, adminHandler, notificationsHandler, notificationsSvc, cfg.JWTSecret)
 
 	return &App{Cfg: cfg, DB: pool, HTTP: router}, nil
+}
+
+func looksLikePlaceholder(v string) bool {
+	s := strings.ToLower(strings.TrimSpace(v))
+	if s == "" {
+		return false
+	}
+	return strings.Contains(s, "change-me") ||
+		strings.Contains(s, "changeme") ||
+		strings.Contains(s, "your_") ||
+		strings.Contains(s, "example.com")
 }

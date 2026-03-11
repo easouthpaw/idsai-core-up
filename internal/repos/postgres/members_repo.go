@@ -21,8 +21,8 @@ func NewMembersRepo(db *pgxpool.Pool) *MembersRepo {
 // Apply creates member with status APPLIED (idempotent per (project_id,user_id))
 func (r *MembersRepo) Apply(ctx context.Context, projectID, userID uuid.UUID) (uuid.UUID, error) {
 	const q = `
-INSERT INTO project_members(project_id, user_id, status)
-VALUES ($1, $2, 'APPLIED')
+INSERT INTO project_members(tenant_id, project_id, user_id, status)
+VALUES ((SELECT tenant_id FROM projects WHERE id = $1), $1, $2, 'APPLIED')
 ON CONFLICT (project_id, user_id) DO UPDATE SET project_id = EXCLUDED.project_id
 RETURNING id;
 `

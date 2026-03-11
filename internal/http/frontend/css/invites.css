@@ -1,0 +1,250 @@
+body.invites-body .content-shell {
+  min-height: 100vh;
+}
+
+body.invites-body .main-nav .nav-link.active {
+  border-color: #1f8f56;
+  color: #d7ffe8;
+  background: #153524;
+}
+
+body.invites-body .main-nav .nav-link.active .icon-box {
+  border-color: #2bb673;
+  color: #21da7b;
+}
+
+.invites-content {
+  gap: 14px;
+}
+
+.invites-hero {
+  align-items: center;
+}
+
+.invites-hero h1 {
+  margin: 0;
+  font-size: 42px;
+  letter-spacing: -0.03em;
+}
+
+.invites-hero p {
+  margin: 8px 0 0;
+  color: #6e7890;
+}
+
+.invite-tabs {
+  display: inline-flex;
+  width: fit-content;
+  border: 1px solid #dce5f3;
+  border-radius: 12px;
+  background: #eef3fb;
+  padding: 4px;
+  gap: 4px;
+}
+
+.invite-tab {
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: #3a4761;
+  font: 700 13px "Inter", sans-serif;
+  padding: 10px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.invite-tab.active {
+  background: #fff;
+  border-color: #cfdaeb;
+  color: #162441;
+  box-shadow: 0 4px 10px rgba(27, 44, 72, 0.08);
+}
+
+.tab-count {
+  min-width: 24px;
+  height: 20px;
+  border-radius: 999px;
+  background: #e6edf8;
+  color: #263959;
+  font: 700 11px "JetBrains Mono", monospace;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 6px;
+}
+
+.invite-tab.active .tab-count {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.invite-pane {
+  display: none;
+}
+
+.invite-pane.active {
+  display: block;
+}
+
+.invite-list {
+  display: grid;
+  gap: 12px;
+}
+
+.invite-card {
+  border: 1px solid #dde6f2;
+  border-radius: 14px;
+  background: #fff;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.invite-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.invite-title {
+  margin: 0;
+  font-size: 18px;
+  color: #1b2a45;
+}
+
+.invite-meta {
+  margin-top: 4px;
+  color: #60708c;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.invite-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.inv-badge {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font: 700 11px "JetBrains Mono", monospace;
+  border: 1px solid #d4deec;
+  color: #344564;
+  background: #f7f9fe;
+}
+
+.inv-badge.invited {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.inv-badge.applied {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.inv-badge.active {
+  border-color: #bbf7d0;
+  background: #ecfdf3;
+  color: #166534;
+}
+
+.inv-badge.rejected {
+  border-color: #fecdd3;
+  background: #fff1f2;
+  color: #9f1239;
+}
+
+.inv-badge.removed {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.invite-comment {
+  border: 1px dashed #d6dfed;
+  border-radius: 10px;
+  background: #f9fbff;
+  color: #3f4f6c;
+  padding: 10px;
+  font-size: 13px;
+}
+
+.invite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.invite-btn {
+  border: 1px solid #cfd9ea;
+  border-radius: 9px;
+  background: #fff;
+  color: #2d3d5d;
+  font: 700 12px "Inter", sans-serif;
+  padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.invite-btn:hover {
+  background: #f5f8fd;
+}
+
+.invite-btn.accept {
+  border-color: #22c55e;
+  background: #22c55e;
+  color: #fff;
+}
+
+.invite-btn.reject {
+  border-color: #fda4af;
+  color: #b4232d;
+}
+
+.invite-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.empty-card {
+  border: 1px dashed #d1deef;
+  border-radius: 12px;
+  background: #f8fbff;
+  padding: 18px;
+  color: #5a6b89;
+}
+
+.page-status {
+  min-height: 18px;
+  margin-top: 8px;
+  color: #2f4f7f;
+  font-size: 13px;
+}
+
+.page-status.err {
+  color: #b4232d;
+}
+
+@media (max-width: 860px) {
+  .invite-head {
+    flex-direction: column;
+  }
+
+  .invite-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .invite-btn {
+    width: 100%;
+  }
+}

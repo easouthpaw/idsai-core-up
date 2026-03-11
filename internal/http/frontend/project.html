@@ -34,6 +34,10 @@
           <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">folder</span></span>
           <span class="nav-label">Проекты</span>
         </a>
+        <a class="side-link" href="/dev/invites">
+          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">mark_email_unread</span></span>
+          <span class="nav-label">Заявки</span>
+        </a>
         <button class="side-link" type="button" disabled>
           <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">task</span></span>
           <span class="nav-label">Задачи</span>
@@ -164,6 +168,7 @@
 
                   <div id="readinessList" class="readiness-list"></div>
                   <button id="approveProjectBtn" class="primary-btn full" type="button">Утвердить проект (ACTIVE)</button>
+                  <button id="completeProjectBtn" class="ghost-btn full" type="button" hidden>Завершить проект и отправить на оценивание</button>
                 </div>
               </article>
 
@@ -323,14 +328,51 @@
         </section>
 
         <section id="view-review" class="view">
-          <article class="card">
-            <header class="card-head">
-              <h2>Ревью проекта</h2>
-            </header>
-            <div class="card-body">
-              <p class="muted-text">После запуска проекта преподаватель оценивает работу по заданным критериям. Здесь будет итоговое ревью и оценка.</p>
-            </div>
-          </article>
+          <div class="review-layout">
+            <article class="card">
+              <header class="card-head">
+                <h2>Чек-лист ревью</h2>
+                <span id="reviewStatusPill" class="status-pill muted">Оценка не опубликована</span>
+              </header>
+              <div class="card-body">
+                <p id="reviewIntro" class="muted-text">После завершения проекта преподаватель выставляет оценки по критериям. Здесь отображаются результаты ревью.</p>
+                <div id="reviewCriteriaList" class="review-criteria-list"></div>
+              </div>
+            </article>
+
+            <article class="card review-summary-card">
+              <header class="card-head">
+                <h2>Результат ревью</h2>
+              </header>
+              <div class="card-body review-summary-body">
+                <div class="review-gauge-wrap">
+                  <div id="reviewGauge" class="review-gauge" style="--review-percent:0;">
+                    <div class="review-gauge-center">
+                      <strong id="reviewGaugeValue">0%</strong>
+                      <span>проходной</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="review-score-row">
+                  <p>Итоговая оценка</p>
+                  <strong id="reviewSummaryScore">0.0 <span>/ 5.0</span></strong>
+                </div>
+
+                <div class="review-stats-list">
+                  <div class="review-stat"><span>Выполнено критериев</span><strong id="reviewSummaryMet">0 / 0</strong></div>
+                  <div class="review-stat"><span>Есть замечания</span><strong id="reviewSummaryMissed">0</strong></div>
+                  <div class="review-stat"><span>Дата проверки</span><strong id="reviewSummaryDate">-</strong></div>
+                  <div class="review-stat"><span>Проверяющий</span><strong id="reviewSummaryReviewer">-</strong></div>
+                </div>
+
+                <div class="review-overall">
+                  <p>Общий комментарий</p>
+                  <div id="reviewOverallComment" class="empty-state">Комментарий преподавателя появится после ревью.</div>
+                </div>
+              </div>
+            </article>
+          </div>
         </section>
 
         <section id="view-edit" class="view">
@@ -383,6 +425,7 @@
                 <div id="editStackChips" class="chips"></div>
 
                 <div class="edit-actions">
+                  <button id="deleteProjectBtn" class="ghost-btn danger-btn" type="button" hidden>Удалить проект</button>
                   <button id="cancelEditBtn" class="ghost-btn" type="button">Отмена</button>
                   <button id="saveProjectBtn" class="primary-btn" type="button">Сохранить изменения</button>
                 </div>
@@ -447,6 +490,30 @@
       <footer class="modal-foot">
         <button class="ghost-btn" type="button" data-close-modal="taskModal">Отмена</button>
         <button id="taskModalCreateBtn" class="primary-btn" type="button">Создать задачу</button>
+      </footer>
+    </div>
+  </div>
+
+  <div id="taskResultModal" class="modal" hidden>
+    <div class="modal-card">
+      <header class="modal-head">
+        <h3>Фиксация результата задачи</h3>
+        <button class="icon-btn" type="button" data-close-modal="taskResultModal">×</button>
+      </header>
+
+      <div class="modal-body">
+        <p id="taskResultTarget" class="muted-text">Задача</p>
+
+        <label for="taskResultCommentInput">Комментарий к результату</label>
+        <textarea id="taskResultCommentInput" rows="6" placeholder="Что сделано, какие проверки пройдены, что важно знать команде..."></textarea>
+
+        <label for="taskResultAttachmentsInput">Вложения (фото / видео / ссылка)</label>
+        <textarea id="taskResultAttachmentsInput" rows="5" placeholder="https://...\nhttps://...\n(каждая ссылка с новой строки)"></textarea>
+      </div>
+
+      <footer class="modal-foot">
+        <button class="ghost-btn" type="button" data-close-modal="taskResultModal">Отмена</button>
+        <button id="taskResultSubmitBtn" class="primary-btn" type="button">Готово</button>
       </footer>
     </div>
   </div>

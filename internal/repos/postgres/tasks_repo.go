@@ -20,8 +20,8 @@ func NewTasksRepo(db *pgxpool.Pool) *TasksRepo {
 
 func (r *TasksRepo) Create(ctx context.Context, projectID uuid.UUID, title, description string, positionID uuid.UUID, createdBy uuid.UUID, dueAt *time.Time) (uuid.UUID, error) {
 	const q = `
-INSERT INTO tasks(project_id, title, description, position_id, created_by, due_at)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO tasks(tenant_id, project_id, title, description, position_id, created_by, due_at)
+VALUES ((SELECT tenant_id FROM projects WHERE id = $1), $1, $2, $3, $4, $5, $6)
 RETURNING id;
 `
 	var id uuid.UUID

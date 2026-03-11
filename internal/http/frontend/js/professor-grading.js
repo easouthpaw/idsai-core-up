@@ -7,7 +7,8 @@
   const LS_IS_ADMIN = "idsai_is_admin";
   const LS_IS_PROFESSOR = "idsai_is_professor";
 
-  const ALLOWED_STATUSES = new Set(["REVIEW", "GRADING", "ARCHIVE"]);
+  const EDITABLE_STATUSES = new Set(["REVIEW", "GRADING"]);
+  const FINALIZABLE_STATUSES = new Set(["GRADING"]);
 
   const ui = {
     profAvatar: document.getElementById("profAvatar"),
@@ -22,6 +23,9 @@
     summaryCoverage: document.getElementById("summaryCoverage"),
     summaryMet: document.getElementById("summaryMet"),
     summaryScore: document.getElementById("summaryScore"),
+    gradingProgressFill: document.getElementById("gradingProgressFill"),
+    gradingProgressText: document.getElementById("gradingProgressText"),
+    publishGradingBtn: document.getElementById("publishGradingBtn"),
     saveGradingBtn: document.getElementById("saveGradingBtn"),
     pageStatus: document.getElementById("pageStatus"),
   };
@@ -33,6 +37,8 @@
     criteria: [],
     grading: new Map(),
     canEdit: false,
+    canPublish: false,
+    isComplete: false,
   };
 
   function escapeHTML(value) {
@@ -232,7 +238,8 @@
     ui.projectMeta.textContent = `Статус: ${status} · Обновлен: ${new Date(project.updated_at || project.created_at || Date.now()).toLocaleString()}`;
     ui.projectStatusBadge.textContent = status;
     ui.projectStatusBadge.className = `status-pill ${statusClass(status)}`;
-    state.canEdit = ALLOWED_STATUSES.has(status);
+    state.canEdit = EDITABLE_STATUSES.has(status);
+    state.canPublish = FINALIZABLE_STATUSES.has(status);
 
     const criteriaHref = state.projectID
       ? `/dev/professor/criteria?project_id=${encodeURIComponent(state.projectID)}`
@@ -265,10 +272,17 @@
 
     const coverage = total > 0 ? Math.round((answered * 100) / total) : 0;
     const score = weightTotal > 0 ? Math.round((weightMet * 100) / weightTotal) : 0;
+    state.isComplete = total > 0 && answered === total;
 
     ui.summaryCoverage.textContent = `${coverage}%`;
     ui.summaryMet.textContent = `${met}/${total}`;
     ui.summaryScore.textContent = `${score}/100`;
+    if (ui.gradingProgressFill) {
+      ui.gradingProgressFill.style.width = `${coverage}%`;
+    }
+    if (ui.gradingProgressText) {
+      ui.gradingProgressText.textContent = `${coverage}%`;
+    }
   }
 
   function renderGradingList() {
@@ -277,6 +291,8 @@
     if (!state.criteria.length) {
       ui.gradingList.innerHTML = '<div class="empty-state">Критерии пока не настроены.</div>';
       ui.saveGradingBtn.disabled = true;
+      state.isComplete = false;
+      if (ui.publishGradingBtn) ui.publishGradingBtn.disabled = true;
       renderSummary();
       return;
     }
@@ -305,8 +321,8 @@
               </div>
             </div>
             <p class="grading-desc">${escapeHTML(criterion.description || "Описание отсутствует")}</p>
-            <label for="comment-${escapeHTML(id)}">Комментарий преподавателя</label>
-            <textarea id="comment-${escapeHTML(id)}" class="grade-comment" data-grade-comment="${escapeHTML(id)}" ${disabledAttr}>${escapeHTML(grade.comment || "")}</textarea>
+            <label for="comment-${escapeHTML(id)}">Комментарий преподавателя (необязательно)</label>
+            <textarea id="comment-${escapeHTML(id)}" class="grade-comment" data-grade-comment="${escapeHTML(id)}" placeholder="Добавьте комментарий при необходимости..." ${disabledAttr}>${escapeHTML(grade.comment || "")}</textarea>
           </article>
         `;
       })
@@ -314,6 +330,7 @@
 
     ui.saveGradingBtn.disabled = !state.canEdit;
     renderSummary();
+    if (ui.publishGradingBtn) ui.publishGradingBtn.disabled = !(state.canPublish && state.isComplete);
   }
 
   function applyGradingPayload(items) {
@@ -355,7 +372,13 @@
 
     if (!state.canEdit) {
       const status = String(state.project?.status || "DRAFT").toUpperCase();
-      setStatus(`Оценивание недоступно в статусе ${status}. Переведите проект в REVIEW/GRADING/ARCHIVE.`, true);
+      if (status === "ARCHIVE") {
+        setStatus("Оценивание завершено. Проект находится в статусе ARCHIVE.", false);
+      } else {
+        setStatus(`Оценивание недоступно в статусе ${status}. Ожидается статус REVIEW/GRADING.`, true);
+      }
+    } else if (state.canPublish && !state.isComplete) {
+      setStatus("Для завершения отметьте Да/Нет по каждому критерию.", false);
     } else {
       setStatus("Оценка готова к сохранению.", false);
     }
@@ -407,6 +430,30 @@
     }
   }
 
+  async function publishGrading() {
+    if (!state.projectID) {
+      setStatus("Проект не выбран.", true);
+      return;
+    }
+    if (!state.canPublish) {
+      setStatus("Завершение оценивания недоступно для текущего статуса проекта.", true);
+      return;
+    }
+    const confirmed = window.confirm("Завершить оценивание и перевести проект в ARCHIVE?");
+    if (!confirmed) return;
+
+    if (ui.publishGradingBtn) ui.publishGradingBtn.disabled = true;
+    try {
+      await request("POST", `/v2/projects/${state.projectID}/grading/publish`, {});
+      await loadPageData();
+      setStatus("Оценивание завершено. Проект переведен в ARCHIVE.", false);
+    } catch (err) {
+      setStatus(err.message || String(err), true);
+    } finally {
+      if (ui.publishGradingBtn) ui.publishGradingBtn.disabled = !(state.canPublish && state.isComplete);
+    }
+  }
+
   function attachEvents() {
     if (ui.logoutBtn) {
       ui.logoutBtn.addEventListener("click", () => {
@@ -448,6 +495,11 @@
     if (ui.saveGradingBtn) {
       ui.saveGradingBtn.addEventListener("click", () => {
         saveGrading().catch((err) => setStatus(err.message || String(err), true));
+      });
+    }
+    if (ui.publishGradingBtn) {
+      ui.publishGradingBtn.addEventListener("click", () => {
+        publishGrading().catch((err) => setStatus(err.message || String(err), true));
       });
     }
   }

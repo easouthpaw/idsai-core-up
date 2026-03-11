@@ -20,13 +20,13 @@ func NewProjectsRepo(db *pgxpool.Pool) *ProjectsRepo {
 
 func (r *ProjectsRepo) Create(ctx context.Context, title, description string, facultyID uuid.UUID, visibility string, groupID *uuid.UUID, createdBy uuid.UUID) (uuid.UUID, error) {
 	const qCreateProject = `
-INSERT INTO projects(title, description, status, is_public, created_by, faculty_id, visibility, group_id)
-VALUES ($1, $2, 'DRAFT', ($4 = 'PUBLIC'), $5, $3, $4, $6)
+INSERT INTO projects(tenant_id, title, description, status, is_public, created_by, faculty_id, visibility, group_id)
+VALUES ((SELECT tenant_id FROM faculties WHERE id = $3), $1, $2, 'DRAFT', ($4 = 'PUBLIC'), $5, $3, $4, $6)
 RETURNING id;
 `
 	const qCreateLeadMember = `
-INSERT INTO project_members(project_id, user_id, status, joined_at)
-VALUES ($1, $2, 'ACTIVE', now())
+INSERT INTO project_members(tenant_id, project_id, user_id, status, joined_at)
+VALUES ((SELECT tenant_id FROM projects WHERE id = $1), $1, $2, 'ACTIVE', now())
 ON CONFLICT (project_id, user_id)
 DO UPDATE SET status='ACTIVE', joined_at=COALESCE(project_members.joined_at, now());
 `

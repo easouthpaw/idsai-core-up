@@ -51,6 +51,15 @@
     return localPart;
   }
 
+  function clearSession() {
+    localStorage.removeItem(LS_ACCESS);
+    localStorage.removeItem(LS_REFRESH);
+    localStorage.removeItem(LS_USER);
+    localStorage.removeItem(LS_FACULTY);
+    localStorage.removeItem(LS_IS_ADMIN);
+    localStorage.removeItem(LS_IS_PROFESSOR);
+  }
+
   function saveSession(tokens) {
     localStorage.setItem(LS_ACCESS, tokens.access_token || "");
     localStorage.setItem(LS_REFRESH, tokens.refresh_token || "");
@@ -71,6 +80,19 @@
     if (claims && claims.is_admin) return "/dev/admin";
     if (claims && claims.is_professor) return "/dev/professor";
     return "/dev/projects";
+  }
+
+  async function hasValidServerSession(accessToken) {
+    try {
+      const resp = await fetch("/v2/auth/me", {
+        method: "GET",
+        headers: { Authorization: "Bearer " + accessToken },
+      });
+      if (resp.status === 401) return false;
+      return true;
+    } catch (_) {
+      return true;
+    }
   }
 
   async function callJSON(url, payload) {
@@ -104,9 +126,7 @@
 
     const claims = saveSession(out.data);
     localStorage.setItem(LS_STUDENT_EMAIL, email);
-    if (!localStorage.getItem(LS_STUDENT_NAME)) {
-      localStorage.setItem(LS_STUDENT_NAME, deriveNameFromEmail(email));
-    }
+    localStorage.setItem(LS_STUDENT_NAME, deriveNameFromEmail(email));
     setStatus("Вход выполнен. Переход в кабинет...", true);
     showJSON(out.data);
     window.location.href = targetByClaims(claims);
@@ -173,15 +193,23 @@
 
   const token = localStorage.getItem(LS_ACCESS) || "";
   if (token) {
-    try {
-      const claims = decodePayload(token);
-      if (claims.sub && claims.faculty_id) {
+    (async () => {
+      try {
+        const claims = decodePayload(token);
+        if (!claims.sub || !claims.faculty_id) throw new Error("invalid claims");
+        const isValid = await hasValidServerSession(token);
+        if (!isValid) {
+          clearSession();
+          return;
+        }
         localStorage.setItem(LS_USER, claims.sub);
         localStorage.setItem(LS_FACULTY, claims.faculty_id);
         localStorage.setItem(LS_IS_ADMIN, claims.is_admin ? "1" : "0");
         localStorage.setItem(LS_IS_PROFESSOR, claims.is_professor ? "1" : "0");
         window.location.href = targetByClaims(claims);
+      } catch (_) {
+        clearSession();
       }
-    } catch (_) {}
+    })();
   }
 })();

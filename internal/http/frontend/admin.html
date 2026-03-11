@@ -386,6 +386,69 @@
     </div>
   </div>
 
+  <div id="projectObserveModal" class="modal" hidden>
+    <div class="modal-card observe-card" role="dialog" aria-modal="true" aria-labelledby="observeProjectTitle">
+      <button id="observeModalCloseBtn" class="close-btn" type="button">×</button>
+      <h3 id="observeProjectTitle">Наблюдение проекта</h3>
+      <p id="observeProjectMeta"></p>
+
+      <div id="observeSummary" class="observe-summary"></div>
+
+      <div class="observe-grid">
+        <section class="observe-panel">
+          <h4>Участники</h4>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Пользователь</th>
+                  <th>Роль</th>
+                  <th>Позиция</th>
+                  <th>Статус</th>
+                </tr>
+              </thead>
+              <tbody id="observeMembersBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="observe-panel">
+          <h4>Задачи</h4>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Задача</th>
+                  <th>Позиция</th>
+                  <th>Статус</th>
+                  <th>Исполнитель</th>
+                </tr>
+              </thead>
+              <tbody id="observeTasksBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <section class="observe-panel">
+        <h4>Критерии и оценка</h4>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Критерий</th>
+                <th>Вес</th>
+                <th>Статус</th>
+                <th>Комментарий</th>
+              </tr>
+            </thead>
+            <tbody id="observeCriteriaBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
   <script src="/dev/static/js/notifications-popup.js?v=20260307-2" defer></script>
   <script src="/dev/static/js/admin.js" defer></script>
 </body>

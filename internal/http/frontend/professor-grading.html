@@ -79,12 +79,20 @@
               <strong id="summaryScore">0/100</strong>
             </div>
           </div>
-          <p class="hint">Оценивание доступно в статусах REVIEW, GRADING и ARCHIVE.</p>
+          <p class="hint">Оценивание доступно в статусах REVIEW и GRADING. После публикации проект переходит в ARCHIVE.</p>
         </aside>
       </div>
 
       <div class="grading-actions">
         <p id="pageStatus" class="page-status"></p>
+        <div class="grading-progress">
+          <span>Прогресс проверки</span>
+          <div class="grading-progress-track">
+            <i id="gradingProgressFill"></i>
+          </div>
+          <strong id="gradingProgressText">0%</strong>
+        </div>
+        <button id="publishGradingBtn" class="ghost-btn" type="button">Завершить оценивание</button>
         <button id="saveGradingBtn" class="primary-btn" type="button">Сохранить оценку</button>
       </div>
     </section>

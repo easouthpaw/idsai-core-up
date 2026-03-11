@@ -132,6 +132,23 @@ func (h *ProjectFlowHandler) UpdateProject(c *gin.Context) {
 	c.JSON(http.StatusOK, projectToResponse(p))
 }
 
+func (h *ProjectFlowHandler) DeleteProject(c *gin.Context) {
+	uid, ok := parseUserID(c)
+	if !ok {
+		return
+	}
+	pid, ok := parseProjectID(c)
+	if !ok {
+		return
+	}
+
+	if err := h.svc.DeleteProject(c.Request.Context(), uid, pid); err != nil {
+		handleFlowErr(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
 type setStacksReq struct {
 	Stacks []string `json:"stacks"`
 }
@@ -625,6 +642,36 @@ func (h *ProjectFlowHandler) ListProfessorReviewInvites(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+func (h *ProjectFlowHandler) ListIncomingInvites(c *gin.Context) {
+	uid, ok := parseUserID(c)
+	if !ok {
+		return
+	}
+	limit := parseLimit(c.Query("limit"), 50, 100)
+
+	items, err := h.svc.ListIncomingInvites(c.Request.Context(), uid, limit)
+	if err != nil {
+		handleFlowErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
+func (h *ProjectFlowHandler) ListOutgoingApplications(c *gin.Context) {
+	uid, ok := parseUserID(c)
+	if !ok {
+		return
+	}
+	limit := parseLimit(c.Query("limit"), 50, 100)
+
+	items, err := h.svc.ListOutgoingApplications(c.Request.Context(), uid, limit)
+	if err != nil {
+		handleFlowErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
 type createCriterionReq struct {
 	Title       string `json:"title" binding:"required"`
 	Description string `json:"description"`
@@ -784,6 +831,114 @@ func (h *ProjectFlowHandler) ApproveProject(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"project": projectToResponse(p), "readiness": ready})
 }
 
+func (h *ProjectFlowHandler) SubmitProjectForGrading(c *gin.Context) {
+	uid, ok := parseUserID(c)
+	if !ok {
+		return
+	}
+	tenantID, ok := middleware.TenantIDFromCtx(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	pid, ok := parseProjectID(c)
+	if !ok {
+		return
+	}
+
+	p, err := h.svc.SubmitProjectForGrading(c.Request.Context(), uid, pid)
+	if err != nil {
+		handleFlowErr(c, err)
+		return
+	}
+
+	notifyBestEffort(h.notifier, c.Request.Context(), notifCreateInput(
+		tenantID,
+		uid,
+		"project.sent_to_grading",
+		"Проект отправлен на оценивание",
+		"Проект переведен в статус GRADING и отправлен преподавателю.",
+		map[string]any{
+			"project_id": pid.String(),
+			"title":      p.Title,
+			"status":     p.Status,
+		},
+		true,
+	))
+
+	if p.ProfessorID != nil {
+		notifyBestEffort(h.notifier, c.Request.Context(), notifCreateInput(
+			tenantID,
+			*p.ProfessorID,
+			"project.grading.requested",
+			"Новый проект на оценивание",
+			"Команда завершила проект и отправила его на оценивание.",
+			map[string]any{
+				"project_id": pid.String(),
+				"title":      p.Title,
+				"status":     p.Status,
+			},
+			true,
+		))
+	}
+
+	c.JSON(http.StatusOK, gin.H{"project": projectToResponse(p)})
+}
+
+func (h *ProjectFlowHandler) PublishProjectGrading(c *gin.Context) {
+	uid, ok := parseUserID(c)
+	if !ok {
+		return
+	}
+	tenantID, ok := middleware.TenantIDFromCtx(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	pid, ok := parseProjectID(c)
+	if !ok {
+		return
+	}
+
+	p, err := h.svc.PublishGrading(c.Request.Context(), uid, pid)
+	if err != nil {
+		handleFlowErr(c, err)
+		return
+	}
+
+	notifyBestEffort(h.notifier, c.Request.Context(), notifCreateInput(
+		tenantID,
+		uid,
+		"project.grading.published",
+		"Итоговая оценка опубликована",
+		"Оценивание завершено, проект переведен в статус ARCHIVE.",
+		map[string]any{
+			"project_id": pid.String(),
+			"title":      p.Title,
+			"status":     p.Status,
+		},
+		false,
+	))
+
+	if p.CreatedBy != uid {
+		notifyBestEffort(h.notifier, c.Request.Context(), notifCreateInput(
+			tenantID,
+			p.CreatedBy,
+			"project.finished",
+			"Проект завершен",
+			"Преподаватель завершил оценивание проекта. Проект находится в статусе ARCHIVE.",
+			map[string]any{
+				"project_id": pid.String(),
+				"title":      p.Title,
+				"status":     p.Status,
+			},
+			true,
+		))
+	}
+
+	c.JSON(http.StatusOK, gin.H{"project": projectToResponse(p)})
+}
+
 type createTaskReq struct {
 	Title          string  `json:"title" binding:"required"`
 	Description    string  `json:"description"`
@@ -856,6 +1011,35 @@ func (h *ProjectFlowHandler) ListTasks(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, items)
+}
+
+func (h *ProjectFlowHandler) ListTaskActivities(c *gin.Context) {
+	uid, ok := parseUserID(c)
+	if !ok {
+		return
+	}
+	pid, ok := parseProjectID(c)
+	if !ok {
+		return
+	}
+
+	rawTaskID := strings.TrimSpace(c.Query("task_id"))
+	var taskID *uuid.UUID
+	if rawTaskID != "" {
+		tid, err := uuid.Parse(rawTaskID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task_id"})
+			return
+		}
+		taskID = &tid
+	}
+
+	items, err := h.svc.ListTaskActivities(c.Request.Context(), uid, pid, taskID)
+	if err != nil {
+		handleFlowErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items})
 }
 
 type updateTaskStatusReq struct {
@@ -946,4 +1130,37 @@ func (h *ProjectFlowHandler) ClaimTask(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "claimed"})
+}
+
+type completeTaskReq struct {
+	Comment     string   `json:"comment"`
+	Attachments []string `json:"attachments"`
+}
+
+func (h *ProjectFlowHandler) CompleteTask(c *gin.Context) {
+	uid, ok := parseUserID(c)
+	if !ok {
+		return
+	}
+	pid, ok := parseProjectID(c)
+	if !ok {
+		return
+	}
+	tid, ok := parseUserIDParam(c, "task_id")
+	if !ok {
+		return
+	}
+
+	var req completeTaskReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
+		return
+	}
+
+	item, err := h.svc.CompleteTask(c.Request.Context(), uid, pid, tid, req.Comment, req.Attachments)
+	if err != nil {
+		handleFlowErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, item)
 }

@@ -19,8 +19,8 @@ func NewPositionsRepo(db *pgxpool.Pool) *PositionsRepo {
 
 func (r *PositionsRepo) Create(ctx context.Context, projectID uuid.UUID, code, name string, capacity int) (uuid.UUID, error) {
 	const q = `
-INSERT INTO project_positions(project_id, code, name, capacity)
-VALUES ($1, $2, $3, $4)
+INSERT INTO project_positions(tenant_id, project_id, code, name, capacity)
+VALUES ((SELECT tenant_id FROM projects WHERE id = $1), $1, $2, $3, $4)
 RETURNING id;
 `
 	var id uuid.UUID

@@ -29,6 +29,11 @@ func TestRBACRepo_Integration_HasPermission_ProjectScope(t *testing.T) {
 
 	userID := uuid.New()
 	projectID := uuid.New()
+	_, err = pool.Exec(ctx, `
+INSERT INTO users(id, email, password_hash, status)
+VALUES ($1, $2, 'integration-hash', 'ACTIVE');
+`, userID, "rbac-project-"+userID.String()+"@example.local")
+	require.NoError(t, err)
 
 	// Assign TEAM_LEAD role in PROJECT scope to user
 	_, err = pool.Exec(ctx, `
@@ -82,6 +87,11 @@ func TestRBACRepo_Integration_ExpiredAssignmentDenied(t *testing.T) {
 
 	userID := uuid.New()
 	projectID := uuid.New()
+	_, err = pool.Exec(ctx, `
+INSERT INTO users(id, email, password_hash, status)
+VALUES ($1, $2, 'integration-hash', 'ACTIVE');
+`, userID, "rbac-expired-"+userID.String()+"@example.local")
+	require.NoError(t, err)
 
 	// Expired assignment
 	_, err = pool.Exec(ctx, `
@@ -117,6 +127,11 @@ func TestRBACRepo_Integration_GrantRoleByCode_AllowsPermission(t *testing.T) {
 
 	userID := uuid.New()
 	projectID := uuid.New()
+	_, err = pool.Exec(ctx, `
+INSERT INTO users(id, email, password_hash, status)
+VALUES ($1, $2, 'integration-hash', 'ACTIVE');
+`, userID, "rbac-grant-"+userID.String()+"@example.local")
+	require.NoError(t, err)
 	scope := rbac.Scope{Type: rbac.ScopeProject, ID: &projectID}
 
 	// grant TEAM_LEAD in this project

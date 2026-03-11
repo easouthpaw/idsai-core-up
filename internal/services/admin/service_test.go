@@ -16,6 +16,12 @@ type fakeAdminRepo struct {
 	deleteUserErr    error
 	deleteProjectID  uuid.UUID
 	deleteProjectErr error
+	roleUserID       uuid.UUID
+	roleCode         string
+	passwordUserID   uuid.UUID
+	passwordHash     string
+	userByID         admin.User
+	userByIDErr      error
 }
 
 func (f *fakeAdminRepo) ListUsers(ctx context.Context, roleCode, search string) ([]admin.User, error) {
@@ -26,11 +32,31 @@ func (f *fakeAdminRepo) ListProjects(ctx context.Context, status, search string)
 	return nil, nil
 }
 
+func (f *fakeAdminRepo) GetProjectObservation(ctx context.Context, projectID uuid.UUID) (admin.ProjectObservation, error) {
+	return admin.ProjectObservation{}, nil
+}
+
 func (f *fakeAdminRepo) CreateUser(ctx context.Context, in admin.CreateUserParams) (admin.User, error) {
 	return admin.User{}, nil
 }
 
+func (f *fakeAdminRepo) GetUserByID(ctx context.Context, userID uuid.UUID) (admin.User, error) {
+	return f.userByID, f.userByIDErr
+}
+
 func (f *fakeAdminRepo) UpdateUserStatus(ctx context.Context, userID uuid.UUID, status string) error {
+	return nil
+}
+
+func (f *fakeAdminRepo) UpdateUserRole(ctx context.Context, userID uuid.UUID, roleCode string) error {
+	f.roleUserID = userID
+	f.roleCode = roleCode
+	return nil
+}
+
+func (f *fakeAdminRepo) UpdateUserPasswordHash(ctx context.Context, userID uuid.UUID, passwordHash string) error {
+	f.passwordUserID = userID
+	f.passwordHash = passwordHash
 	return nil
 }
 
@@ -79,4 +105,30 @@ func TestService_DeleteProject_CallsRepo(t *testing.T) {
 	err := svc.DeleteProject(context.Background(), projectID)
 	require.NoError(t, err)
 	require.Equal(t, projectID, repo.deleteProjectID)
+}
+
+func TestService_SetUserRole_UpdatesAndReturnsUser(t *testing.T) {
+	userID := uuid.New()
+	repo := &fakeAdminRepo{
+		userByID: admin.User{ID: userID, RoleCode: admin.RoleProfessor},
+	}
+	svc := admin.NewService(repo)
+
+	got, err := svc.SetUserRole(context.Background(), userID, "professor")
+	require.NoError(t, err)
+	require.Equal(t, userID, repo.roleUserID)
+	require.Equal(t, admin.RoleProfessor, repo.roleCode)
+	require.Equal(t, admin.RoleProfessor, got.RoleCode)
+}
+
+func TestService_ResetUserPassword_HashesValue(t *testing.T) {
+	userID := uuid.New()
+	repo := &fakeAdminRepo{}
+	svc := admin.NewService(repo)
+
+	err := svc.ResetUserPassword(context.Background(), userID, "new-password-123")
+	require.NoError(t, err)
+	require.Equal(t, userID, repo.passwordUserID)
+	require.NotEmpty(t, repo.passwordHash)
+	require.NotEqual(t, "new-password-123", repo.passwordHash)
 }

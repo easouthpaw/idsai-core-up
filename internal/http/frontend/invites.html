@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>IDSAI Corp. Invites</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/dev/static/css/projects.css" />
+  <link rel="stylesheet" href="/dev/static/css/invites.css" />
+  <link rel="stylesheet" href="/dev/static/css/notifications-popup.css" />
+  <link rel="stylesheet" href="/dev/static/css/dev-theme.css" />
+</head>
+<body class="projects-body invites-body">
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <img class="brand-logo" src="/dev/static/assets/idsai-corp-logo.png" alt="IDSAI Corp. logo" />
+        <span class="logo-text">IDSAI Corp.</span>
+      </div>
+
+      <div class="profile-row">
+        <div id="profileAvatar" class="avatar">ST</div>
+        <div class="user-info-text">
+          <p id="studentName" class="profile-name">Student</p>
+          <p id="studentEmail" class="profile-sub">student@university.edu</p>
+        </div>
+      </div>
+
+      <p class="nav-title">WORKSPACE</p>
+      <nav class="main-nav" aria-label="Student sections">
+        <a class="nav-link" href="/dev/projects">
+          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">folder</span></span>
+          <span class="nav-label">Проекты</span>
+        </a>
+        <a class="nav-link active" href="/dev/invites">
+          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">mark_email_unread</span></span>
+          <span class="nav-label">Заявки</span>
+        </a>
+      </nav>
+
+      <p class="nav-title">UTILITIES</p>
+      <nav class="main-nav">
+        <a class="nav-link" href="/swagger/index.html" target="_blank" rel="noreferrer">
+          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">description</span></span>
+          <span class="nav-label">Swagger</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <button id="logoutBtn" class="bottom-link danger" type="button">
+          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">logout</span></span>
+          <span class="nav-label">Выйти</span>
+        </button>
+      </div>
+    </aside>
+
+    <div class="content-shell">
+      <header class="topbar">
+        <div class="breadcrumbs">
+          <span>idsai-corp</span>
+          <span>/</span>
+          <strong>invites</strong>
+        </div>
+      </header>
+
+      <main class="content invites-content">
+        <section class="hero invites-hero">
+          <div>
+            <h1>Заявки и приглашения</h1>
+            <p>Одна страница с входящими приглашениями в проекты и вашими исходящими заявками.</p>
+          </div>
+          <a class="create-btn" href="/dev/projects">Открыть проекты</a>
+        </section>
+
+        <section class="invite-tabs" role="tablist" aria-label="Invites tabs">
+          <button id="tabIncoming" class="invite-tab active" type="button" role="tab" aria-selected="true">
+            Входящие
+            <span id="incomingCount" class="tab-count">0</span>
+          </button>
+          <button id="tabOutgoing" class="invite-tab" type="button" role="tab" aria-selected="false">
+            Исходящие
+            <span id="outgoingCount" class="tab-count">0</span>
+          </button>
+        </section>
+
+        <section id="incomingPane" class="invite-pane active">
+          <div id="incomingList" class="invite-list"></div>
+        </section>
+
+        <section id="outgoingPane" class="invite-pane">
+          <div id="outgoingList" class="invite-list"></div>
+        </section>
+
+        <p id="pageStatus" class="page-status"></p>
+      </main>
+    </div>
+  </div>
+
+  <script src="/dev/static/js/notifications-popup.js?v=20260307-2" defer></script>
+  <script src="/dev/static/js/invites.js" defer></script>
+</body>
+</html>

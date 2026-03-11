@@ -41,62 +41,81 @@
     </footer>
   </aside>
 
-  <main class="prof-main">
-    <header class="prof-header">
-      <div>
+  <main class="prof-main criteria-main">
+    <section class="criteria-shell">
+      <header class="criteria-page-head">
         <p class="crumb">Критерии оценки</p>
-        <h1>Настройка критериев</h1>
-      </div>
-      <div class="head-actions">
-        <a id="openProjectBtn" class="ghost-btn" href="/dev/projects">Открыть проект</a>
-        <a id="openGradingBtn" class="primary-btn" href="#">Страница оценки</a>
-      </div>
-    </header>
+        <h1>Настройка критериев оценки</h1>
+        <p class="head-sub">Управление чек-листами для проверки студенческих проектов и лабораторных работ.</p>
+      </header>
 
-    <section class="table-card">
-      <div class="table-head">
-        <h2>Выбор проекта</h2>
-      </div>
-      <div class="criteria-topbar">
-        <label for="projectSelect">Проект</label>
-        <select id="projectSelect"></select>
-      </div>
-      <p class="hint">Изменения сразу видны команде проекта.</p>
-    </section>
-
-    <section class="table-card">
-      <div class="table-head">
-        <h2>CRITERIA_LIST.md</h2>
-      </div>
-      <div id="criteriaList" class="criteria-list"></div>
-    </section>
-
-    <section class="table-card">
-      <div class="table-head">
-        <h2>Добавить критерий</h2>
-      </div>
-      <form id="criterionForm" class="criterion-form-grid">
-        <div class="field-grid two">
-          <div>
-            <label for="criterionTitleInput">Название</label>
-            <input id="criterionTitleInput" type="text" placeholder="Например: Покрытие тестами" required />
+      <section class="table-card criteria-context-card">
+        <div class="criteria-context-grid two">
+          <div class="criteria-context-field">
+            <label for="projectSelect">Проект</label>
+            <select id="projectSelect"></select>
           </div>
-          <div>
-            <label for="criterionWeightInput">Вес (1-100)</label>
-            <input id="criterionWeightInput" type="number" min="1" max="100" value="10" required />
+          <div class="criteria-context-field">
+            <label for="projectStatusView">Статус</label>
+            <input id="projectStatusView" type="text" readonly value="—" />
           </div>
         </div>
+      </section>
+
+      <section class="criteria-banner">
+        <div class="banner-icon">i</div>
         <div>
-          <label for="criterionDescInput">Описание</label>
-          <textarea id="criterionDescInput" placeholder="Что именно проверяет критерий"></textarea>
+          <strong>Режим редактирования</strong>
+          <p>Изменения применяются сразу для команды проекта. Участники увидят обновлённый список после сохранения.</p>
         </div>
-        <div class="form-actions">
-          <button id="criterionSubmitBtn" class="primary-btn" type="submit">Сохранить критерий</button>
-        </div>
-      </form>
-    </section>
+      </section>
 
-    <p id="pageStatus" class="page-status"></p>
+      <section class="table-card criteria-editor-card">
+        <div class="table-head criteria-editor-head">
+          <div class="criteria-editor-title">
+            <h2>CRITERIA_LIST.md</h2>
+            <span class="criteria-editor-meta">read-write</span>
+            <span id="criteriaWeightMeta" class="criteria-editor-meta criteria-weight-meta">Вес 0 / 100</span>
+          </div>
+          <button id="loadTemplateBtn" class="ghost-btn criteria-template-btn" type="button">Загрузить шаблон</button>
+        </div>
+
+        <div id="criteriaList" class="criteria-list"></div>
+
+        <div class="criteria-add-wrap">
+          <button id="openComposerBtn" class="ghost-btn criteria-add-trigger" type="button">Добавить критерий</button>
+
+          <form id="criterionForm" class="criterion-form-grid" hidden>
+            <div class="field-grid two">
+              <div>
+                <label for="criterionTitleInput">Название</label>
+                <input id="criterionTitleInput" type="text" placeholder="Например: Покрытие тестами > 80%" required />
+              </div>
+              <div>
+                <label for="criterionWeightInput">Вес (1-100)</label>
+                <input id="criterionWeightInput" type="number" min="1" max="100" value="10" required />
+              </div>
+            </div>
+            <div>
+              <label for="criterionDescInput">Описание</label>
+              <textarea id="criterionDescInput" placeholder="Что именно проверяет критерий"></textarea>
+            </div>
+            <div class="form-actions">
+              <button id="cancelComposerBtn" class="ghost-btn" type="button">Отмена</button>
+              <button id="criterionSubmitBtn" class="primary-btn" type="submit">Добавить критерий</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="criteria-footer-actions">
+          <button id="cancelBottomBtn" class="ghost-btn" type="button">Отмена</button>
+          <button id="saveTemplateBtn" class="ghost-btn" type="button">Сохранить как шаблон</button>
+          <button id="saveBottomBtn" class="primary-btn" type="button">Готово</button>
+        </div>
+      </section>
+
+      <p id="pageStatus" class="page-status"></p>
+    </section>
   </main>
 
   <script src="/dev/static/js/notifications-popup.js?v=20260307-2" defer></script>

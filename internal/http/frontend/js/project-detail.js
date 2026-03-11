@@ -80,6 +80,7 @@
     professorInviteHint: document.getElementById("professorInviteHint"),
     assignProfessorBtn: document.getElementById("assignProfessorBtn"),
     approveProjectBtn: document.getElementById("approveProjectBtn"),
+    completeProjectBtn: document.getElementById("completeProjectBtn"),
 
     positionForm: document.getElementById("positionForm"),
     positionNameInput: document.getElementById("positionNameInput"),
@@ -102,6 +103,17 @@
     criteriaListView: document.getElementById("criteriaListView"),
     criteriaCountMeta: document.getElementById("criteriaCountMeta"),
     criteriaReviewHint: document.getElementById("criteriaReviewHint"),
+    reviewStatusPill: document.getElementById("reviewStatusPill"),
+    reviewIntro: document.getElementById("reviewIntro"),
+    reviewCriteriaList: document.getElementById("reviewCriteriaList"),
+    reviewGauge: document.getElementById("reviewGauge"),
+    reviewGaugeValue: document.getElementById("reviewGaugeValue"),
+    reviewSummaryScore: document.getElementById("reviewSummaryScore"),
+    reviewSummaryMet: document.getElementById("reviewSummaryMet"),
+    reviewSummaryMissed: document.getElementById("reviewSummaryMissed"),
+    reviewSummaryDate: document.getElementById("reviewSummaryDate"),
+    reviewSummaryReviewer: document.getElementById("reviewSummaryReviewer"),
+    reviewOverallComment: document.getElementById("reviewOverallComment"),
 
     activeProgressWrap: document.getElementById("activeProgressWrap"),
     progressPercent: document.getElementById("progressPercent"),
@@ -112,6 +124,7 @@
     openEditViewBtn: document.getElementById("openEditViewBtn"),
     closeEditViewBtn: document.getElementById("closeEditViewBtn"),
     cancelEditBtn: document.getElementById("cancelEditBtn"),
+    deleteProjectBtn: document.getElementById("deleteProjectBtn"),
     saveProjectBtn: document.getElementById("saveProjectBtn"),
 
     editTitleInput: document.getElementById("editTitleInput"),
@@ -133,6 +146,11 @@
     taskModalDescriptionInput: document.getElementById("taskModalDescriptionInput"),
     taskModalDueAtInput: document.getElementById("taskModalDueAtInput"),
     taskModalCreateBtn: document.getElementById("taskModalCreateBtn"),
+    taskResultModal: document.getElementById("taskResultModal"),
+    taskResultTarget: document.getElementById("taskResultTarget"),
+    taskResultCommentInput: document.getElementById("taskResultCommentInput"),
+    taskResultAttachmentsInput: document.getElementById("taskResultAttachmentsInput"),
+    taskResultSubmitBtn: document.getElementById("taskResultSubmitBtn"),
 
     permissionsModal: document.getElementById("permissionsModal"),
     permMemberName: document.getElementById("permMemberName"),
@@ -151,8 +169,10 @@
     positions: [],
     members: [],
     criteria: [],
+    gradingItems: [],
     readiness: null,
     tasks: [],
+    taskActivities: [],
     activeView: "overview",
     searchQuery: "",
     projectMeta: {},
@@ -168,6 +188,7 @@
     professorSearchTimer: null,
     studentSearchTimer: null,
     userDirectory: {},
+    currentResultTaskID: "",
   };
 
   function escapeHTML(value) {
@@ -417,6 +438,13 @@
     return `Student ${shortID(id)}`;
   }
 
+  function getDisplaySubline(userID) {
+    const id = String(userID || "").trim();
+    const known = state.userDirectory[id];
+    if (known && known.email) return known.email;
+    return shortID(id);
+  }
+
   function allMembers() {
     const members = Array.isArray(state.members) ? [...state.members] : [];
     const leadID = String(state.project?.created_by || "").trim();
@@ -454,6 +482,18 @@
       return true;
     }
     return allMembers().some((m) => String(m.user_id) === current && String(m.position_code || "").toUpperCase() === "TEAM_LEAD");
+  }
+
+  function isCurrentUserCreator() {
+    const current = String(localStorage.getItem(LS_USER) || "");
+    return current && current === String(state.project?.created_by || "");
+  }
+
+  function isCurrentUserActiveMember() {
+    const current = String(localStorage.getItem(LS_USER) || "");
+    if (!current) return false;
+    if (current === String(state.project?.created_by || "")) return true;
+    return allMembers().some((m) => String(m.user_id) === current && String(m.status || "").toUpperCase() === "ACTIVE");
   }
 
   function toRFC3339(localDateTime) {
@@ -516,6 +556,176 @@
       meta.tags.slice(0, 2).forEach((t) => tags.push(String(t).toUpperCase()));
     }
     return tags;
+  }
+
+  function isCurrentUserAssignee(task) {
+    const current = String(localStorage.getItem(LS_USER) || "");
+    const assignee = String(task.assignee_user_id || "");
+    return Boolean(current) && current === assignee;
+  }
+
+  function taskActivities(taskID) {
+    return (Array.isArray(state.taskActivities) ? state.taskActivities : []).filter((item) => String(item.task_id) === String(taskID));
+  }
+
+  function gradingByCriterion() {
+    const map = new Map();
+    (Array.isArray(state.gradingItems) ? state.gradingItems : []).forEach((item) => {
+      const id = String(item.criterion_id || "").trim();
+      if (!id) return;
+      map.set(id, {
+        isMet: item.is_met === true ? true : item.is_met === false ? false : null,
+        comment: String(item.comment || "").trim(),
+        updatedAt: item.updated_at || null,
+      });
+    });
+    return map;
+  }
+
+  function reviewSummaryData() {
+    const criteria = Array.isArray(state.criteria) ? state.criteria : [];
+    const grading = gradingByCriterion();
+    let met = 0;
+    let missed = 0;
+    let reviewed = 0;
+    let latest = null;
+    const comments = [];
+
+    criteria.forEach((criterion) => {
+      const id = String(criterion.id || "");
+      const item = grading.get(id);
+      if (!item) return;
+      if (item.isMet === true) {
+        met += 1;
+        reviewed += 1;
+      } else if (item.isMet === false) {
+        missed += 1;
+        reviewed += 1;
+      }
+      if (item.comment) {
+        comments.push({
+          title: String(criterion.title || "Критерий").trim(),
+          text: item.comment,
+          isMet: item.isMet,
+        });
+      }
+      if (item.updatedAt) {
+        const dt = new Date(item.updatedAt);
+        if (!Number.isNaN(dt.getTime()) && (!latest || dt > latest)) latest = dt;
+      }
+    });
+
+    const total = criteria.length;
+    const passPercent = total > 0 ? Math.round((met * 100) / total) : 0;
+    const score = total > 0 ? ((met * 5) / total).toFixed(1) : "0.0";
+    const reviewer = state.professorSummary?.full_name || state.professorSummary?.email || "Преподаватель";
+
+    let overall = "Комментарий преподавателя пока не добавлен.";
+    if (comments.length > 0) {
+      const ranked = comments
+        .slice()
+        .sort((a, b) => {
+          const aw = a.isMet === false ? 0 : 1;
+          const bw = b.isMet === false ? 0 : 1;
+          return aw - bw;
+        })
+        .slice(0, 3);
+      overall = ranked
+        .map((item) => `${item.title}: ${item.text}`)
+        .join("\n\n");
+    } else if (reviewed > 0 && missed === 0) {
+      overall = "Все проверенные критерии отмечены как выполненные.";
+    } else if (reviewed > 0) {
+      overall = `Есть замечания по ${missed} критериям.`;
+    }
+
+    return {
+      total,
+      met,
+      missed,
+      reviewed,
+      passPercent,
+      score,
+      reviewer,
+      reviewedAt: latest,
+      overall,
+      hasReview: reviewed > 0 || comments.length > 0,
+    };
+  }
+
+  function taskActivityLabel(item) {
+    const event = String(item.event_type || "").toUpperCase();
+    if (event === "CREATED") return "Создана задача";
+    if (event === "ASSIGNED") return "Назначен исполнитель";
+    if (event === "CLAIMED") return "Задача взята в работу";
+    if (event === "COMPLETED") return "Задача завершена";
+    const from = String(item.from_status || "").toUpperCase();
+    const to = String(item.to_status || "").toUpperCase();
+    if (event === "STATUS_CHANGED" && from && to) {
+      return `Статус: ${from} -> ${to}`;
+    }
+    return "Изменение задачи";
+  }
+
+  function taskActivityTone(item) {
+    const event = String(item.event_type || "").toUpperCase();
+    if (event === "CREATED") return "created";
+    if (event === "ASSIGNED") return "assigned";
+    if (event === "CLAIMED") return "claimed";
+    if (event === "COMPLETED") return "completed";
+    return "changed";
+  }
+
+  function renderTaskActivityTimeline(taskID) {
+    const items = taskActivities(taskID);
+    if (!items.length) {
+      return '<div class="task-timeline-empty">Лог активности появится после первых действий по задаче.</div>';
+    }
+
+    return (
+      '<div class="task-timeline">' +
+      items
+        .map((item) => {
+          const tone = taskActivityTone(item);
+          const actor = item.actor_name || item.actor_email || "Система";
+          const comment = String(item.comment || "").trim();
+          const attachments = Array.isArray(item.attachments) ? item.attachments.filter(Boolean) : [];
+          const attachmentHTML = attachments.length
+            ? `<div class="timeline-attachments">` +
+                attachments
+                  .map((value) => {
+                    const raw = String(value || "").trim();
+                    const safe = (() => {
+                      try {
+                        const parsed = new URL(raw);
+                        if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+                          return parsed.toString();
+                        }
+                      } catch (_) {}
+                      return "";
+                    })();
+                    if (!safe) return "";
+                    const href = escapeHTML(safe);
+                    return `<a href="${href}" target="_blank" rel="noreferrer">${href}</a>`;
+                  })
+                  .join("") +
+              `</div>`
+            : "";
+          return (
+            `<article class="timeline-item ${tone}">` +
+              `<div class="timeline-dot"></div>` +
+              `<div class="timeline-body">` +
+                `<p class="timeline-title">${escapeHTML(taskActivityLabel(item))}</p>` +
+                `<p class="timeline-meta">${escapeHTML(actor)} · ${escapeHTML(formatDate(item.created_at))}</p>` +
+                (comment ? `<p class="timeline-comment">${escapeHTML(comment)}</p>` : "") +
+                attachmentHTML +
+              `</div>` +
+            `</article>`
+          );
+        })
+        .join("") +
+      `</div>`
+    );
   }
 
   function permissionPresetForRole(roleCode) {
@@ -585,6 +795,11 @@
     ui.repoLink.textContent = repo.replace(/^https?:\/\//, "");
 
     ui.favoriteBtn.textContent = state.favorite ? "★ В избранном" : "★ В избранное";
+    if (ui.deleteProjectBtn) {
+      const canDelete = isCurrentUserCreator();
+      ui.deleteProjectBtn.hidden = !canDelete;
+      ui.deleteProjectBtn.disabled = !canDelete;
+    }
   }
 
   function renderAbout() {
@@ -640,6 +855,10 @@
     if (!state.readiness) {
       ui.readinessList.innerHTML = '<div class="empty-state">Данные о готовности не загружены.</div>';
       ui.approveProjectBtn.disabled = true;
+      if (ui.completeProjectBtn) {
+        ui.completeProjectBtn.hidden = true;
+        ui.completeProjectBtn.disabled = true;
+      }
       renderProfessorInviteArea(String(state.project?.professor_review_status || "NONE"));
       return;
     }
@@ -668,6 +887,31 @@
     });
 
     ui.approveProjectBtn.disabled = !state.readiness.can_activate;
+    if (ui.completeProjectBtn) {
+      const statusCode = projectStatusCode();
+      const isMember = isCurrentUserActiveMember();
+      const tasksTotal = Array.isArray(state.tasks) ? state.tasks.length : 0;
+      const tasksDone = Array.isArray(state.tasks)
+        ? state.tasks.filter((t) => String(t.status || "").toUpperCase() === "DONE").length
+        : 0;
+      const allTasksDone = tasksTotal > 0 && tasksDone === tasksTotal;
+      const professorAccepted = professorStatusCode === "ACCEPTED";
+
+      const visible = statusCode === "ACTIVE" && isMember;
+      ui.completeProjectBtn.hidden = !visible;
+      if (!visible) {
+        ui.completeProjectBtn.disabled = true;
+        ui.completeProjectBtn.title = "";
+      } else {
+        const readyForSubmit = professorAccepted && allTasksDone;
+        ui.completeProjectBtn.disabled = !readyForSubmit;
+        const reasons = [];
+        if (!professorAccepted) reasons.push("преподаватель еще не подтвердил участие");
+        if (tasksTotal === 0) reasons.push("нет задач для проверки");
+        if (tasksTotal > 0 && tasksDone < tasksTotal) reasons.push(`выполнено задач ${tasksDone}/${tasksTotal}`);
+        ui.completeProjectBtn.title = readyForSubmit ? "" : `Нельзя завершить: ${reasons.join(", ")}`;
+      }
+    }
     renderProfessorInviteArea(professorStatusCode);
   }
 
@@ -765,7 +1009,7 @@
         `<td>` +
           `<div class="user-cell">` +
             `<div class="member-avatar">${escapeHTML(initials(getDisplayName(m.user_id), m.user_id))}</div>` +
-            `<div><strong>${escapeHTML(getDisplayName(m.user_id))}</strong><small>${escapeHTML(shortID(m.user_id))}</small></div>` +
+            `<div><strong>${escapeHTML(getDisplayName(m.user_id))}</strong><small>${escapeHTML(getDisplaySubline(m.user_id))}</small></div>` +
           `</div>` +
         `</td>` +
         `<td><span class="status-badge ${status.toLowerCase()}">${escapeHTML(status)}</span></td>` +
@@ -902,6 +1146,45 @@
 
     const status = String(task.status || "OPEN").toUpperCase();
     const tags = taskTags(task);
+    const isLead = isCurrentUserLead();
+    const isAssignee = isCurrentUserAssignee(task);
+    let controlsHTML = "";
+
+    if (isLead) {
+      controlsHTML =
+        `<div class="task-controls">` +
+          `<div class="task-control-row">` +
+            `<select data-task-status>` +
+              `<option value="OPEN" ${status === "OPEN" ? "selected" : ""}>OPEN</option>` +
+              `<option value="IN_PROGRESS" ${status === "IN_PROGRESS" ? "selected" : ""}>IN_PROGRESS</option>` +
+              `<option value="DONE" ${status === "DONE" ? "selected" : ""}>DONE</option>` +
+            `</select>` +
+            `<button class="ghost-btn" data-task-action="status">Статус</button>` +
+          `</div>` +
+          `<div class="task-control-row">` +
+            `<select data-task-assignee>${assigneeOptions(task.position_id, task.assignee_user_id || "")}</select>` +
+            `<button class="ghost-btn" data-task-action="assign">Назначить</button>` +
+          `</div>` +
+          (isAssignee && status === "OPEN" ? `<button class="primary-btn" data-task-action="claim">Взять</button>` : "") +
+          (isAssignee && status === "IN_PROGRESS" ? `<button class="primary-btn" data-task-action="complete-open">Выполнено</button>` : "") +
+        `</div>`;
+    } else if (isAssignee) {
+      if (status === "OPEN") {
+        controlsHTML =
+          `<div class="task-controls student-flow">` +
+            `<button class="primary-btn" data-task-action="claim">Взять</button>` +
+          `</div>`;
+      } else if (status === "IN_PROGRESS") {
+        controlsHTML =
+          `<div class="task-controls student-flow">` +
+            `<button class="primary-btn" data-task-action="complete-open">Выполнено</button>` +
+          `</div>`;
+      } else {
+        controlsHTML = `<div class="task-controls student-flow"><span class="task-note done">Задача закрыта</span></div>`;
+      }
+    } else {
+      controlsHTML = `<div class="task-controls student-flow"><span class="task-note">Ожидайте назначения или обновлений.</span></div>`;
+    }
 
     card.innerHTML =
       `<h4>${escapeHTML(task.title || "Без названия")}</h4>` +
@@ -909,20 +1192,10 @@
       `<p>Роль: ${escapeHTML(task.position_name || task.position_code || "-")}</p>` +
       `<p>Исполнитель: ${escapeHTML(task.assignee_user_id ? getDisplayName(task.assignee_user_id) : "не назначен")}</p>` +
       `<div class="task-tags">${tags.map((t) => `<span class="tag">${escapeHTML(t)}</span>`).join("")}</div>` +
-      `<div class="task-controls">` +
-        `<div class="task-control-row">` +
-          `<select data-task-status>` +
-            `<option value="OPEN" ${status === "OPEN" ? "selected" : ""}>OPEN</option>` +
-            `<option value="IN_PROGRESS" ${status === "IN_PROGRESS" ? "selected" : ""}>IN_PROGRESS</option>` +
-            `<option value="DONE" ${status === "DONE" ? "selected" : ""}>DONE</option>` +
-          `</select>` +
-          `<button class="ghost-btn" data-task-action="status">Статус</button>` +
-        `</div>` +
-        `<div class="task-control-row">` +
-          `<select data-task-assignee>${assigneeOptions(task.position_id, task.assignee_user_id || "")}</select>` +
-          `<button class="ghost-btn" data-task-action="assign">Назначить</button>` +
-        `</div>` +
-        `<button class="primary-btn" data-task-action="claim">Взять</button>` +
+      controlsHTML +
+      `<div class="task-timeline-wrap">` +
+        `<p class="task-timeline-head">Лента задачи</p>` +
+        renderTaskActivityTimeline(task.id || "") +
       `</div>`;
 
     return card;
@@ -995,11 +1268,105 @@
 
     if (ui.criteriaReviewHint) {
       const status = projectStatusCode();
-      if (status === "REVIEW" || status === "GRADING" || status === "ARCHIVE") {
+      const summary = reviewSummaryData();
+      if (summary.hasReview) {
+        ui.criteriaReviewHint.textContent = `Проверено: ${summary.met}/${summary.total}. Итоговый балл: ${summary.score}/5.0 (${summary.passPercent}%).`;
+      } else if (status === "REVIEW" || status === "GRADING" || status === "ARCHIVE") {
         ui.criteriaReviewHint.textContent = "Проект на этапе ревью. Итоговая оценка будет доступна после проверки преподавателем.";
       } else {
         ui.criteriaReviewHint.textContent = "Оценивание появится после завершения проекта и начала ревью.";
       }
+    }
+  }
+
+  function renderReviewView() {
+    if (!ui.reviewCriteriaList) return;
+    const criteria = Array.isArray(state.criteria) ? state.criteria : [];
+    const grading = gradingByCriterion();
+    const summary = reviewSummaryData();
+    const status = projectStatusCode();
+
+    if (!criteria.length) {
+      ui.reviewCriteriaList.innerHTML = '<div class="empty-state">Критерии пока не настроены преподавателем.</div>';
+    } else {
+      ui.reviewCriteriaList.innerHTML = criteria
+        .map((criterion) => {
+          const id = String(criterion.id || "");
+          const item = grading.get(id) || { isMet: null, comment: "" };
+          const yesActive = item.isMet === true ? "active" : "";
+          const noActive = item.isMet === false ? "active" : "";
+          const comment = String(item.comment || "").trim();
+          const commentClass = comment
+            ? item.isMet === false
+              ? "review-comment-box negative"
+              : "review-comment-box"
+            : "review-comment-box empty";
+          const commentText = comment || "Комментарий не оставлен.";
+
+          return (
+            `<article class="review-criterion">` +
+              `<div class="review-criterion-head">` +
+                `<strong>${escapeHTML(criterion.title || "Без названия")}</strong>` +
+                `<div class="review-bool">` +
+                  `<span class="yes ${yesActive}">Да</span>` +
+                  `<span class="no ${noActive}">Нет</span>` +
+                `</div>` +
+              `</div>` +
+              `<p>${escapeHTML(criterion.description || "Описание отсутствует")}</p>` +
+              `<div class="${commentClass}">${escapeHTML(commentText)}</div>` +
+            `</article>`
+          );
+        })
+        .join("");
+    }
+
+    if (ui.reviewStatusPill) {
+      if (status === "ARCHIVE" && summary.hasReview) {
+        ui.reviewStatusPill.className = "status-pill active";
+        ui.reviewStatusPill.textContent = "Проверено преподавателем";
+      } else if (status === "GRADING") {
+        ui.reviewStatusPill.className = "status-pill review";
+        ui.reviewStatusPill.textContent = summary.hasReview ? "Идет оценивание" : "На оценивании";
+      } else {
+        ui.reviewStatusPill.className = "status-pill muted";
+        ui.reviewStatusPill.textContent = "Оценка не опубликована";
+      }
+    }
+
+    if (ui.reviewIntro) {
+      if (summary.hasReview) {
+        ui.reviewIntro.textContent = `Ревью по критериям сохранено. Выполнено: ${summary.met}/${summary.total}.`;
+      } else if (status === "GRADING") {
+        ui.reviewIntro.textContent = "Проект отправлен преподавателю на оценивание. Результаты появятся после проверки.";
+      } else {
+        ui.reviewIntro.textContent = "После завершения проекта преподаватель выставляет оценки по критериям. Здесь отображаются результаты ревью.";
+      }
+    }
+
+    if (ui.reviewGauge) {
+      ui.reviewGauge.style.setProperty("--review-percent", String(summary.passPercent));
+    }
+    if (ui.reviewGaugeValue) {
+      ui.reviewGaugeValue.textContent = `${summary.passPercent}%`;
+    }
+    if (ui.reviewSummaryScore) {
+      ui.reviewSummaryScore.innerHTML = `${escapeHTML(summary.score)} <span>/ 5.0</span>`;
+    }
+    if (ui.reviewSummaryMet) {
+      ui.reviewSummaryMet.textContent = `${summary.met} / ${summary.total}`;
+    }
+    if (ui.reviewSummaryMissed) {
+      ui.reviewSummaryMissed.textContent = `${summary.missed}`;
+    }
+    if (ui.reviewSummaryDate) {
+      ui.reviewSummaryDate.textContent = summary.reviewedAt ? formatDate(summary.reviewedAt.toISOString()) : "-";
+    }
+    if (ui.reviewSummaryReviewer) {
+      ui.reviewSummaryReviewer.textContent = summary.reviewer;
+    }
+    if (ui.reviewOverallComment) {
+      ui.reviewOverallComment.className = summary.hasReview ? "review-comment-box" : "empty-state";
+      ui.reviewOverallComment.textContent = summary.overall;
     }
   }
 
@@ -1034,6 +1401,7 @@
     renderInviteCandidates();
     renderTasks();
     renderCriteriaView();
+    renderReviewView();
     bindProjectMetaToUI();
     renderTaskModalSelects();
   }
@@ -1074,13 +1442,22 @@
   }
 
   function openModal(modal) {
+    if (!modal) return;
     modal.hidden = false;
     document.body.style.overflow = "hidden";
   }
 
   function closeModal(modal) {
+    if (!modal) return;
     modal.hidden = true;
-    if (ui.taskModal.hidden && ui.permissionsModal.hidden) {
+    if (modal === ui.taskResultModal) {
+      clearTaskResultForm();
+    }
+    if (
+      ui.taskModal.hidden &&
+      ui.permissionsModal.hidden &&
+      (!ui.taskResultModal || ui.taskResultModal.hidden)
+    ) {
       document.body.style.overflow = "";
     }
   }
@@ -1128,6 +1505,97 @@
     syncTaskModalAssignees();
   }
 
+  function clearTaskResultForm() {
+    state.currentResultTaskID = "";
+    if (ui.taskResultTarget) {
+      ui.taskResultTarget.textContent = "Задача";
+    }
+    if (ui.taskResultCommentInput) {
+      ui.taskResultCommentInput.value = "";
+    }
+    if (ui.taskResultAttachmentsInput) {
+      ui.taskResultAttachmentsInput.value = "";
+    }
+    if (ui.taskResultSubmitBtn) {
+      ui.taskResultSubmitBtn.disabled = false;
+      ui.taskResultSubmitBtn.textContent = "Готово";
+    }
+  }
+
+  function openTaskResultModal(taskID) {
+    const task = state.tasks.find((item) => String(item.id) === String(taskID));
+    if (!task) {
+      throw new Error("Задача не найдена.");
+    }
+    if (!isCurrentUserAssignee(task)) {
+      throw new Error("Фиксировать результат может только назначенный исполнитель.");
+    }
+    const status = String(task.status || "").toUpperCase();
+    if (status !== "IN_PROGRESS") {
+      throw new Error("Задача должна быть в статусе IN_PROGRESS.");
+    }
+
+    state.currentResultTaskID = String(taskID);
+    if (ui.taskResultTarget) {
+      ui.taskResultTarget.textContent = `${task.title || "Задача"} · ${task.position_name || task.position_code || "без роли"}`;
+    }
+    if (ui.taskResultCommentInput) {
+      ui.taskResultCommentInput.value = "";
+    }
+    if (ui.taskResultAttachmentsInput) {
+      ui.taskResultAttachmentsInput.value = "";
+    }
+    openModal(ui.taskResultModal);
+  }
+
+  function collectTaskResultAttachments() {
+    const raw = String(ui.taskResultAttachmentsInput ? ui.taskResultAttachmentsInput.value : "");
+    const parts = raw
+      .split(/\n|,/g)
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const uniq = [];
+    const seen = new Set();
+    parts.forEach((item) => {
+      if (seen.has(item)) return;
+      seen.add(item);
+      uniq.push(item);
+    });
+    return uniq.slice(0, 10);
+  }
+
+  async function submitTaskResultFromModal() {
+    const taskID = String(state.currentResultTaskID || "");
+    if (!taskID) {
+      throw new Error("Не выбрана задача для фиксации результата.");
+    }
+
+    const comment = String(ui.taskResultCommentInput ? ui.taskResultCommentInput.value : "").trim();
+    const attachments = collectTaskResultAttachments();
+    const submitBtn = ui.taskResultSubmitBtn;
+    const prevTitle = submitBtn ? submitBtn.textContent : "Готово";
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Сохраняем...";
+    }
+
+    try {
+      await request("POST", `/v2/projects/${state.projectID}/tasks/${taskID}/complete`, {
+        comment,
+        attachments,
+      });
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = prevTitle;
+      }
+    }
+
+    closeModal(ui.taskResultModal);
+    setNotice("Результат зафиксирован. Задача переведена в DONE.", false);
+    await refreshData();
+  }
+
   async function createTaskFromModal() {
     const status = String(ui.taskModalStatusSelect.value || "OPEN").toUpperCase();
     const title = ui.taskModalTitleInput.value.trim();
@@ -1165,6 +1633,11 @@
     if (created && created.id) {
       state.taskMeta[created.id] = meta;
       saveJSON(taskMetaKey(), state.taskMeta);
+      if (status === "IN_PROGRESS") {
+        await request("PATCH", `/v2/projects/${state.projectID}/tasks/${created.id}/status`, {
+          status: "IN_PROGRESS",
+        });
+      }
     }
 
     closeModal(ui.taskModal);
@@ -1262,6 +1735,18 @@
 
     await refreshData();
     setView("overview");
+  }
+
+  async function onDeleteProject() {
+    if (!isCurrentUserCreator()) {
+      throw new Error("Удалять проект может только его создатель.");
+    }
+    const confirmed = window.confirm("Удалить проект без возможности восстановления?");
+    if (!confirmed) return;
+
+    await request("DELETE", `/v2/projects/${state.projectID}`);
+    localStorage.removeItem(LS_SELECTED_PROJECT);
+    window.location.href = "/dev/projects";
   }
 
   async function onCreatePosition(e) {
@@ -1378,6 +1863,11 @@
       });
       setNotice(`Исполнитель задачи ${shortID(taskID)} обновлен.`, false);
       await refreshData();
+      return;
+    }
+
+    if (action === "complete-open") {
+      openTaskResultModal(taskID);
     }
   }
 
@@ -1446,6 +1936,15 @@
     await refreshData();
   }
 
+  async function onSubmitProjectForGrading() {
+    const confirmed = window.confirm("Отправить проект преподавателю на оценивание? После этого статус станет GRADING.");
+    if (!confirmed) return;
+
+    await request("POST", `/v2/projects/${state.projectID}/grading/submit`, {});
+    setNotice("Проект отправлен на оценивание преподавателю.", false);
+    await refreshData();
+  }
+
   function savePermissions() {
     if (!state.currentPermUserID) return;
 
@@ -1463,13 +1962,15 @@
     state.project = await request("GET", `/v2/projects/${state.projectID}`);
     rememberUser(localStorage.getItem(LS_USER), localStorage.getItem(LS_STUDENT_NAME), localStorage.getItem(LS_STUDENT_EMAIL));
 
-    const [stacks, positions, members, readiness, criteria, tasks, professorResp] = await Promise.all([
+    const [stacks, positions, members, readiness, criteria, tasks, gradingResp, taskActivityResp, professorResp] = await Promise.all([
       loadOptional("stacks", "GET", `/v2/projects/${state.projectID}/stacks`, []),
       loadOptional("positions", "GET", `/v2/projects/${state.projectID}/positions`, []),
       loadOptional("members", "GET", `/v2/projects/${state.projectID}/members`, []),
       loadOptional("readiness", "GET", `/v2/projects/${state.projectID}/readiness`, null),
       loadOptional("criteria", "GET", `/v2/projects/${state.projectID}/criteria`, []),
       loadOptional("tasks", "GET", `/v2/projects/${state.projectID}/tasks`, []),
+      loadOptional("grading", "GET", `/v2/projects/${state.projectID}/grading`, { items: [] }),
+      loadOptional("task activity", "GET", `/v2/projects/${state.projectID}/tasks/activity`, { items: [] }),
       loadOptional("assigned professor", "GET", `/v2/projects/${state.projectID}/professor`, { professor: null }),
     ]);
 
@@ -1485,9 +1986,22 @@
     }
     state.positions = Array.isArray(positions) ? positions : [];
     state.members = Array.isArray(members) ? members : [];
+    state.members.forEach((member) => {
+      rememberUser(member.user_id, member.full_name, member.email);
+    });
     state.readiness = readiness && typeof readiness === "object" ? readiness : null;
     state.criteria = Array.isArray(criteria) ? criteria : [];
     state.tasks = Array.isArray(tasks) ? tasks : [];
+    if (Array.isArray(gradingResp)) {
+      state.gradingItems = gradingResp;
+    } else {
+      state.gradingItems = gradingResp && Array.isArray(gradingResp.items) ? gradingResp.items : [];
+    }
+    if (Array.isArray(taskActivityResp)) {
+      state.taskActivities = taskActivityResp;
+    } else {
+      state.taskActivities = taskActivityResp && Array.isArray(taskActivityResp.items) ? taskActivityResp.items : [];
+    }
     state.professorSummary = professorResp && typeof professorResp === "object" ? professorResp.professor || null : null;
     if (state.professorSummary && state.professorSummary.user_id) {
       rememberUser(state.professorSummary.user_id, state.professorSummary.full_name, state.professorSummary.email);
@@ -1522,7 +2036,8 @@
       });
     });
 
-    [ui.taskModal, ui.permissionsModal].forEach((modal) => {
+    [ui.taskModal, ui.permissionsModal, ui.taskResultModal].forEach((modal) => {
+      if (!modal) return;
       modal.addEventListener("click", (e) => {
         if (e.target === modal) {
           closeModal(modal);
@@ -1534,6 +2049,7 @@
       if (e.key !== "Escape") return;
       if (!ui.taskModal.hidden) closeModal(ui.taskModal);
       if (!ui.permissionsModal.hidden) closeModal(ui.permissionsModal);
+      if (ui.taskResultModal && !ui.taskResultModal.hidden) closeModal(ui.taskResultModal);
     });
   }
 
@@ -1573,6 +2089,16 @@
         setNotice(err.message || String(err), true);
       }
     });
+
+    if (ui.deleteProjectBtn) {
+      ui.deleteProjectBtn.addEventListener("click", async () => {
+        try {
+          await onDeleteProject();
+        } catch (err) {
+          setNotice(err.message || String(err), true);
+        }
+      });
+    }
 
     ui.editStacksInput.addEventListener("input", () => {
       renderEditStackChips();
@@ -1689,6 +2215,15 @@
         }
       }
     });
+    if (ui.completeProjectBtn) {
+      ui.completeProjectBtn.addEventListener("click", async () => {
+        try {
+          await onSubmitProjectForGrading();
+        } catch (err) {
+          setNotice(err.message || String(err), true);
+        }
+      });
+    }
 
     ui.openTaskModalBtn.addEventListener("click", openTaskModal);
     ui.taskModalPositionSelect.addEventListener("change", syncTaskModalAssignees);
@@ -1699,6 +2234,15 @@
         setNotice(err.message || String(err), true);
       }
     });
+    if (ui.taskResultSubmitBtn) {
+      ui.taskResultSubmitBtn.addEventListener("click", async () => {
+        try {
+          await submitTaskResultFromModal();
+        } catch (err) {
+          setNotice(err.message || String(err), true);
+        }
+      });
+    }
 
     [ui.todoTasks, ui.doingTasks, ui.doneTasks].forEach((container) => {
       container.addEventListener("click", async (e) => {

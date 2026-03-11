@@ -72,6 +72,15 @@
   const projectModalStatusEl = document.getElementById("projectModalStatus");
   const projectConfirmInputEl = document.getElementById("projectConfirmInput");
 
+  const projectObserveModalEl = document.getElementById("projectObserveModal");
+  const observeModalCloseBtnEl = document.getElementById("observeModalCloseBtn");
+  const observeProjectTitleEl = document.getElementById("observeProjectTitle");
+  const observeProjectMetaEl = document.getElementById("observeProjectMeta");
+  const observeSummaryEl = document.getElementById("observeSummary");
+  const observeMembersBodyEl = document.getElementById("observeMembersBody");
+  const observeTasksBodyEl = document.getElementById("observeTasksBody");
+  const observeCriteriaBodyEl = document.getElementById("observeCriteriaBody");
+
   const adminNameEl = document.getElementById("adminName");
   const adminEmailEl = document.getElementById("adminEmail");
   const adminAvatarEl = document.getElementById("adminAvatar");
@@ -278,6 +287,14 @@
     return "draft";
   }
 
+  function taskStatusLabel(status) {
+    const s = String(status || "").toUpperCase();
+    if (s === "OPEN") return "Открыта";
+    if (s === "IN_PROGRESS") return "В работе";
+    if (s === "DONE") return "Выполнена";
+    return s || "-";
+  }
+
   function projectStatusDot(status) {
     const s = String(status || "").toUpperCase();
     if (s === "ACTIVE") return "green";
@@ -301,6 +318,13 @@
     const dt = new Date(raw);
     if (Number.isNaN(dt.getTime())) return "-";
     return dt.toLocaleDateString("ru-RU");
+  }
+
+  function formatDateTime(raw) {
+    if (!raw) return "-";
+    const dt = new Date(raw);
+    if (Number.isNaN(dt.getTime())) return "-";
+    return dt.toLocaleString("ru-RU");
   }
 
   function relativeTime(rawOrEpoch) {
@@ -423,6 +447,10 @@
     for (const u of state.users) {
       const actionStatus = u.status === "ACTIVE" ? "DISABLED" : "ACTIVE";
       const actionLabel = actionStatus === "ACTIVE" ? "Активировать" : "Блокировать";
+      const roleCode = String(u.role_code || "").toUpperCase();
+      const canSwitchRole = roleCode === "STUDENT" || roleCode === "PROFESSOR";
+      const nextRole = roleCode === "STUDENT" ? "PROFESSOR" : "STUDENT";
+      const roleActionLabel = roleCode === "STUDENT" ? "Сделать преподом" : "Сделать студентом";
       const avatar = initials(u.full_name || u.email || "U");
 
       const tr = document.createElement("tr");
@@ -443,6 +471,8 @@
         <td>
           <div class="row-actions">
             <button type="button" class="action-btn" data-act="set-user-status" data-id="${u.id}" data-status="${actionStatus}">${escapeHTML(actionLabel)}</button>
+            ${canSwitchRole ? `<button type="button" class="action-btn" data-act="set-user-role" data-id="${u.id}" data-role="${nextRole}">${escapeHTML(roleActionLabel)}</button>` : ""}
+            <button type="button" class="action-btn" data-act="reset-password" data-id="${u.id}" data-name="${escapeHTML(u.full_name || u.email || "Пользователь")}">Сброс пароля</button>
             <button type="button" class="action-btn reject" data-act="delete-user" data-id="${u.id}" data-name="${escapeHTML(u.full_name || u.email || "Пользователь")}">Удалить</button>
           </div>
         </td>
@@ -467,21 +497,25 @@
       const status = String(p.status || "").toUpperCase();
       const avatar = initials(p.author_name || p.author_email || "PR");
       const authorName = p.author_name || "Не указан";
+      const observeBtn = `<button class="action-btn" data-project-act="observe" data-id="${p.id}">Наблюдать</button>`;
 
       let actions = "";
       if (status === "REVIEW") {
         actions = `
+          ${observeBtn}
           <button class="action-btn approve" data-project-act="set-status" data-id="${p.id}" data-next="ACTIVE">Одобрить</button>
           <button class="action-btn reject" data-project-act="set-status" data-id="${p.id}" data-next="ARCHIVE" data-title="${escapeHTML(p.title || "")}">Отклонить</button>
           <button class="action-btn reject" data-project-act="delete" data-id="${p.id}" data-title="${escapeHTML(p.title || "")}">Удалить</button>
         `;
       } else if (status === "ARCHIVE") {
         actions = `
+          ${observeBtn}
           <button class="action-btn" data-project-act="set-status" data-id="${p.id}" data-next="ACTIVE">Активировать</button>
           <button class="action-btn reject" data-project-act="delete" data-id="${p.id}" data-title="${escapeHTML(p.title || "")}">Удалить</button>
         `;
       } else {
         actions = `
+          ${observeBtn}
           <button class="action-btn reject" data-project-act="set-status" data-id="${p.id}" data-next="ARCHIVE" data-title="${escapeHTML(p.title || "")}">В архив</button>
           <button class="action-btn reject" data-project-act="delete" data-id="${p.id}" data-title="${escapeHTML(p.title || "")}">Удалить</button>
         `;
@@ -616,9 +650,7 @@
   function closeCreateModal() {
     modalStatusEl.textContent = "";
     modalEl.hidden = true;
-    if (projectStatusModalEl.hidden) {
-      document.body.classList.remove("modal-open");
-    }
+    releaseBodyLockIfNoModal();
   }
 
   async function submitCreate() {
@@ -672,6 +704,36 @@
     await reloadAll();
   }
 
+  async function setUserRole(userID, role) {
+    const { resp, data } = await requestJSON(`/v2/admin/users/${userID}/role`, {
+      method: "PATCH",
+      headers: authHeaders(true),
+      body: JSON.stringify({ role }),
+    });
+
+    if (!resp.ok) {
+      if (handleAuthFail(resp.status)) return false;
+      alert(data.error || `Ошибка смены роли: ${resp.status}`);
+      return false;
+    }
+    return true;
+  }
+
+  async function resetUserPassword(userID, password) {
+    const { resp, data } = await requestJSON(`/v2/admin/users/${userID}/password`, {
+      method: "PATCH",
+      headers: authHeaders(true),
+      body: JSON.stringify({ password }),
+    });
+
+    if (!resp.ok) {
+      if (handleAuthFail(resp.status)) return false;
+      alert(data.error || `Ошибка сброса пароля: ${resp.status}`);
+      return false;
+    }
+    return true;
+  }
+
   async function setProjectStatus(projectID, status) {
     const { resp, data } = await requestJSON(`/v2/admin/projects/${projectID}/status`, {
       method: "PATCH",
@@ -718,6 +780,18 @@
     return true;
   }
 
+  async function fetchProjectObservation(projectID) {
+    const { resp, data } = await requestJSON(`/v2/admin/projects/${projectID}/observe`, {
+      headers: authHeaders(false),
+    });
+
+    if (!resp.ok) {
+      if (handleAuthFail(resp.status)) return null;
+      throw new Error(data.error || `Ошибка наблюдения проекта: ${resp.status}`);
+    }
+    return data || null;
+  }
+
   function normalizeText(v) {
     return String(v || "").trim().toLowerCase();
   }
@@ -743,9 +817,107 @@
     projectModalStatusEl.textContent = "";
     projectConfirmInputEl.value = "";
     projectStatusModalEl.hidden = true;
-    if (modalEl.hidden) {
+    releaseBodyLockIfNoModal();
+  }
+
+  function releaseBodyLockIfNoModal() {
+    if (modalEl.hidden && projectStatusModalEl.hidden && projectObserveModalEl.hidden) {
       document.body.classList.remove("modal-open");
     }
+  }
+
+  function closeProjectObserveModal() {
+    projectObserveModalEl.hidden = true;
+    observeProjectTitleEl.textContent = "Наблюдение проекта";
+    observeProjectMetaEl.textContent = "";
+    observeSummaryEl.innerHTML = "";
+    observeMembersBodyEl.innerHTML = "";
+    observeTasksBodyEl.innerHTML = "";
+    observeCriteriaBodyEl.innerHTML = "";
+    releaseBodyLockIfNoModal();
+  }
+
+  function renderObserveSummary(summary) {
+    const s = summary || {};
+    observeSummaryEl.innerHTML = `
+      <span class="obs-pill">Участников: <strong>${escapeHTML(String(s.members_total || 0))}</strong></span>
+      <span class="obs-pill">Активных: <strong>${escapeHTML(String(s.members_active || 0))}</strong></span>
+      <span class="obs-pill">Задач: <strong>${escapeHTML(String(s.tasks_total || 0))}</strong></span>
+      <span class="obs-pill">DONE: <strong>${escapeHTML(String(s.tasks_done || 0))}</strong></span>
+      <span class="obs-pill">Критериев: <strong>${escapeHTML(String(s.criteria_total || 0))}</strong></span>
+    `;
+  }
+
+  function renderObserveMembers(items) {
+    const list = Array.isArray(items) ? items : [];
+    observeMembersBodyEl.innerHTML = "";
+    if (list.length === 0) {
+      observeMembersBodyEl.innerHTML = "<tr><td colspan=\"4\">Нет участников</td></tr>";
+      return;
+    }
+    list.forEach((m) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${escapeHTML(m.full_name || m.email || "-")}</td>
+        <td>${escapeHTML(roleLabel(m.role_code))}</td>
+        <td>${escapeHTML(m.position_code || "-")}</td>
+        <td>${escapeHTML(m.status || "-")}</td>
+      `;
+      observeMembersBodyEl.appendChild(tr);
+    });
+  }
+
+  function renderObserveTasks(items) {
+    const list = Array.isArray(items) ? items : [];
+    observeTasksBodyEl.innerHTML = "";
+    if (list.length === 0) {
+      observeTasksBodyEl.innerHTML = "<tr><td colspan=\"4\">Нет задач</td></tr>";
+      return;
+    }
+    list.forEach((t) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${escapeHTML(t.title || "-")}</td>
+        <td>${escapeHTML(t.position_code || "-")}</td>
+        <td>${escapeHTML(taskStatusLabel(t.status))}</td>
+        <td>${escapeHTML(t.assignee_name || "-")}</td>
+      `;
+      observeTasksBodyEl.appendChild(tr);
+    });
+  }
+
+  function renderObserveCriteria(items) {
+    const list = Array.isArray(items) ? items : [];
+    observeCriteriaBodyEl.innerHTML = "";
+    if (list.length === 0) {
+      observeCriteriaBodyEl.innerHTML = "<tr><td colspan=\"4\">Нет критериев</td></tr>";
+      return;
+    }
+    list.forEach((c) => {
+      const state = c.is_met === true ? "Выполнено" : c.is_met === false ? "Не выполнено" : "Не оценено";
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${escapeHTML(c.title || "-")}</td>
+        <td>${escapeHTML(String(c.weight || 0))}</td>
+        <td>${escapeHTML(state)}</td>
+        <td>${escapeHTML(c.comment || "-")}</td>
+      `;
+      observeCriteriaBodyEl.appendChild(tr);
+    });
+  }
+
+  function openProjectObserveModal(data) {
+    const ob = data || {};
+    const p = ob.project || {};
+    observeProjectTitleEl.textContent = p.title || "Наблюдение проекта";
+    observeProjectMetaEl.textContent = `${projectStatusLabel(p.status)} · ${p.author_name || p.author_email || "Автор не указан"} · Обновлено: ${formatDateTime(p.updated_at || p.created_at)}`;
+    renderObserveSummary(ob.summary);
+    renderObserveMembers(ob.members);
+    renderObserveTasks(ob.tasks);
+    renderObserveCriteria(ob.criteria);
+
+    projectObserveModalEl.hidden = false;
+    document.body.classList.add("modal-open");
   }
 
   function openProjectStatusModal(projectID, projectTitle, targetStatus) {
@@ -913,6 +1085,11 @@
       if (e.target === projectStatusModalEl) closeProjectStatusModal();
     });
 
+    observeModalCloseBtnEl.addEventListener("click", closeProjectObserveModal);
+    projectObserveModalEl.addEventListener("click", (e) => {
+      if (e.target === projectObserveModalEl) closeProjectObserveModal();
+    });
+
     projectConfirmInputEl.addEventListener("input", () => {
       projectModalStatusEl.textContent = "";
       validateProjectConfirmInput();
@@ -920,6 +1097,10 @@
 
     window.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
+        if (!projectObserveModalEl.hidden) {
+          closeProjectObserveModal();
+          return;
+        }
         if (!projectStatusModalEl.hidden) {
           closeProjectStatusModal();
           return;
@@ -944,6 +1125,29 @@
         return;
       }
 
+      if (action === "set-user-role") {
+        const role = target.dataset.role || "";
+        if (!role) return;
+        const ok = await setUserRole(userID, role);
+        if (!ok) return;
+        await reloadAll();
+        return;
+      }
+
+      if (action === "reset-password") {
+        const name = target.dataset.name || "пользователь";
+        const nextPassword = window.prompt(`Введите новый пароль для "${name}" (минимум 6 символов):`, "");
+        if (nextPassword === null) return;
+        if (String(nextPassword).trim().length < 6) {
+          alert("Пароль должен быть не короче 6 символов.");
+          return;
+        }
+        const ok = await resetUserPassword(userID, nextPassword);
+        if (!ok) return;
+        alert("Пароль обновлен.");
+        return;
+      }
+
       if (action === "delete-user") {
         const name = target.dataset.name || "пользователь";
         if (!window.confirm(`Удалить пользователя "${name}"?`)) return;
@@ -960,6 +1164,17 @@
       const projectID = target.dataset.id || "";
       const projectTitle = target.dataset.title || "";
       if (!projectID || !action) return;
+
+      if (action === "observe") {
+        try {
+          const ob = await fetchProjectObservation(projectID);
+          if (!ob) return;
+          openProjectObserveModal(ob);
+        } catch (err) {
+          alert(err.message || "Ошибка наблюдения проекта");
+        }
+        return;
+      }
 
       if (action === "delete") {
         if (!window.confirm(`Удалить проект "${projectTitle || "без названия"}"?`)) return;

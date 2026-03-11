@@ -2,12 +2,15 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 
 	svc "idsai-core-up/internal/services/admin"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -153,36 +156,37 @@ func (r *AdminRepo) CreateUser(ctx context.Context, in svc.CreateUserParams) (sv
 
 	var departmentID uuid.UUID
 	var facultyID uuid.UUID
+	var tenantID uuid.UUID
 	if err := tx.QueryRow(ctx, `
-SELECT d.id, d.faculty_id
+SELECT d.id, d.faculty_id, d.tenant_id
 FROM departments d
 WHERE UPPER(d.code) = UPPER($1);
-`, in.DepartmentCode).Scan(&departmentID, &facultyID); err != nil {
+`, in.DepartmentCode).Scan(&departmentID, &facultyID, &tenantID); err != nil {
 		return svc.User{}, err
 	}
 
 	var userID uuid.UUID
 	if err := tx.QueryRow(ctx, `
-INSERT INTO users(email, password_hash, status)
-VALUES ($1, $2, 'ACTIVE')
+INSERT INTO users(tenant_id, email, password_hash, status)
+VALUES ($1, $2, $3, 'ACTIVE')
 RETURNING id;
-`, in.Email, in.PasswordHash).Scan(&userID); err != nil {
+`, tenantID, in.Email, in.PasswordHash).Scan(&userID); err != nil {
 		return svc.User{}, err
 	}
 
 	if _, err := tx.Exec(ctx, `
-INSERT INTO user_profiles(user_id, full_name, faculty_id, department_id)
-VALUES ($1, $2, $3, $4);
-`, userID, in.FullName, facultyID, departmentID); err != nil {
+INSERT INTO user_profiles(tenant_id, user_id, full_name, faculty_id, department_id)
+VALUES ($1, $2, $3, $4, $5);
+`, tenantID, userID, in.FullName, facultyID, departmentID); err != nil {
 		return svc.User{}, err
 	}
 
 	tag, err := tx.Exec(ctx, `
-INSERT INTO role_assignments(user_id, role_id, scope_type, scope_id)
-SELECT $1, r.id, 'FACULTY', $2
+INSERT INTO role_assignments(tenant_id, user_id, role_id, scope_type, scope_id)
+SELECT $1, $2, r.id, 'FACULTY', $3
 FROM roles r
-WHERE r.code = $3;
-`, userID, facultyID, in.RoleCode)
+WHERE r.code = $4;
+`, tenantID, userID, facultyID, in.RoleCode)
 	if err != nil {
 		return svc.User{}, err
 	}
@@ -194,7 +198,7 @@ WHERE r.code = $3;
 		return svc.User{}, err
 	}
 
-	return r.getUserByID(ctx, userID)
+	return r.GetUserByID(ctx, userID)
 }
 
 func (r *AdminRepo) UpdateUserStatus(ctx context.Context, userID uuid.UUID, status string) error {
@@ -203,6 +207,69 @@ UPDATE users
 SET status = $2
 WHERE id = $1;
 `, userID, status)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
+func (r *AdminRepo) UpdateUserRole(ctx context.Context, userID uuid.UUID, roleCode string) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	var tenantID uuid.UUID
+	var facultyID uuid.UUID
+	if err := tx.QueryRow(ctx, `
+SELECT u.tenant_id, p.faculty_id
+FROM users u
+JOIN user_profiles p ON p.user_id = u.id
+WHERE u.id = $1;
+`, userID).Scan(&tenantID, &facultyID); err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(ctx, `
+DELETE FROM role_assignments ra
+USING roles r
+WHERE ra.user_id = $1
+  AND ra.tenant_id = $2
+  AND ra.scope_type = 'FACULTY'
+  AND ra.scope_id = $3
+  AND ra.role_id = r.id
+  AND r.code IN ('STUDENT', 'PROFESSOR');
+`, userID, tenantID, facultyID)
+	if err != nil {
+		return err
+	}
+
+	tag, err := tx.Exec(ctx, `
+INSERT INTO role_assignments(tenant_id, user_id, role_id, scope_type, scope_id)
+SELECT $1, $2, r.id, 'FACULTY', $3
+FROM roles r
+WHERE r.code = $4;
+`, tenantID, userID, facultyID, roleCode)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("role not found: %s", roleCode)
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (r *AdminRepo) UpdateUserPasswordHash(ctx context.Context, userID uuid.UUID, passwordHash string) error {
+	tag, err := r.db.Exec(ctx, `
+UPDATE users
+SET password_hash = $2
+WHERE id = $1;
+`, userID, passwordHash)
 	if err != nil {
 		return err
 	}
@@ -352,7 +419,245 @@ WHERE p.id = $1;
 	return p, err
 }
 
-func (r *AdminRepo) getUserByID(ctx context.Context, userID uuid.UUID) (svc.User, error) {
+func (r *AdminRepo) GetProjectObservation(ctx context.Context, projectID uuid.UUID) (svc.ProjectObservation, error) {
+	project, err := r.GetProjectByID(ctx, projectID)
+	if err != nil {
+		return svc.ProjectObservation{}, err
+	}
+
+	ob := svc.ProjectObservation{
+		Project:   project,
+		Positions: make([]svc.ProjectPosition, 0, 8),
+		Members:   make([]svc.ProjectMember, 0, 16),
+		Tasks:     make([]svc.ProjectTask, 0, 32),
+		Criteria:  make([]svc.ProjectCriterion, 0, 16),
+	}
+
+	posRows, err := r.db.Query(ctx, `
+SELECT id, code, name, capacity
+FROM project_positions
+WHERE project_id = $1
+ORDER BY created_at ASC;
+`, projectID)
+	if err != nil {
+		return svc.ProjectObservation{}, err
+	}
+	for posRows.Next() {
+		var p svc.ProjectPosition
+		if err := posRows.Scan(&p.ID, &p.Code, &p.Name, &p.Capacity); err != nil {
+			posRows.Close()
+			return svc.ProjectObservation{}, err
+		}
+		ob.Positions = append(ob.Positions, p)
+	}
+	if err := posRows.Err(); err != nil {
+		posRows.Close()
+		return svc.ProjectObservation{}, err
+	}
+	posRows.Close()
+
+	memberRows, err := r.db.Query(ctx, `
+SELECT
+  pm.user_id,
+  COALESCE(up.full_name, '') AS full_name,
+  COALESCE(u.email, '') AS email,
+  COALESCE(primary_role.role_code, '') AS role_code,
+  pm.status,
+  COALESCE(pp.code, '') AS position_code,
+  COALESCE(pp.name, '') AS position_name,
+  pm.joined_at,
+  pm.responded_at
+FROM project_members pm
+LEFT JOIN users u ON u.id = pm.user_id
+LEFT JOIN user_profiles up ON up.user_id = pm.user_id
+LEFT JOIN project_positions pp ON pp.id = pm.position_id
+LEFT JOIN LATERAL (
+  SELECT r.code AS role_code
+  FROM role_assignments ra
+  JOIN roles r ON r.id = ra.role_id
+  WHERE ra.user_id = pm.user_id
+    AND (ra.expires_at IS NULL OR ra.expires_at > now())
+  ORDER BY
+    CASE r.code
+      WHEN 'SUPER_ADMIN' THEN 1
+      WHEN 'PROFESSOR' THEN 2
+      WHEN 'STUDENT' THEN 3
+      WHEN 'TEAM_LEAD' THEN 4
+      WHEN 'MEMBER' THEN 5
+      ELSE 9
+    END,
+    ra.created_at DESC
+  LIMIT 1
+) AS primary_role ON TRUE
+WHERE pm.project_id = $1
+ORDER BY pm.created_at ASC;
+`, projectID)
+	if err != nil {
+		return svc.ProjectObservation{}, err
+	}
+	for memberRows.Next() {
+		var m svc.ProjectMember
+		if err := memberRows.Scan(
+			&m.UserID,
+			&m.FullName,
+			&m.Email,
+			&m.RoleCode,
+			&m.Status,
+			&m.PositionCode,
+			&m.PositionName,
+			&m.JoinedAt,
+			&m.RespondedAt,
+		); err != nil {
+			memberRows.Close()
+			return svc.ProjectObservation{}, err
+		}
+		ob.Members = append(ob.Members, m)
+	}
+	if err := memberRows.Err(); err != nil {
+		memberRows.Close()
+		return svc.ProjectObservation{}, err
+	}
+	memberRows.Close()
+
+	taskRows, err := r.db.Query(ctx, `
+SELECT
+  t.id,
+  t.title,
+  t.status,
+  pp.code AS position_code,
+  t.assignee_user_id,
+  COALESCE(assignee.full_name, '') AS assignee_name,
+  t.due_at,
+  t.updated_at
+FROM tasks t
+JOIN project_positions pp ON pp.id = t.position_id
+LEFT JOIN user_profiles assignee ON assignee.user_id = t.assignee_user_id
+WHERE t.project_id = $1
+ORDER BY t.created_at DESC
+LIMIT 200;
+`, projectID)
+	if err != nil {
+		return svc.ProjectObservation{}, err
+	}
+	for taskRows.Next() {
+		var t svc.ProjectTask
+		if err := taskRows.Scan(
+			&t.ID,
+			&t.Title,
+			&t.Status,
+			&t.PositionCode,
+			&t.AssigneeUserID,
+			&t.AssigneeName,
+			&t.DueAt,
+			&t.UpdatedAt,
+		); err != nil {
+			taskRows.Close()
+			return svc.ProjectObservation{}, err
+		}
+		ob.Tasks = append(ob.Tasks, t)
+	}
+	if err := taskRows.Err(); err != nil {
+		taskRows.Close()
+		return svc.ProjectObservation{}, err
+	}
+	taskRows.Close()
+
+	criteriaQuery := `
+SELECT
+  c.id,
+  c.title,
+  c.weight,
+  c.created_by,
+  c.created_at,
+  cr.is_met,
+  COALESCE(cr.comment, '') AS comment,
+  cr.updated_at
+FROM project_criteria c
+LEFT JOIN projects p ON p.id = c.project_id
+LEFT JOIN project_criterion_reviews cr
+  ON cr.project_id = c.project_id
+ AND cr.criterion_id = c.id
+ AND cr.professor_id = p.professor_id
+WHERE c.project_id = $1
+ORDER BY c.created_at ASC;
+`
+	criteriaRows, err := r.db.Query(ctx, criteriaQuery, projectID)
+	if err != nil {
+		if !isUndefinedRelation(err, "project_criterion_reviews") {
+			return svc.ProjectObservation{}, err
+		}
+		criteriaRows, err = r.db.Query(ctx, `
+SELECT id, title, weight, created_by, created_at
+FROM project_criteria
+WHERE project_id = $1
+ORDER BY created_at ASC;
+`, projectID)
+		if err != nil {
+			return svc.ProjectObservation{}, err
+		}
+		for criteriaRows.Next() {
+			var c svc.ProjectCriterion
+			if err := criteriaRows.Scan(&c.ID, &c.Title, &c.Weight, &c.CreatedBy, &c.CreatedAt); err != nil {
+				criteriaRows.Close()
+				return svc.ProjectObservation{}, err
+			}
+			ob.Criteria = append(ob.Criteria, c)
+		}
+		if err := criteriaRows.Err(); err != nil {
+			criteriaRows.Close()
+			return svc.ProjectObservation{}, err
+		}
+		criteriaRows.Close()
+	} else {
+		for criteriaRows.Next() {
+			var c svc.ProjectCriterion
+			if err := criteriaRows.Scan(
+				&c.ID,
+				&c.Title,
+				&c.Weight,
+				&c.CreatedBy,
+				&c.CreatedAt,
+				&c.IsMet,
+				&c.Comment,
+				&c.UpdatedAt,
+			); err != nil {
+				criteriaRows.Close()
+				return svc.ProjectObservation{}, err
+			}
+			ob.Criteria = append(ob.Criteria, c)
+		}
+		if err := criteriaRows.Err(); err != nil {
+			criteriaRows.Close()
+			return svc.ProjectObservation{}, err
+		}
+		criteriaRows.Close()
+	}
+
+	ob.Summary = svc.ProjectObservationSummary{
+		MembersTotal:  len(ob.Members),
+		TasksTotal:    len(ob.Tasks),
+		CriteriaTotal: len(ob.Criteria),
+	}
+	for _, m := range ob.Members {
+		switch strings.ToUpper(strings.TrimSpace(m.Status)) {
+		case "ACTIVE":
+			ob.Summary.MembersActive++
+		case "APPLIED":
+			ob.Summary.MembersApplied++
+		case "INVITED":
+			ob.Summary.MembersInvited++
+		}
+	}
+	for _, task := range ob.Tasks {
+		if strings.EqualFold(task.Status, "DONE") {
+			ob.Summary.TasksDone++
+		}
+	}
+
+	return ob, nil
+}
+
+func (r *AdminRepo) GetUserByID(ctx context.Context, userID uuid.UUID) (svc.User, error) {
 	const q = `
 SELECT
   u.id,
@@ -396,4 +701,18 @@ WHERE u.id = $1;
 		&u.DepartmentCode,
 	)
 	return u, err
+}
+
+func isUndefinedRelation(err error, relation string) bool {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) {
+		return false
+	}
+	if pgErr.Code != "42P01" {
+		return false
+	}
+	if strings.EqualFold(pgErr.TableName, relation) {
+		return true
+	}
+	return strings.Contains(strings.ToLower(pgErr.Message), strings.ToLower(relation))
 }
