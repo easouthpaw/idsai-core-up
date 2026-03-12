@@ -67,6 +67,16 @@
     viewReview: document.getElementById("view-review"),
     viewEdit: document.getElementById("view-edit"),
 
+    aboutCard: document.getElementById("aboutCard"),
+    applyCard: document.getElementById("applyCard"),
+    applyHint: document.getElementById("applyHint"),
+    applyCommentInput: document.getElementById("applyCommentInput"),
+    applyProjectBtn: document.getElementById("applyProjectBtn"),
+    stackCard: document.getElementById("stackCard"),
+    activityCard: document.getElementById("activityCard"),
+    teamMiniCard: document.getElementById("teamMiniCard"),
+    pipelineCard: document.getElementById("pipelineCard"),
+
     aboutContent: document.getElementById("aboutContent"),
     stackChips: document.getElementById("stackChips"),
     teamMiniList: document.getElementById("teamMiniList"),
@@ -496,6 +506,23 @@
     return allMembers().some((m) => String(m.user_id) === current && String(m.status || "").toUpperCase() === "ACTIVE");
   }
 
+  function currentMemberStatus() {
+    const current = String(localStorage.getItem(LS_USER) || "");
+    if (!current) return "";
+    if (current === String(state.project?.created_by || "")) return "ACTIVE";
+
+    const raw = Array.isArray(state.members) ? state.members : [];
+    const item = raw.find((m) => String(m.user_id) === current);
+    if (!item) return "";
+    return String(item.status || "").toUpperCase();
+  }
+
+  function isRecruitmentApplyMode() {
+    const status = projectStatusCode();
+    if (status !== "RECRUITMENT") return false;
+    return currentMemberStatus() === "";
+  }
+
   function toRFC3339(localDateTime) {
     if (!localDateTime) return null;
     const d = new Date(localDateTime);
@@ -794,7 +821,13 @@
     ui.repoLink.href = repo;
     ui.repoLink.textContent = repo.replace(/^https?:\/\//, "");
 
+    const applyMode = isRecruitmentApplyMode();
+    const canEdit = isCurrentUserActiveMember() && !applyMode;
+
     ui.favoriteBtn.textContent = state.favorite ? "★ В избранном" : "★ В избранное";
+    ui.favoriteBtn.hidden = applyMode;
+    ui.openEditViewBtn.hidden = !canEdit;
+    ui.openEditViewBtn.disabled = !canEdit;
     if (ui.deleteProjectBtn) {
       const canDelete = isCurrentUserCreator();
       ui.deleteProjectBtn.hidden = !canDelete;
@@ -853,6 +886,13 @@
     if (!ui.readinessList || !ui.approveProjectBtn) return;
     ui.readinessList.innerHTML = "";
 
+    const statusCode = projectStatusCode();
+    const canOpenRecruitment = isCurrentUserLead() && (statusCode === "DRAFT" || statusCode === "REVIEW");
+    if (ui.openRecruitmentBtn) {
+      ui.openRecruitmentBtn.hidden = !canOpenRecruitment;
+      ui.openRecruitmentBtn.disabled = !canOpenRecruitment;
+    }
+
     if (!state.readiness) {
       ui.readinessList.innerHTML = '<div class="empty-state">Данные о готовности не загружены.</div>';
       ui.approveProjectBtn.hidden = false;
@@ -881,7 +921,7 @@
 
     const items = [
       {
-        label: "Набор",
+        label: "Роли",
         value: `${state.readiness.active_members}/${state.readiness.required_members}`,
         stateClass: hasEnoughMembers ? "is-done" : Number(state.readiness.active_members || 0) > 0 ? "is-current" : "is-blocked",
       },
@@ -909,7 +949,6 @@
       ui.readinessList.appendChild(row);
     });
 
-    const statusCode = projectStatusCode();
     const canShowApprove = statusCode !== "ACTIVE" && statusCode !== "GRADING" && statusCode !== "ARCHIVE";
     ui.approveProjectBtn.hidden = !canShowApprove;
     ui.approveProjectBtn.disabled = !state.readiness.can_activate;
@@ -1019,13 +1058,16 @@
 
     filtered.forEach((m) => {
       const status = String(m.status || "").toUpperCase();
+      const statusClass = status === "APPLIED" ? "invited" : status.toLowerCase();
+      const statusLabel = status === "APPLIED" ? "INVITED" : status;
       const github = `https://github.com/${slugify(getDisplayName(m.user_id))}`;
       const isLeadRow = String(m.user_id) === String(state.project?.created_by || "");
       const roleOptions = isLeadRow
         ? `<option value="">Тимлид</option>${projectPositionOptions("").replace('<option value="">Выберите роль</option>', "")}`
         : projectPositionOptions(m.position_id || "");
       const roleSelectDisabled = isLeadRow || status !== "ACTIVE";
-      const canApprove = canManageTeam && status === "APPLIED" && state.positions.length > 0;
+      const canApprove = canManageTeam && status === "APPLIED";
+      const canRejectApplication = canManageTeam && status === "APPLIED";
       const canSetPosition = canManageTeam && status === "ACTIVE" && !isLeadRow && state.positions.length > 0;
       const canRespondInvite = status === "INVITED" && String(m.user_id) === currentUser;
       const canManagePerms = status === "ACTIVE" && !isLeadRow;
@@ -1039,12 +1081,13 @@
             `<div><strong>${escapeHTML(getDisplayName(m.user_id))}</strong><small>${escapeHTML(getDisplaySubline(m.user_id))}</small></div>` +
           `</div>` +
         `</td>` +
-        `<td><span class="status-badge ${status.toLowerCase()}">${escapeHTML(status)}</span></td>` +
+        `<td><span class="status-badge ${statusClass}">${escapeHTML(statusLabel)}</span></td>` +
         `<td><select class="member-role-select" ${roleSelectDisabled ? "disabled" : ""}>${roleOptions}</select></td>` +
         `<td><a class="meta-link" href="${escapeHTML(github)}" target="_blank" rel="noreferrer">${escapeHTML(github.replace("https://", ""))}</a></td>` +
         `<td>` +
           `<div class="task-toolbar">` +
             `<button class="ghost-btn" data-member-action="approve" ${canApprove ? "" : "disabled"}>Одобрить</button>` +
+            `<button class="ghost-btn" data-member-action="reject-application" ${canRejectApplication ? "" : "disabled"}>Отклонить</button>` +
             `<button class="ghost-btn" data-member-action="set-position" ${canSetPosition ? "" : "disabled"}>Сменить роль</button>` +
             `<button class="ghost-btn" data-member-action="accept-invite" ${canRespondInvite ? "" : "disabled"}>Принять</button>` +
             `<button class="ghost-btn" data-member-action="reject-invite" ${canRespondInvite ? "" : "disabled"}>Отклонить</button>` +
@@ -1405,6 +1448,51 @@
     renderActivity();
   }
 
+  function renderAccessMode() {
+    const applyMode = isRecruitmentApplyMode();
+
+    if (ui.applyCard) {
+      ui.applyCard.hidden = !applyMode;
+    }
+    if (ui.stackCard) {
+      ui.stackCard.hidden = applyMode;
+    }
+    if (ui.activityCard) {
+      ui.activityCard.hidden = applyMode;
+    }
+    if (ui.teamMiniCard) {
+      ui.teamMiniCard.hidden = applyMode;
+    }
+    if (ui.pipelineCard) {
+      ui.pipelineCard.hidden = applyMode;
+    }
+
+    if (ui.applyHint) {
+      ui.applyHint.textContent = applyMode
+        ? "Оставьте короткий комментарий и отправьте заявку в команду проекта."
+        : "Оставьте короткий комментарий и отправьте заявку в проект.";
+    }
+    if (ui.applyProjectBtn) {
+      ui.applyProjectBtn.disabled = !applyMode;
+    }
+
+    ui.tabButtons.forEach((btn) => {
+      const view = btn.getAttribute("data-view") || "overview";
+      btn.hidden = applyMode && view !== "overview";
+    });
+    ui.switchViewButtons.forEach((btn) => {
+      btn.hidden = applyMode;
+    });
+
+    if (applyMode) {
+      state.activeView = "overview";
+      ui.viewOverview.classList.add("active");
+      [ui.viewTeam, ui.viewInvite, ui.viewTasks, ui.viewCriteria, ui.viewReview, ui.viewEdit].forEach((el) => {
+        if (el) el.classList.remove("active");
+      });
+    }
+  }
+
   function renderEditStackChips() {
     const stacks = parseStacks(ui.editStacksInput.value);
     ui.editStackChips.innerHTML = "";
@@ -1431,6 +1519,7 @@
     renderReviewView();
     bindProjectMetaToUI();
     renderTaskModalSelects();
+    renderAccessMode();
   }
 
   function setView(viewName) {
@@ -1466,6 +1555,15 @@
       loadStudentCandidates(ui.inviteSearchInput ? ui.inviteSearchInput.value : "")
         .catch((err) => setNotice(err.message || String(err), true));
     }
+  }
+
+  function initialViewFromURL() {
+    const params = new URLSearchParams(window.location.search || "");
+    const raw = String(params.get("view") || "").trim().toLowerCase();
+    if (!raw) return "overview";
+    return ["overview", "team", "invite", "tasks", "criteria", "review", "edit"].includes(raw)
+      ? raw
+      : "overview";
   }
 
   function openModal(modal) {
@@ -1829,20 +1927,25 @@
       return;
     }
 
-    if (!positionID) {
-      throw new Error("Выберите роль участника.");
+    if (action === "approve") {
+      const payload = positionID ? { position_id: positionID } : {};
+      await request("POST", `/v2/projects/${state.projectID}/members/${userID}/approve`, payload);
+      setNotice(`Участник ${shortID(userID)} принят в команду.`, false);
+      await refreshData();
+      return;
     }
 
-    if (action === "approve") {
-      await request("POST", `/v2/projects/${state.projectID}/members/${userID}/approve`, {
-        position_id: positionID,
-      });
-      setNotice(`Участник ${shortID(userID)} одобрен.`, false);
+    if (action === "reject-application") {
+      await request("POST", `/v2/projects/${state.projectID}/members/${userID}/reject`, {});
+      setNotice(`Заявка участника ${shortID(userID)} отклонена.`, false);
       await refreshData();
       return;
     }
 
     if (action === "set-position") {
+      if (!positionID) {
+        throw new Error("Выберите роль участника.");
+      }
       await request("PATCH", `/v2/projects/${state.projectID}/members/${userID}/position`, {
         position_id: positionID,
       });
@@ -1972,6 +2075,27 @@
     await refreshData();
   }
 
+  async function onApplyToProject() {
+    if (projectStatusCode() !== "RECRUITMENT") {
+      throw new Error("Подать заявку можно только на этапе набора (RECRUITMENT).");
+    }
+    if (currentMemberStatus()) {
+      throw new Error("Вы уже связаны с этим проектом.");
+    }
+
+    const comment = String(ui.applyCommentInput ? ui.applyCommentInput.value : "").trim();
+    await request("POST", `/v2/projects/${state.projectID}/members/apply`, { comment });
+
+    if (ui.applyCommentInput) {
+      ui.applyCommentInput.value = "";
+    }
+    if (ui.applyHint) {
+      ui.applyHint.textContent = "Заявка отправлена. Ожидайте решения тимлида.";
+    }
+
+    setNotice("Заявка отправлена.", false);
+  }
+
   function savePermissions() {
     if (!state.currentPermUserID) return;
 
@@ -1988,6 +2112,7 @@
   async function refreshData() {
     state.project = await request("GET", `/v2/projects/${state.projectID}`);
     rememberUser(localStorage.getItem(LS_USER), localStorage.getItem(LS_STUDENT_NAME), localStorage.getItem(LS_STUDENT_EMAIL));
+    rememberUser(state.project?.created_by, state.project?.created_by_name, state.project?.created_by_email);
 
     const [stacks, positions, members, readiness, criteria, tasks, gradingResp, taskActivityResp, professorResp] = await Promise.all([
       loadOptional("stacks", "GET", `/v2/projects/${state.projectID}/stacks`, []),
@@ -2239,7 +2364,7 @@
         } catch (err) {
           if (err.data && typeof err.data === "object" && err.data.readiness) {
             setNotice(
-              `Недостаточно условий: ${err.data.readiness.active_members}/${err.data.readiness.required_members} участников, критерии ${err.data.readiness.criteria_count}.`,
+              `Недостаточно условий: роли ${err.data.readiness.active_members}/${err.data.readiness.required_members}, критерии ${err.data.readiness.criteria_count}.`,
               true
             );
           } else {
@@ -2252,6 +2377,15 @@
       ui.completeProjectBtn.addEventListener("click", async () => {
         try {
           await onSubmitProjectForGrading();
+        } catch (err) {
+          setNotice(err.message || String(err), true);
+        }
+      });
+    }
+    if (ui.applyProjectBtn) {
+      ui.applyProjectBtn.addEventListener("click", async () => {
+        try {
+          await onApplyToProject();
         } catch (err) {
           setNotice(err.message || String(err), true);
         }
@@ -2325,7 +2459,7 @@
 
     try {
       await refreshData();
-      setView("overview");
+      setView(initialViewFromURL());
     } catch (err) {
       setNotice(`Не удалось загрузить проект: ${err.message || String(err)}`, true);
     }

@@ -123,7 +123,7 @@
         <section id="view-overview" class="view active">
           <div class="overview-grid">
             <div class="left-stack">
-              <article class="card">
+              <article id="aboutCard" class="card">
                 <header class="card-head">
                   <h2>О проекте</h2>
                   <span>README.md</span>
@@ -131,7 +131,22 @@
                 <div id="aboutContent" class="card-body about-body"></div>
               </article>
 
-              <article class="card">
+              <article id="applyCard" class="card" hidden>
+                <header class="card-head">
+                  <h2>Заявка в команду</h2>
+                  <span>RECRUITMENT</span>
+                </header>
+                <div class="card-body">
+                  <p id="applyHint" class="muted-text">Оставьте короткий комментарий и отправьте заявку в проект.</p>
+                  <label for="applyCommentInput">Комментарий к заявке</label>
+                  <textarea id="applyCommentInput" rows="5" placeholder="Например: хочу взять backend-роль, есть опыт с Go/PostgreSQL"></textarea>
+                  <div class="task-toolbar">
+                    <button id="applyProjectBtn" class="primary-btn" type="button">Подать заявку</button>
+                  </div>
+                </div>
+              </article>
+
+              <article id="stackCard" class="card">
                 <header class="card-head">
                   <h2>Технологический стек</h2>
                 </header>
@@ -140,7 +155,7 @@
                 </div>
               </article>
 
-              <article class="card">
+              <article id="activityCard" class="card">
                 <header class="card-head">
                   <h2>Активность</h2>
                 </header>
@@ -149,7 +164,7 @@
             </div>
 
             <div class="right-stack">
-              <article class="card">
+              <article id="teamMiniCard" class="card">
                 <header class="card-head">
                   <h2>Команда</h2>
                   <button class="mini-link" type="button" data-switch-view="team">Управление</button>
@@ -157,7 +172,7 @@
                 <div id="teamMiniList" class="card-body mini-team"></div>
               </article>
 
-              <article class="card">
+              <article id="pipelineCard" class="card">
                 <header class="card-head">
                   <h2>Пайплайн запуска</h2>
                 </header>
@@ -172,6 +187,7 @@
                   </div>
 
                   <div id="readinessList" class="readiness-list"></div>
+                  <button id="openRecruitmentBtn" class="ghost-btn" type="button" hidden>Открыть набор (RECRUITMENT)</button>
                   <button id="approveProjectBtn" class="primary-btn" type="button">Утвердить проект (ACTIVE)</button>
                   <button id="completeProjectBtn" class="ghost-btn" type="button" hidden>Завершить проект (GRADING)</button>
                 </div>

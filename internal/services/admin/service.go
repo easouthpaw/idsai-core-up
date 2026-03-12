@@ -24,6 +24,10 @@ var (
 	ErrInvalidStatus        = errors.New("status must be ACTIVE, PENDING or DISABLED")
 	ErrInvalidProjectStatus = errors.New("project status must be DRAFT, REVIEW, RECRUITMENT, ACTIVE, GRADING or ARCHIVE")
 	ErrInvalidInput         = errors.New("invalid input")
+	ErrUserNotFound         = errors.New("user not found")
+	ErrProjectNotFound      = errors.New("project not found")
+	ErrDepartmentNotFound   = errors.New("department not found")
+	ErrUserExists           = errors.New("user already exists")
 )
 
 type User struct {

@@ -101,6 +101,16 @@ body.invites-body .main-nav .nav-link.active .icon-box {
   gap: 12px;
 }
 
+.invite-card.decision-accepted {
+  border-color: #86efac;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.14);
+}
+
+.invite-card.decision-rejected {
+  border-color: #fda4af;
+  box-shadow: 0 0 0 2px rgba(244, 63, 94, 0.12);
+}
+
 .invite-head {
   display: flex;
   justify-content: space-between;
@@ -119,6 +129,19 @@ body.invites-body .main-nav .nav-link.active .icon-box {
   color: #60708c;
   font-size: 13px;
   line-height: 1.45;
+}
+
+.invite-meta.invite-decision {
+  margin-top: 8px;
+  font-weight: 600;
+}
+
+.invite-meta.invite-decision.accepted {
+  color: #166534;
+}
+
+.invite-meta.invite-decision.rejected {
+  color: #b4232d;
 }
 
 .invite-badges {

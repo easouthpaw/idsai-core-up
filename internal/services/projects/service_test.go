@@ -14,18 +14,20 @@ import (
 )
 
 type fakeProjectsRepo struct {
-	id            uuid.UUID
-	err           error
-	project       domain.Project
-	getErr        error
-	list          []domain.Project
-	listErr       error
-	listPublic    []domain.Project
-	listPublicErr error
-	groupID       uuid.UUID
-	groupErr      error
-	groups        []projects.Group
-	groupsErr     error
+	id                    uuid.UUID
+	err                   error
+	project               domain.Project
+	getErr                error
+	hasProjectPermission  bool
+	hasProjectPermissionE error
+	list                  []domain.Project
+	listErr               error
+	listPublic            []domain.Project
+	listPublicErr         error
+	groupID               uuid.UUID
+	groupErr              error
+	groups                []projects.Group
+	groupsErr             error
 }
 
 func (f fakeProjectsRepo) Create(ctx context.Context, title, description string, facultyID uuid.UUID, visibility string, groupID *uuid.UUID, createdBy uuid.UUID) (uuid.UUID, error) {
@@ -34,6 +36,10 @@ func (f fakeProjectsRepo) Create(ctx context.Context, title, description string,
 
 func (f fakeProjectsRepo) GetByID(ctx context.Context, id uuid.UUID) (domain.Project, error) {
 	return f.project, f.getErr
+}
+
+func (f fakeProjectsRepo) HasProjectPermission(ctx context.Context, userID, projectID uuid.UUID, permissionCode string) (bool, error) {
+	return f.hasProjectPermission, f.hasProjectPermissionE
 }
 
 func (f fakeProjectsRepo) ListByCreator(ctx context.Context, createdBy uuid.UUID) ([]domain.Project, error) {
@@ -88,6 +94,95 @@ func TestService_GetProject_ReturnsProject(t *testing.T) {
 	require.Equal(t, want.Title, got.Title)
 	require.Equal(t, want.FacultyID, got.FacultyID)
 	require.Equal(t, want.Visibility, got.Visibility)
+}
+
+func TestService_GetProjectForViewer_AllowsPublicProject(t *testing.T) {
+	pid := uuid.New()
+	viewerID := uuid.New()
+	ownerID := uuid.New()
+	viewerFacultyID := uuid.New()
+
+	repo := fakeProjectsRepo{
+		project: domain.Project{
+			ID:        pid,
+			Title:     "Public Project",
+			IsPublic:  true,
+			CreatedBy: ownerID,
+		},
+	}
+	svc := projects.NewService(repo, &fakeGrantor{})
+
+	got, err := svc.GetProjectForViewer(context.Background(), pid, viewerID, viewerFacultyID)
+	require.NoError(t, err)
+	require.Equal(t, pid, got.ID)
+	require.True(t, got.IsPublic)
+}
+
+func TestService_GetProjectForViewer_DeniesPrivateWithoutPermission(t *testing.T) {
+	pid := uuid.New()
+	viewerID := uuid.New()
+	ownerID := uuid.New()
+	viewerFacultyID := uuid.New()
+
+	repo := fakeProjectsRepo{
+		project: domain.Project{
+			ID:        pid,
+			Title:     "Private Project",
+			IsPublic:  false,
+			CreatedBy: ownerID,
+		},
+		hasProjectPermission: false,
+	}
+	svc := projects.NewService(repo, &fakeGrantor{})
+
+	_, err := svc.GetProjectForViewer(context.Background(), pid, viewerID, viewerFacultyID)
+	require.ErrorIs(t, err, domain.ErrForbidden)
+}
+
+func TestService_GetProjectForViewer_AllowsPrivateWithPermission(t *testing.T) {
+	pid := uuid.New()
+	viewerID := uuid.New()
+	ownerID := uuid.New()
+	viewerFacultyID := uuid.New()
+
+	repo := fakeProjectsRepo{
+		project: domain.Project{
+			ID:        pid,
+			Title:     "Private Project",
+			IsPublic:  false,
+			CreatedBy: ownerID,
+		},
+		hasProjectPermission: true,
+	}
+	svc := projects.NewService(repo, &fakeGrantor{})
+
+	got, err := svc.GetProjectForViewer(context.Background(), pid, viewerID, viewerFacultyID)
+	require.NoError(t, err)
+	require.Equal(t, pid, got.ID)
+}
+
+func TestService_GetProjectForViewer_AllowsRecruitmentForSameFaculty(t *testing.T) {
+	pid := uuid.New()
+	viewerID := uuid.New()
+	ownerID := uuid.New()
+	facultyID := uuid.New()
+
+	repo := fakeProjectsRepo{
+		project: domain.Project{
+			ID:        pid,
+			Title:     "Recruitment Project",
+			Status:    domain.ProjectRecruitment,
+			IsPublic:  false,
+			CreatedBy: ownerID,
+			FacultyID: facultyID,
+		},
+		hasProjectPermission: false,
+	}
+	svc := projects.NewService(repo, &fakeGrantor{})
+
+	got, err := svc.GetProjectForViewer(context.Background(), pid, viewerID, facultyID)
+	require.NoError(t, err)
+	require.Equal(t, pid, got.ID)
 }
 
 func (g *fakeGrantor) GrantRoleByCode(ctx context.Context, userID uuid.UUID, roleCode string, scope rbac.Scope, expiresAt *time.Time) error {

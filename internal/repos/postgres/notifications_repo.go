@@ -8,7 +8,6 @@ import (
 	"idsai-core-up/internal/services/notifications"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -125,7 +124,7 @@ WHERE tenant_id = $1
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return pgx.ErrNoRows
+		return notifications.ErrNotFound
 	}
 	return nil
 }
@@ -156,7 +155,7 @@ WHERE tenant_id = $1
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return pgx.ErrNoRows
+		return notifications.ErrNotFound
 	}
 	return nil
 }

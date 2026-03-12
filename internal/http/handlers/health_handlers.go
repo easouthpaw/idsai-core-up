@@ -6,14 +6,17 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type HealthHandler struct {
-	db *pgxpool.Pool
+type DBPinger interface {
+	Ping(ctx context.Context) error
 }
 
-func NewHealthHandler(db *pgxpool.Pool) *HealthHandler {
+type HealthHandler struct {
+	db DBPinger
+}
+
+func NewHealthHandler(db DBPinger) *HealthHandler {
 	return &HealthHandler{db: db}
 }
 

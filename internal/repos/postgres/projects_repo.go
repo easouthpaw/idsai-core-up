@@ -2,11 +2,13 @@ package postgres
 
 import (
 	"context"
+	"errors"
 
 	"idsai-core-up/internal/domain"
 	"idsai-core-up/internal/services/projects"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -52,12 +54,26 @@ DO UPDATE SET status='ACTIVE', joined_at=COALESCE(project_members.joined_at, now
 
 func (r *ProjectsRepo) GetByID(ctx context.Context, id uuid.UUID) (domain.Project, error) {
 	const q = `
-SELECT id, title, description, status, is_public, created_by, professor_id,
-       professor_review_status,
-       faculty_id, visibility, group_id,
-       created_at, updated_at
-FROM projects
-WHERE id = $1;
+SELECT
+  p.id,
+  p.title,
+  p.description,
+  p.status,
+  p.is_public,
+  p.created_by,
+  COALESCE(NULLIF(TRIM(up.full_name), ''), split_part(COALESCE(u.email, ''), '@', 1), p.created_by::text) AS created_by_name,
+  COALESCE(u.email, '') AS created_by_email,
+  p.professor_id,
+  p.professor_review_status,
+  p.faculty_id,
+  p.visibility,
+  p.group_id,
+  p.created_at,
+  p.updated_at
+FROM projects p
+LEFT JOIN users u ON u.id = p.created_by
+LEFT JOIN user_profiles up ON up.user_id = p.created_by
+WHERE p.id = $1;
 `
 	var p domain.Project
 	var professorID *uuid.UUID
@@ -70,6 +86,8 @@ WHERE id = $1;
 		&p.Status,
 		&p.IsPublic,
 		&p.CreatedBy,
+		&p.CreatedByName,
+		&p.CreatedByEmail,
 		&professorID,
 		&p.ProfessorReviewStatus,
 		&p.FacultyID,
@@ -79,6 +97,9 @@ WHERE id = $1;
 		&p.UpdatedAt,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.Project{}, projects.ErrNotFound
+		}
 		return domain.Project{}, err
 	}
 	p.ProfessorID = professorID
@@ -86,15 +107,52 @@ WHERE id = $1;
 	return p, nil
 }
 
+func (r *ProjectsRepo) HasProjectPermission(ctx context.Context, userID, projectID uuid.UUID, permissionCode string) (bool, error) {
+	const q = `
+SELECT EXISTS (
+  SELECT 1
+  FROM role_assignments ra
+  JOIN users u ON u.id = ra.user_id
+  JOIN projects p ON p.id = $2
+  JOIN role_permissions rp ON rp.role_id = ra.role_id
+  JOIN permissions perm ON perm.id = rp.permission_id
+  WHERE ra.user_id = $1
+    AND u.tenant_id = ra.tenant_id
+    AND p.tenant_id = ra.tenant_id
+    AND ra.scope_type = 'PROJECT'
+    AND ra.scope_id = $2
+    AND (ra.expires_at IS NULL OR ra.expires_at > now())
+    AND perm.code = $3
+) AS ok;
+`
+	var ok bool
+	err := r.db.QueryRow(ctx, q, userID, projectID, permissionCode).Scan(&ok)
+	return ok, err
+}
+
 func (r *ProjectsRepo) ListByCreator(ctx context.Context, createdBy uuid.UUID) ([]domain.Project, error) {
 	const q = `
-SELECT id, title, description, status, is_public, created_by, professor_id,
-       professor_review_status,
-       faculty_id, visibility, group_id,
-       created_at, updated_at
-FROM projects
-WHERE created_by = $1
-ORDER BY created_at DESC;
+SELECT
+  p.id,
+  p.title,
+  p.description,
+  p.status,
+  p.is_public,
+  p.created_by,
+  COALESCE(NULLIF(TRIM(up.full_name), ''), split_part(COALESCE(u.email, ''), '@', 1), p.created_by::text) AS created_by_name,
+  COALESCE(u.email, '') AS created_by_email,
+  p.professor_id,
+  p.professor_review_status,
+  p.faculty_id,
+  p.visibility,
+  p.group_id,
+  p.created_at,
+  p.updated_at
+FROM projects p
+LEFT JOIN users u ON u.id = p.created_by
+LEFT JOIN user_profiles up ON up.user_id = p.created_by
+WHERE p.created_by = $1
+ORDER BY p.created_at DESC;
 `
 	rows, err := r.db.Query(ctx, q, createdBy)
 	if err != nil {
@@ -115,6 +173,8 @@ ORDER BY created_at DESC;
 			&p.Status,
 			&p.IsPublic,
 			&p.CreatedBy,
+			&p.CreatedByName,
+			&p.CreatedByEmail,
 			&professorID,
 			&p.ProfessorReviewStatus,
 			&p.FacultyID,
@@ -140,13 +200,27 @@ ORDER BY created_at DESC;
 
 func (r *ProjectsRepo) ListPublic(ctx context.Context) ([]domain.Project, error) {
 	const q = `
-SELECT id, title, description, status, is_public, created_by, professor_id,
-       professor_review_status,
-       faculty_id, visibility, group_id,
-       created_at, updated_at
-FROM projects
-WHERE is_public = TRUE
-ORDER BY created_at DESC;
+SELECT
+  p.id,
+  p.title,
+  p.description,
+  p.status,
+  p.is_public,
+  p.created_by,
+  COALESCE(NULLIF(TRIM(up.full_name), ''), split_part(COALESCE(u.email, ''), '@', 1), p.created_by::text) AS created_by_name,
+  COALESCE(u.email, '') AS created_by_email,
+  p.professor_id,
+  p.professor_review_status,
+  p.faculty_id,
+  p.visibility,
+  p.group_id,
+  p.created_at,
+  p.updated_at
+FROM projects p
+LEFT JOIN users u ON u.id = p.created_by
+LEFT JOIN user_profiles up ON up.user_id = p.created_by
+WHERE p.is_public = TRUE
+ORDER BY p.created_at DESC;
 `
 	rows, err := r.db.Query(ctx, q)
 	if err != nil {
@@ -167,6 +241,8 @@ ORDER BY created_at DESC;
 			&p.Status,
 			&p.IsPublic,
 			&p.CreatedBy,
+			&p.CreatedByName,
+			&p.CreatedByEmail,
 			&professorID,
 			&p.ProfessorReviewStatus,
 			&p.FacultyID,
@@ -199,6 +275,9 @@ WHERE faculty_id = $1
 `
 	var id uuid.UUID
 	err := r.db.QueryRow(ctx, q, facultyID, code).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, projects.ErrGroupNotFound
+	}
 	return id, err
 }
 

@@ -171,10 +171,43 @@
     return "";
   }
 
+  function incomingStatusLabel(status) {
+    const code = String(status || "").toUpperCase();
+    if (code === "APPLIED") return "ЗАЯВКА";
+    if (code === "INVITED") return "ПРИГЛАШЕНИЕ";
+    return code || "СТАТУС";
+  }
+
+  function outgoingStatusLabel(status) {
+    const code = String(status || "").toUpperCase();
+    if (code === "APPLIED") return "НА РАССМОТРЕНИИ";
+    if (code === "ACTIVE") return "ПРИНЯТО";
+    if (code === "REJECTED") return "ОТКЛОНЕНО";
+    if (code === "REMOVED") return "ОТОЗВАНО";
+    if (code === "INVITED") return "ПРИГЛАШЕНИЕ";
+    return code || "СТАТУС";
+  }
+
+  function outgoingDecisionText(status) {
+    const code = String(status || "").toUpperCase();
+    if (code === "ACTIVE") return "Решение: заявка принята.";
+    if (code === "REJECTED") return "Решение: заявка отклонена.";
+    if (code === "APPLIED") return "Решение: ожидает ответа тимлида.";
+    if (code === "REMOVED") return "Решение: заявка отозвана/снята.";
+    return "";
+  }
+
+  function outgoingDecisionClass(status) {
+    const code = String(status || "").toUpperCase();
+    if (code === "ACTIVE") return "accepted";
+    if (code === "REJECTED") return "rejected";
+    return "pending";
+  }
+
   function renderIncoming() {
     ui.incomingList.innerHTML = "";
     if (!state.incoming.length) {
-      ui.incomingList.innerHTML = '<article class="empty-card">Входящих приглашений пока нет.</article>';
+      ui.incomingList.innerHTML = '<article class="empty-card">Входящих заявок и приглашений пока нет.</article>';
       return;
     }
 
@@ -182,9 +215,21 @@
       const card = document.createElement("article");
       card.className = "invite-card";
       card.setAttribute("data-project-id", item.project_id || "");
+      card.setAttribute("data-member-user-id", item.user_id || "");
+      card.setAttribute("data-membership-status", String(item.status || "INVITED").toUpperCase());
 
       const inviter = item.inviter_name || item.inviter_email || "Команда проекта";
       const inviteComment = String(item.invite_comment || "").trim();
+      const memberStatus = String(item.status || "INVITED").toUpperCase();
+      const memberStatusLabel = incomingStatusLabel(memberStatus);
+      const isDirectInvite = memberStatus === "INVITED";
+      const actionHTML = isDirectInvite
+        ? `<button class="invite-btn" data-action="open">Открыть проект</button>` +
+          `<button class="invite-btn accept" data-action="accept">Принять</button>` +
+          `<button class="invite-btn reject" data-action="reject">Отклонить</button>`
+        : `<a class="invite-btn" href="/dev/projects/${encodeURIComponent(item.project_id || "")}">Открыть проект</a>` +
+          `<button class="invite-btn accept" data-action="accept">Принять</button>` +
+          `<button class="invite-btn reject" data-action="reject">Отклонить</button>`;
 
       card.innerHTML =
         `<div class="invite-head">` +
@@ -193,15 +238,13 @@
             `<p class="invite-meta">От: ${escapeHTML(inviter)} · ${escapeHTML(formatDate(item.created_at))}</p>` +
           `</div>` +
           `<div class="invite-badges">` +
-            `<span class="inv-badge invited">INVITED</span>` +
+            `<span class="inv-badge ${escapeHTML(badgeClass(memberStatus))}">${escapeHTML(memberStatusLabel)}</span>` +
             `<span class="inv-badge">${escapeHTML(String(item.project_status || "DRAFT").toUpperCase())}</span>` +
           `</div>` +
         `</div>` +
         (inviteComment ? `<div class="invite-comment">${escapeHTML(inviteComment)}</div>` : "") +
         `<div class="invite-actions">` +
-          `<button class="invite-btn" data-action="open">Открыть проект</button>` +
-          `<button class="invite-btn accept" data-action="accept">Принять</button>` +
-          `<button class="invite-btn reject" data-action="reject">Отклонить</button>` +
+          actionHTML +
         `</div>`;
 
       ui.incomingList.appendChild(card);
@@ -217,8 +260,11 @@
 
     state.outgoing.forEach((item) => {
       const status = String(item.status || "APPLIED").toUpperCase();
+      const statusLabel = outgoingStatusLabel(status);
+      const decisionText = outgoingDecisionText(status);
+      const decisionClass = outgoingDecisionClass(status);
       const card = document.createElement("article");
-      card.className = "invite-card";
+      card.className = `invite-card ${decisionClass === "accepted" ? "decision-accepted" : ""} ${decisionClass === "rejected" ? "decision-rejected" : ""}`.trim();
       card.innerHTML =
         `<div class="invite-head">` +
           `<div>` +
@@ -226,9 +272,10 @@
             `<p class="invite-meta">Создано: ${escapeHTML(formatDate(item.created_at))}` +
               (item.responded_at ? ` · Ответ: ${escapeHTML(formatDate(item.responded_at))}` : "") +
             `</p>` +
+            (decisionText ? `<p class="invite-meta invite-decision ${escapeHTML(decisionClass)}">${escapeHTML(decisionText)}</p>` : "") +
           `</div>` +
           `<div class="invite-badges">` +
-            `<span class="inv-badge ${escapeHTML(badgeClass(status))}">${escapeHTML(status)}</span>` +
+            `<span class="inv-badge ${escapeHTML(badgeClass(status))}">${escapeHTML(statusLabel)}</span>` +
             `<span class="inv-badge">${escapeHTML(String(item.project_status || "DRAFT").toUpperCase())}</span>` +
           `</div>` +
         `</div>` +
@@ -277,11 +324,47 @@
 
     const projectID = String(card.getAttribute("data-project-id") || "").trim();
     if (!projectID) return;
+    const memberUserID = String(card.getAttribute("data-member-user-id") || "").trim();
+    const memberStatus = String(card.getAttribute("data-membership-status") || "INVITED").toUpperCase();
 
     const action = button.getAttribute("data-action");
 
     if (action === "open") {
       window.location.href = `/dev/projects/${projectID}`;
+      return;
+    }
+    if ((action === "accept" || action === "reject") && memberStatus === "APPLIED") {
+      if (!memberUserID) {
+        setStatus("Не удалось определить пользователя заявки.", true);
+        return;
+      }
+      const accept = action === "accept";
+      const actionLabel = accept ? "принять" : "отклонить";
+      if (!window.confirm(`Подтвердите действие: ${actionLabel} заявку?`)) {
+        return;
+      }
+      const allButtons = Array.from(card.querySelectorAll("button[data-action]"));
+      allButtons.forEach((btn) => {
+        btn.disabled = true;
+      });
+      try {
+        if (accept) {
+          await request("POST", `/v2/projects/${projectID}/members/${memberUserID}/approve`, {});
+        } else {
+          await request("POST", `/v2/projects/${projectID}/members/${memberUserID}/reject`, {});
+        }
+        setStatus(accept ? "Заявка принята. Участник добавлен в команду." : "Заявка отклонена.", false);
+        await loadInvites();
+      } catch (err) {
+        setStatus(err.message || String(err), true);
+      } finally {
+        allButtons.forEach((btn) => {
+          btn.disabled = false;
+        });
+      }
+      return;
+    }
+    if (memberStatus !== "INVITED") {
       return;
     }
 

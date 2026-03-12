@@ -11,7 +11,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 )
 
 type NotificationsHandler struct {
@@ -88,7 +87,7 @@ func (h *NotificationsHandler) MarkRead(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, notifications.ErrNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "notification not found"})
 			return
 		}
@@ -132,7 +131,7 @@ func (h *NotificationsHandler) Delete(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, notifications.ErrNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "notification not found"})
 			return
 		}

@@ -32,3 +32,42 @@
 
 ### 2026-03-07 — Кабинет преподавателя и цикл проекта
 Что сделали: Добавили отдельные страницы преподавателя с таблицей проектов и заявками на ревью. На этих страницах можно открыть набор в проект, прикрепить преподавателя, добавить критерий оценки и запустить проект в активный статус.
+
+### 2026-03-12 — Архитектурная фиксация и старт миграции `projectflow`
+Что сделали: Зафиксировали целевую архитектуру (`Modular Monolith + Clean`) и добавили автоматическую проверку архитектурных зависимостей через `go test`. Начали вынос SQL из `projectflow` сервиса в postgres-adapter: перенесли операции по стеку, позициям, блоку участников/инвайтов, блоку преподавателя, блоку критериев/оценивания, жизненному циклу проекта и блоку задач/активностей/сдач.
+
+### 2026-03-12 — Завершение выноса SQL из `projectflow service`
+Что сделали: Перенесли оставшиеся SQL-операции уровня проекта (чтение/обновление проекта, открытие набора, проверки роли и активного участника, поиск кандидатов-студентов) в postgres-adapter через новый `ProjectsRepository`. В `projectflow service` больше нет прямых SQL-запросов и прямой зависимости на DB pool.
+
+### 2026-03-12 — Убрано legacy-исключение `pgx` из service-слоя
+Что сделали: Перевели `projectflow` на внутренние ошибки (`not found`, `schema missing`) и убрали прямые импорты `pgx/pgconn` из use-case service и `project_flow_handler`. После этого архитектурный dependency-guard больше не требует legacy-разрешения для `internal/services/projectflow`.
+
+### 2026-03-12 — Декомпозиция `projectflow` service по use-case файлам
+Что сделали: Разбили один большой `service.go` на несколько файлов по смысловым блокам (`access`, `members`, `professors`, `grading`, `tasks`, `utils`) без изменения API и поведения. Это упростило навигацию и поддержку кода, при этом все тесты остались зелёными.
+
+### 2026-03-12 — Декомпозиция `projectflow` postgres-adapter по use-case файлам
+Что сделали: Разделили большой `projectflow_repo.go` на отдельные файлы по блокам (`projects`, `members`, `professors`, `criteria`, `lifecycle`, `tasks`, `helpers`) без изменения SQL-поведения и интерфейсов. Это снизило связность файла и упростило дальнейшие точечные изменения.
+
+### 2026-03-12 — Декомпозиция HTTP router по модулям
+Что сделали: Разнесли регистрацию маршрутов из одного большого `internal/http/router.go` в отдельные файлы по контекстам (`auth`, `admin`, `projects`, `notifications`, `projectflow`, `dev/docs`). URL-ы, middleware и поведение API сохранили без изменений.
+
+### 2026-03-12 — Упрощение composition-root в `internal/app`
+Что сделали: Вынесли ручную сборку зависимостей из `app.go` в `wireModules`, а запуск email outbox dispatcher в отдельный `startEmailOutboxDispatcher`. Поведение приложения и конфигурационные правила остались прежними.
+
+### 2026-03-12 — Декомпозиция `project_flow_handler` по use-case файлам
+Что сделали: Разделили большой `internal/http/handlers/project_flow_handler.go` на отдельные файлы по блокам (`project`, `members`, `professors`, `grading`, `tasks`) и оставили в базовом файле только общий каркас и хелперы. URL-контракты, JSON-схемы и middleware-поведение API сохранились.
+
+### 2026-03-12 — Декомпозиция `admin_handler` по контекстам
+Что сделали: Разнесли `internal/http/handlers/admin_handler.go` на `admin_handler_users.go` и `admin_handler_projects.go`, сохранив те же роуты, статусы ответов и логику уведомлений. Основной файл теперь содержит только каркас handler.
+
+### 2026-03-12 — Декомпозиция `projects_handler` на create/read блоки
+Что сделали: Вынесли `Create` в `projects_handler_create.go`, а методы чтения (`Get`, `ListMine`, `ListPublic`, `ListGroups`) в `projects_handler_read.go`. Базовые DTO и mapper `projectToResponse` сохранены в `projects_handler.go`, чтобы не ломать переиспользование в `projectflow`.
+
+### 2026-03-12 — Убрана зависимость handlers от `pgx/pgconn` в `admin/projects/notifications`
+Что сделали: Перенесли маппинг `not found`/duplicate/department-not-found ошибок из HTTP handlers в repo/service слой через сервисные ошибки (`ErrUserNotFound`, `ErrProjectNotFound`, `ErrGroupNotFound`, `ErrNotFound`, `ErrUserExists`, `ErrDepartmentNotFound`). Обработчики продолжают отдавать те же HTTP-статусы и сообщения, но больше не завязаны на ошибки драйвера БД.
+
+### 2026-03-12 — Введён модульный composition-слой `internal/modules/*`
+Что сделали: Добавили модульные конструкторы `New(...)` для `auth/admin/rbac/projects/projectflow/notifications` и перевели `internal/app/wire_modules.go` на сборку через эти модули. Это закрепило модульные границы в composition-root без изменения API и бизнес-логики.
+
+### 2026-03-12 — Усилен dependency-guard для HTTP handlers
+Что сделали: Перевели `health` handler на абстракцию `DBPinger` и добавили архитектурное правило, запрещающее импорты `pgx/pgconn` в `internal/http/handlers`. После этого transport-слой не зависит от ошибок и типов DB-драйвера.

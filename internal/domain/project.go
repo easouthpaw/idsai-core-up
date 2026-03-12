@@ -24,6 +24,8 @@ type Project struct {
 	Status                ProjectStatus
 	IsPublic              bool
 	CreatedBy             uuid.UUID
+	CreatedByName         string
+	CreatedByEmail        string
 	ProfessorID           *uuid.UUID
 	ProfessorReviewStatus string
 	CreatedAt             time.Time

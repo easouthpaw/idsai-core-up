@@ -10,7 +10,10 @@ import (
 	"github.com/google/uuid"
 )
 
-var ErrInvalidInput = errors.New("invalid input")
+var (
+	ErrInvalidInput = errors.New("invalid input")
+	ErrNotFound     = errors.New("not found")
+)
 
 type Notification struct {
 	ID        string          `json:"id"`

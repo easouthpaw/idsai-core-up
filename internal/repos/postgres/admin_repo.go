@@ -162,6 +162,9 @@ SELECT d.id, d.faculty_id, d.tenant_id
 FROM departments d
 WHERE UPPER(d.code) = UPPER($1);
 `, in.DepartmentCode).Scan(&departmentID, &facultyID, &tenantID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return svc.User{}, svc.ErrDepartmentNotFound
+		}
 		return svc.User{}, err
 	}
 
@@ -171,6 +174,10 @@ INSERT INTO users(tenant_id, email, password_hash, status)
 VALUES ($1, $2, $3, 'ACTIVE')
 RETURNING id;
 `, tenantID, in.Email, in.PasswordHash).Scan(&userID); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return svc.User{}, svc.ErrUserExists
+		}
 		return svc.User{}, err
 	}
 
@@ -211,7 +218,7 @@ WHERE id = $1;
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return pgx.ErrNoRows
+		return svc.ErrUserNotFound
 	}
 	return nil
 }
@@ -231,6 +238,9 @@ FROM users u
 JOIN user_profiles p ON p.user_id = u.id
 WHERE u.id = $1;
 `, userID).Scan(&tenantID, &facultyID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return svc.ErrUserNotFound
+		}
 		return err
 	}
 
@@ -274,7 +284,7 @@ WHERE id = $1;
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return pgx.ErrNoRows
+		return svc.ErrUserNotFound
 	}
 	return nil
 }
@@ -289,7 +299,7 @@ WHERE id = $1;
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return pgx.ErrNoRows
+		return svc.ErrProjectNotFound
 	}
 	return nil
 }
@@ -342,7 +352,7 @@ WHERE id = $1;
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return pgx.ErrNoRows
+		return svc.ErrUserNotFound
 	}
 
 	return tx.Commit(ctx)
@@ -371,7 +381,7 @@ WHERE id = $1;
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return pgx.ErrNoRows
+		return svc.ErrProjectNotFound
 	}
 
 	return tx.Commit(ctx)
@@ -416,6 +426,9 @@ WHERE p.id = $1;
 		&p.CreatedAt,
 		&p.UpdatedAt,
 	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return svc.Project{}, svc.ErrProjectNotFound
+	}
 	return p, err
 }
 
@@ -700,6 +713,9 @@ WHERE u.id = $1;
 		&u.FacultyCode,
 		&u.DepartmentCode,
 	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return svc.User{}, svc.ErrUserNotFound
+	}
 	return u, err
 }
 

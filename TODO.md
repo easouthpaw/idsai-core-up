@@ -1,6 +1,6 @@
 # TODO: IDSAI Core (Kanban + TDD)
 
-Обновлено: 2026-03-07  
+Обновлено: 2026-03-12  
 Источник правды по прогрессу: только этот файл.
 
 ## Done
@@ -10,6 +10,7 @@
 - [x] (2026-03-07) Обновлён встроенный UI (landing/login/author/admin/projects/project) под текущие потоки.
 - [x] (2026-03-07) Добавлены Telegram-алерты состояния сервера (startup/failure/recovery/heartbeat).
 - [x] (2026-03-07) Добавлен кабинет преподавателя (`/dev/professor`, `/dev/professor/reviews`) с действиями по циклу проекта: набор, прикрепление преподавателя, критерии, старт.
+- [x] (2026-03-12) Зафиксирована архитектура `Modular Monolith + Clean` + добавлен dependency-guard (`go test`) + вынесен `projectflow` SQL в adapters (`stacks/positions`, `members/invites`, `professor`, `criteria/grading`, `lifecycle`, `tasks/activity/submissions`, `project-level` read/update/recruitment/role/candidates). `projectflow service` больше не содержит прямого SQL и больше не импортирует `pgx/pgconn`; дополнительно service и postgres-adapter декомпозированы на use-case файлы, `internal/http/router.go` разнесён на модульные `register*Routes` файлы, `internal/app/app.go` упрощён через `wireModules`/`startEmailOutboxDispatcher`, `project_flow_handler` разнесён по use-case файлам, а также декомпозированы `admin_handler` и `projects_handler`; для `admin/projects/notifications` HTTP handlers больше не зависят напрямую от `pgx/pgconn`; добавлены модульные сборщики `internal/modules/*` и guard, запрещающий `pgx` в handlers.
 
 ## In Progress
 - [ ] (начато) Полная tenant-isolation во всех репозиториях и SQL-запросах (tenant-aware доступ end-to-end).

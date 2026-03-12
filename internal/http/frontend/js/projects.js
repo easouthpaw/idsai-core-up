@@ -442,7 +442,7 @@
         `<p class="card-desc">${escapeHTML(p.description || "Без описания")}</p>` +
         `<div class="tech-tags">${tags.map((tag) => `<span class="tech-chip">${escapeHTML(tag)}</span>`).join("")}</div>` +
         `<div class="card-meta">` +
-          `<span>author: ${escapeHTML(p.created_by || "-")}</span>` +
+          `<span>author: ${escapeHTML(p.created_by_name || p.created_by || "-")}</span>` +
           `<span>created: ${escapeHTML(formatDate(p.created_at))}</span>` +
         `</div>` +
         `<div class="community-footer">` +
