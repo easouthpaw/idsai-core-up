@@ -28,35 +28,39 @@
         </div>
       </div>
 
-      <p class="nav-title">РАБОЧАЯ ОБЛАСТЬ</p>
-      <nav class="side-nav">
-        <a class="side-link active" href="/dev/projects">
+      <p class="nav-title">WORKSPACE</p>
+      <nav class="main-nav side-nav" aria-label="Student sections">
+        <a class="nav-link side-link active" data-tab="mine" href="/dev/projects?tab=mine">
           <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">folder</span></span>
-          <span class="nav-label">Проекты</span>
+          <span class="nav-label">Мои проекты</span>
         </a>
-        <a class="side-link" href="/dev/invites">
+        <a class="nav-link side-link" data-tab="community" href="/dev/projects?tab=community">
+          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">public</span></span>
+          <span class="nav-label">Сообщество</span>
+        </a>
+        <a class="nav-link side-link" href="/dev/invites">
           <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">mark_email_unread</span></span>
           <span class="nav-label">Заявки</span>
         </a>
-        <button class="side-link" type="button" disabled>
+        <button class="nav-item side-link ghost" type="button" disabled>
           <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">task</span></span>
           <span class="nav-label">Задачи</span>
         </button>
-        <button class="side-link" type="button" disabled>
+        <button class="nav-item side-link ghost" type="button" disabled>
           <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">group</span></span>
           <span class="nav-label">Команда</span>
         </button>
-        <button class="side-link" type="button" disabled>
+        <button class="nav-item side-link ghost" type="button" disabled>
           <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">calendar_month</span></span>
           <span class="nav-label">Календарь</span>
         </button>
       </nav>
 
-      <p class="nav-title">ИНСТРУМЕНТЫ</p>
-      <nav class="side-nav">
-        <a class="side-link muted" href="/swagger/index.html" target="_blank" rel="noreferrer">
+      <p class="nav-title">UTILITIES</p>
+      <nav class="main-nav side-nav">
+        <a class="nav-link side-link muted" href="/swagger/index.html" target="_blank" rel="noreferrer">
           <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">description</span></span>
-          <span class="nav-label">Документация</span>
+          <span class="nav-label">Swagger</span>
         </a>
       </nav>
 
@@ -135,6 +139,13 @@
                   <div id="stackChips" class="chips"></div>
                 </div>
               </article>
+
+              <article class="card">
+                <header class="card-head">
+                  <h2>Активность</h2>
+                </header>
+                <ul id="activityList" class="activity-list"></ul>
+              </article>
             </div>
 
             <div class="right-stack">
@@ -151,10 +162,6 @@
                   <h2>Пайплайн запуска</h2>
                 </header>
                 <div class="card-body pipeline-body">
-                  <div class="pipeline-actions">
-                    <button id="openRecruitmentBtn" class="ghost-btn" type="button">Открыть набор</button>
-                  </div>
-
                   <div class="professor-assign">
                     <div class="split-row">
                       <input id="professorSearchInput" type="text" placeholder="Поиск преподавателя по имени или email" />
@@ -162,21 +169,12 @@
                     </div>
                     <div id="professorSearchResults" class="search-results" hidden></div>
                     <div id="professorIdentity" class="professor-identity" hidden></div>
-                    <div id="professorInviteHint" class="muted-text"></div>
                   </div>
-                  <div class="empty-state">Критерии задаются преподавателем в его кабинете.</div>
 
                   <div id="readinessList" class="readiness-list"></div>
-                  <button id="approveProjectBtn" class="primary-btn full" type="button">Утвердить проект (ACTIVE)</button>
-                  <button id="completeProjectBtn" class="ghost-btn full" type="button" hidden>Завершить проект и отправить на оценивание</button>
+                  <button id="approveProjectBtn" class="primary-btn" type="button">Утвердить проект (ACTIVE)</button>
+                  <button id="completeProjectBtn" class="ghost-btn" type="button" hidden>Завершить проект (GRADING)</button>
                 </div>
-              </article>
-
-              <article class="card">
-                <header class="card-head">
-                  <h2>Активность</h2>
-                </header>
-                <ul id="activityList" class="activity-list"></ul>
               </article>
             </div>
           </div>

@@ -30,26 +30,46 @@
       </div>
 
       <p class="nav-title">WORKSPACE</p>
-      <nav class="main-nav" aria-label="Student sections">
-        <a class="nav-link" href="/dev/projects">
+      <nav class="main-nav side-nav" aria-label="Student sections">
+        <a class="nav-link side-link" data-tab="mine" href="/dev/projects?tab=mine">
           <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">folder</span></span>
-          <span class="nav-label">Проекты</span>
+          <span class="nav-label">Мои проекты</span>
         </a>
-        <a class="nav-link active" href="/dev/invites">
+        <a class="nav-link side-link" data-tab="community" href="/dev/projects?tab=community">
+          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">public</span></span>
+          <span class="nav-label">Сообщество</span>
+        </a>
+        <a class="nav-link side-link active" href="/dev/invites">
           <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">mark_email_unread</span></span>
           <span class="nav-label">Заявки</span>
         </a>
+        <button class="nav-item side-link ghost" type="button" disabled>
+          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">task</span></span>
+          <span class="nav-label">Задачи</span>
+        </button>
+        <button class="nav-item side-link ghost" type="button" disabled>
+          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">group</span></span>
+          <span class="nav-label">Команда</span>
+        </button>
+        <button class="nav-item side-link ghost" type="button" disabled>
+          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">calendar_month</span></span>
+          <span class="nav-label">Календарь</span>
+        </button>
       </nav>
 
       <p class="nav-title">UTILITIES</p>
-      <nav class="main-nav">
-        <a class="nav-link" href="/swagger/index.html" target="_blank" rel="noreferrer">
+      <nav class="main-nav side-nav">
+        <a class="nav-link side-link" href="/swagger/index.html" target="_blank" rel="noreferrer">
           <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">description</span></span>
           <span class="nav-label">Swagger</span>
         </a>
       </nav>
 
       <div class="sidebar-bottom">
+        <button class="bottom-link" type="button" disabled>
+          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">settings</span></span>
+          <span class="nav-label">Настройки</span>
+        </button>
         <button id="logoutBtn" class="bottom-link danger" type="button">
           <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">logout</span></span>
           <span class="nav-label">Выйти</span>

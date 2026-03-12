@@ -231,21 +231,25 @@ body.modal-open {
   margin-left: 10px;
 }
 
-.nav-item.ghost {
+.nav-item.ghost,
+.nav-link.ghost {
   color: #b2bac8;
   opacity: 0.88;
 }
 
-.nav-item.active {
+.nav-item.active,
+.nav-link.active {
   background: #1e2a38;
   color: #fff;
 }
 
-.nav-item.active .icon-box {
+.nav-item.active .icon-box,
+.nav-link.active .icon-box {
   background: rgba(26, 111, 196, 0.2);
 }
 
-.nav-item.active .icon-box .material-symbols-outlined {
+.nav-item.active .icon-box .material-symbols-outlined,
+.nav-link.active .icon-box .material-symbols-outlined {
   color: #4fa3e8;
 }
 

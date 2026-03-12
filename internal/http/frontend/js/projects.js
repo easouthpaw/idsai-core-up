@@ -14,7 +14,7 @@
   const publicProjectsEl = document.getElementById("publicProjects");
   const groupDepartmentEl = document.getElementById("groupDepartment");
   const groupNumberEl = document.getElementById("groupNumber");
-  const tabButtons = Array.from(document.querySelectorAll(".nav-item[data-tab]"));
+  const tabButtons = Array.from(document.querySelectorAll(".main-nav [data-tab]"));
   const paneMineEl = document.getElementById("paneMine");
   const paneCommunityEl = document.getElementById("paneCommunity");
   const toolbarMineEl = document.getElementById("toolbarMine");
@@ -465,6 +465,9 @@
   function switchTab(tab) {
     activeTab = tab === "community" ? "community" : "mine";
     const isMine = activeTab === "mine";
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", activeTab);
+    window.history.replaceState({}, "", url.toString());
 
     tabButtons.forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.tab === activeTab);
@@ -490,6 +493,11 @@
       tabCounterEl.textContent = `${activeCount} активных`;
       renderCommunity();
     }
+  }
+
+  function initialTabFromURL() {
+    const tab = String(new URLSearchParams(window.location.search).get("tab") || "").toLowerCase();
+    return tab === "community" ? "community" : "mine";
   }
 
   function fillGroupDepartments() {
@@ -807,7 +815,10 @@
   });
 
   tabButtons.forEach((btn) => {
-    btn.addEventListener("click", async () => {
+    btn.addEventListener("click", async (event) => {
+      if (btn.tagName === "A") {
+        event.preventDefault();
+      }
       switchTab(btn.dataset.tab || "mine");
       if (activeTab === "community" && publicProjects.length === 0) {
         await loadCommunityProjects();
@@ -848,7 +859,7 @@
     .then(async () => {
       await loadMineProjects();
       await loadCommunityProjects();
-      switchTab("mine");
+      switchTab(initialTabFromURL());
       logLine("all systems operational");
     })
     .catch((e) => {

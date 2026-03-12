@@ -850,14 +850,17 @@
   }
 
   function renderReadiness() {
+    if (!ui.readinessList || !ui.approveProjectBtn) return;
     ui.readinessList.innerHTML = "";
 
     if (!state.readiness) {
       ui.readinessList.innerHTML = '<div class="empty-state">Данные о готовности не загружены.</div>';
+      ui.approveProjectBtn.hidden = false;
       ui.approveProjectBtn.disabled = true;
       if (ui.completeProjectBtn) {
         ui.completeProjectBtn.hidden = true;
         ui.completeProjectBtn.disabled = true;
+        ui.completeProjectBtn.title = "";
       }
       renderProfessorInviteArea(String(state.project?.professor_review_status || "NONE"));
       return;
@@ -871,31 +874,53 @@
       return state.readiness.has_professor ? "Назначен" : "Не назначен";
     })();
 
+    const hasEnoughMembers = Number(state.readiness.active_members || 0) >= Number(state.readiness.required_members || 0) &&
+      Number(state.readiness.required_members || 0) > 0;
+    const professorAccepted = professorStatusCode === "ACCEPTED";
+    const hasCriteria = Number(state.readiness.criteria_count || 0) > 0;
+
     const items = [
-      ["Статус", state.readiness.status],
-      ["Участники", `${state.readiness.active_members}/${state.readiness.required_members}`],
-      ["Преподаватель", professorStatusLabel],
-      ["Критерии", String(state.readiness.criteria_count)],
-      ["Можно активировать", state.readiness.can_activate ? "Да" : "Нет"],
+      {
+        label: "Набор",
+        value: `${state.readiness.active_members}/${state.readiness.required_members}`,
+        stateClass: hasEnoughMembers ? "is-done" : Number(state.readiness.active_members || 0) > 0 ? "is-current" : "is-blocked",
+      },
+      {
+        label: "Преподаватель",
+        value: professorStatusLabel,
+        stateClass: professorAccepted ? "is-done" : professorStatusCode === "PENDING" ? "is-current" : "is-blocked",
+      },
+      {
+        label: "Критерии",
+        value: String(state.readiness.criteria_count),
+        stateClass: hasCriteria ? "is-done" : "is-blocked",
+      },
+      {
+        label: "Запуск",
+        value: state.readiness.can_activate ? "Готово" : "Не готово",
+        stateClass: state.readiness.can_activate ? "is-done" : hasEnoughMembers && professorAccepted && hasCriteria ? "is-current" : "is-blocked",
+      },
     ];
 
-    items.forEach(([k, v]) => {
+    items.forEach((item) => {
       const row = document.createElement("div");
-      row.className = "readiness-item";
-      row.innerHTML = `<span>${escapeHTML(k)}</span><strong>${escapeHTML(v)}</strong>`;
+      row.className = `readiness-item ${item.stateClass}`;
+      row.innerHTML = `<span>${escapeHTML(item.label)}</span><strong>${escapeHTML(item.value)}</strong>`;
       ui.readinessList.appendChild(row);
     });
 
+    const statusCode = projectStatusCode();
+    const canShowApprove = statusCode !== "ACTIVE" && statusCode !== "GRADING" && statusCode !== "ARCHIVE";
+    ui.approveProjectBtn.hidden = !canShowApprove;
     ui.approveProjectBtn.disabled = !state.readiness.can_activate;
+
     if (ui.completeProjectBtn) {
-      const statusCode = projectStatusCode();
       const isMember = isCurrentUserActiveMember();
       const tasksTotal = Array.isArray(state.tasks) ? state.tasks.length : 0;
       const tasksDone = Array.isArray(state.tasks)
         ? state.tasks.filter((t) => String(t.status || "").toUpperCase() === "DONE").length
         : 0;
       const allTasksDone = tasksTotal > 0 && tasksDone === tasksTotal;
-      const professorAccepted = professorStatusCode === "ACCEPTED";
 
       const visible = statusCode === "ACTIVE" && isMember;
       ui.completeProjectBtn.hidden = !visible;
@@ -912,12 +937,12 @@
         ui.completeProjectBtn.title = readyForSubmit ? "" : `Нельзя завершить: ${reasons.join(", ")}`;
       }
     }
+
     renderProfessorInviteArea(professorStatusCode);
   }
 
   function renderProfessorInviteArea(professorStatusCode) {
     const status = String(professorStatusCode || state.project?.professor_review_status || "NONE").toUpperCase();
-    if (!ui.professorInviteHint) return;
     const currentUser = String(localStorage.getItem(LS_USER) || "");
     const isInvitedProfessor = String(state.project?.professor_id || "") === currentUser;
 
@@ -934,6 +959,8 @@
         ui.professorIdentity.innerHTML = "";
       }
     }
+
+    if (!ui.professorInviteHint) return;
 
     if (status === "PENDING") {
       if (isInvitedProfessor) {
@@ -2122,49 +2149,53 @@
       }
     });
 
-    ui.openRecruitmentBtn.addEventListener("click", async () => {
-      try {
-        await onOpenRecruitment();
-      } catch (err) {
-        setNotice(err.message || String(err), true);
-      }
-    });
+    if (ui.openRecruitmentBtn) {
+      ui.openRecruitmentBtn.addEventListener("click", async () => {
+        try {
+          await onOpenRecruitment();
+        } catch (err) {
+          setNotice(err.message || String(err), true);
+        }
+      });
+    }
 
-    ui.assignProfessorBtn.addEventListener("click", async () => {
-      try {
-        await onAssignProfessor();
-      } catch (err) {
-        setNotice(err.message || String(err), true);
-      }
-    });
+    if (ui.assignProfessorBtn && ui.professorSearchInput && ui.professorSearchResults) {
+      ui.assignProfessorBtn.addEventListener("click", async () => {
+        try {
+          await onAssignProfessor();
+        } catch (err) {
+          setNotice(err.message || String(err), true);
+        }
+      });
 
-    ui.professorSearchInput.addEventListener("input", () => {
-      const raw = String(ui.professorSearchInput.value || "").trim();
-      state.selectedProfessorID = "";
-      ui.assignProfessorBtn.disabled = !/^[0-9a-f-]{36}$/i.test(raw);
-      if (state.professorSearchTimer) clearTimeout(state.professorSearchTimer);
-      state.professorSearchTimer = setTimeout(() => {
-        searchProfessors(ui.professorSearchInput.value).catch((err) => setNotice(err.message || String(err), true));
-      }, 250);
-    });
+      ui.professorSearchInput.addEventListener("input", () => {
+        const raw = String(ui.professorSearchInput.value || "").trim();
+        state.selectedProfessorID = "";
+        ui.assignProfessorBtn.disabled = !/^[0-9a-f-]{36}$/i.test(raw);
+        if (state.professorSearchTimer) clearTimeout(state.professorSearchTimer);
+        state.professorSearchTimer = setTimeout(() => {
+          searchProfessors(ui.professorSearchInput.value).catch((err) => setNotice(err.message || String(err), true));
+        }, 250);
+      });
 
-    ui.professorSearchResults.addEventListener("click", (e) => {
-      const btn = e.target.closest("button[data-prof-id]");
-      if (!btn) return;
-      const profID = btn.getAttribute("data-prof-id") || "";
-      const item = state.professorCandidates.find((x) => String(x.user_id) === String(profID));
-      if (!item) return;
-      state.selectedProfessorID = profID;
-      ui.professorSearchInput.value = `${item.full_name || item.email} <${item.email}>`;
-      ui.professorSearchResults.hidden = true;
-      ui.assignProfessorBtn.disabled = false;
-    });
+      ui.professorSearchResults.addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-prof-id]");
+        if (!btn) return;
+        const profID = btn.getAttribute("data-prof-id") || "";
+        const item = state.professorCandidates.find((x) => String(x.user_id) === String(profID));
+        if (!item) return;
+        state.selectedProfessorID = profID;
+        ui.professorSearchInput.value = `${item.full_name || item.email} <${item.email}>`;
+        ui.professorSearchResults.hidden = true;
+        ui.assignProfessorBtn.disabled = false;
+      });
 
-    document.addEventListener("click", (e) => {
-      if (!ui.professorSearchResults || ui.professorSearchResults.hidden) return;
-      if (e.target === ui.professorSearchInput || ui.professorSearchResults.contains(e.target)) return;
-      ui.professorSearchResults.hidden = true;
-    });
+      document.addEventListener("click", (e) => {
+        if (!ui.professorSearchResults || ui.professorSearchResults.hidden) return;
+        if (e.target === ui.professorSearchInput || ui.professorSearchResults.contains(e.target)) return;
+        ui.professorSearchResults.hidden = true;
+      });
+    }
 
     if (ui.inviteRefreshBtn) {
       ui.inviteRefreshBtn.addEventListener("click", async () => {
@@ -2201,20 +2232,22 @@
       });
     }
 
-    ui.approveProjectBtn.addEventListener("click", async () => {
-      try {
-        await onApproveProject();
-      } catch (err) {
-        if (err.data && typeof err.data === "object" && err.data.readiness) {
-          setNotice(
-            `Недостаточно условий: ${err.data.readiness.active_members}/${err.data.readiness.required_members} участников, критерии ${err.data.readiness.criteria_count}.`,
-            true
-          );
-        } else {
-          setNotice(err.message || String(err), true);
+    if (ui.approveProjectBtn) {
+      ui.approveProjectBtn.addEventListener("click", async () => {
+        try {
+          await onApproveProject();
+        } catch (err) {
+          if (err.data && typeof err.data === "object" && err.data.readiness) {
+            setNotice(
+              `Недостаточно условий: ${err.data.readiness.active_members}/${err.data.readiness.required_members} участников, критерии ${err.data.readiness.criteria_count}.`,
+              true
+            );
+          } else {
+            setNotice(err.message || String(err), true);
+          }
         }
-      }
-    });
+      });
+    }
     if (ui.completeProjectBtn) {
       ui.completeProjectBtn.addEventListener("click", async () => {
         try {
