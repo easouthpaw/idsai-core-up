@@ -2,10 +2,13 @@ package app
 
 import (
 	"context"
+	"time"
 
 	"idsai-core-up/internal/config"
 	"idsai-core-up/internal/db"
 	httpx "idsai-core-up/internal/http"
+	"idsai-core-up/internal/http/handlers"
+	"idsai-core-up/internal/infra/alerts"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -27,6 +30,16 @@ func New(ctx context.Context) (*App, error) {
 
 	modules := wireModules(pool, cfg)
 	startEmailOutboxDispatcher(ctx, cfg, modules.notificationsRepo)
+	publicContactHandler := handlers.NewPublicContactHandler(
+		alerts.NewTelegramNotifier(
+			cfg.TelegramBotToken,
+			cfg.TelegramSuperadminChat,
+			cfg.ServerName,
+			5*time.Second,
+			0,
+		),
+		cfg.ServerName,
+	)
 
 	router := httpx.NewRouter(
 		pool,
@@ -36,6 +49,7 @@ func New(ctx context.Context) (*App, error) {
 		modules.authHandler,
 		modules.adminHandler,
 		modules.notificationsHandler,
+		publicContactHandler,
 		modules.notificationsSvc,
 		cfg.JWTSecret,
 	)

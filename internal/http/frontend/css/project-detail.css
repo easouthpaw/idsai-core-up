@@ -555,6 +555,210 @@ body.project-body {
   margin-bottom: 4px;
 }
 
+.lifecycle-card {
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.lifecycle-head {
+  align-items: flex-start;
+}
+
+.lifecycle-head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  max-width: 760px;
+}
+
+.lifecycle-body {
+  padding: 14px 12px 16px;
+}
+
+.lifecycle-timeline {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(190px, 1fr);
+  gap: 14px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 2px 2px 8px;
+  scrollbar-width: thin;
+}
+
+.lifecycle-step {
+  position: relative;
+  min-height: 176px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  padding: 14px 16px 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.lifecycle-step::after {
+  content: "";
+  position: absolute;
+  top: 26px;
+  right: -20px;
+  width: 20px;
+  height: 2px;
+  background: #dbe1ea;
+}
+
+.lifecycle-step:last-child::after {
+  display: none;
+}
+
+.lifecycle-step-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.lifecycle-step-index {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: #fff;
+  color: #64748b;
+  display: grid;
+  place-items: center;
+  font: 700 11px "IBM Plex Mono", ui-monospace, monospace;
+}
+
+.lifecycle-step-state {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #64748b;
+  padding: 4px 9px;
+  font: 700 10px "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.lifecycle-step-main {
+  display: grid;
+  gap: 6px;
+}
+
+.lifecycle-step-code {
+  margin: 0;
+  color: #98a2b3;
+  font: 700 10px "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lifecycle-step-title {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.2;
+  color: #0f1728;
+}
+
+.lifecycle-step-copy {
+  margin: 0;
+  color: #475467;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.lifecycle-step-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: auto;
+}
+
+.lifecycle-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: #475467;
+  padding: 4px 8px;
+  font: 700 10px "IBM Plex Mono", ui-monospace, monospace;
+}
+
+.lifecycle-step.is-complete {
+  border-color: #bbf7d0;
+  background: linear-gradient(180deg, #fcfffd 0%, #ecfdf3 100%);
+}
+
+.lifecycle-step.is-complete::after {
+  background: #86efac;
+}
+
+.lifecycle-step.is-complete .lifecycle-step-index {
+  border-color: #16a34a;
+  background: #16a34a;
+  color: #fff;
+}
+
+.lifecycle-step.is-complete .lifecycle-step-state {
+  border-color: #bbf7d0;
+  background: #ecfdf3;
+  color: #166534;
+}
+
+.lifecycle-step.is-complete .lifecycle-chip {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.lifecycle-step.is-current {
+  border-color: #bfdbfe;
+  background: linear-gradient(180deg, #ffffff 0%, #eff6ff 100%);
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.1);
+}
+
+.lifecycle-step.is-current::after {
+  background: linear-gradient(90deg, #93c5fd 0%, #dbeafe 100%);
+}
+
+.lifecycle-step.is-current .lifecycle-step-index {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+
+.lifecycle-step.is-current .lifecycle-step-state {
+  border-color: #bfdbfe;
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.lifecycle-step.is-current .lifecycle-chip {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.lifecycle-step.is-upcoming {
+  opacity: 0.9;
+}
+
+.lifecycle-step.is-optional {
+  border-style: dashed;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+}
+
+.lifecycle-step.is-optional .lifecycle-step-index,
+.lifecycle-step.is-optional .lifecycle-step-state,
+.lifecycle-step.is-optional .lifecycle-chip {
+  border-style: dashed;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;
@@ -1858,6 +2062,10 @@ textarea:focus {
   .edit-inline {
     grid-template-columns: 1fr;
   }
+
+  .lifecycle-timeline {
+    grid-auto-columns: minmax(240px, 72vw);
+  }
 }
 
 @media (max-width: 1080px) {
@@ -1959,5 +2167,13 @@ textarea:focus {
   .criterion-form textarea,
   .criterion-form button {
     grid-column: auto;
+  }
+
+  .lifecycle-timeline {
+    grid-auto-columns: minmax(240px, 84vw);
+  }
+
+  .lifecycle-step {
+    min-height: 0;
   }
 }

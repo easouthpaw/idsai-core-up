@@ -40,6 +40,7 @@
     QA: new Set(["team.view", "task.update.own", "task.status.change", "submission.review", "comment.create"]),
     DESIGNER: new Set(["team.view", "task.create", "task.update.own", "submission.create", "comment.create"]),
   };
+  const PRIMARY_LIFECYCLE_FLOW = ["DRAFT", "RECRUITMENT", "ACTIVE", "GRADING", "ARCHIVE"];
 
   const ui = {
     profileAvatar: document.getElementById("profileAvatar"),
@@ -55,6 +56,9 @@
 
     pageNotice: document.getElementById("pageNotice"),
     globalSearchInput: document.getElementById("globalSearchInput"),
+    lifecycleSummary: document.getElementById("lifecycleSummary"),
+    lifecycleCurrentStage: document.getElementById("lifecycleCurrentStage"),
+    lifecycleTimeline: document.getElementById("lifecycleTimeline"),
 
     tabButtons: Array.from(document.querySelectorAll(".tab-btn")),
     switchViewButtons: Array.from(document.querySelectorAll("[data-switch-view]")),
@@ -411,6 +415,16 @@
     return { label: "Черновик", cls: "muted" };
   }
 
+  function lifecycleStageLabel(status) {
+    const s = String(status || "").toUpperCase();
+    if (s === "REVIEW") return "Модерация";
+    if (s === "RECRUITMENT") return "Набор";
+    if (s === "ACTIVE") return "В работе";
+    if (s === "GRADING") return "Оценивание";
+    if (s === "ARCHIVE") return "Архив";
+    return "Черновик";
+  }
+
   function visibilityLabel(value) {
     return String(value || "").toUpperCase() === "PUBLIC" ? "Публичный" : "Приватный";
   }
@@ -515,6 +529,137 @@
     const item = raw.find((m) => String(m.user_id) === current);
     if (!item) return "";
     return String(item.status || "").toUpperCase();
+  }
+
+  function professorReviewLabel(statusCode, hasProfessor) {
+    const code = String(statusCode || "NONE").toUpperCase();
+    if (code === "PENDING") return "Ожидаем ответа";
+    if (code === "ACCEPTED") return "Подтвержден";
+    if (code === "REJECTED") return "Отклонено";
+    return hasProfessor ? "Назначен" : "Не назначен";
+  }
+
+  function doneTasksCount() {
+    return Array.isArray(state.tasks)
+      ? state.tasks.filter((task) => String(task.status || "").toUpperCase() === "DONE").length
+      : 0;
+  }
+
+  function gradedCriteriaCount() {
+    return Array.isArray(state.gradingItems)
+      ? state.gradingItems.filter((item) => item && item.is_met !== null && item.is_met !== undefined).length
+      : 0;
+  }
+
+  function lifecycleSnapshot() {
+    const readiness = state.readiness || {};
+    const professorStatusCode = String(readiness.professor_status || state.project?.professor_review_status || "NONE").toUpperCase();
+    const hasProfessor = Boolean(readiness.has_professor || state.project?.professor_id);
+    const criteriaCount = Array.isArray(state.criteria) && state.criteria.length > 0
+      ? state.criteria.length
+      : Number(readiness.criteria_count || 0);
+    const tasksTotal = Array.isArray(state.tasks) ? state.tasks.length : 0;
+    const tasksDone = doneTasksCount();
+
+    return {
+      statusCode: projectStatusCode() || "DRAFT",
+      requiredMembers: Number(readiness.required_members || 0),
+      activeMembers: Number(readiness.active_members || 0),
+      criteriaCount,
+      canActivate: Boolean(readiness && readiness.can_activate),
+      hasProfessor,
+      professorStatusCode,
+      professorLabel: professorReviewLabel(professorStatusCode, hasProfessor),
+      professorAccepted: professorStatusCode === "ACCEPTED",
+      tasksTotal,
+      tasksDone,
+      gradedCriteria: gradedCriteriaCount(),
+    };
+  }
+
+  function lifecycleSummaryText(snapshot) {
+    if (snapshot.statusCode === "REVIEW") {
+      return snapshot.canActivate
+        ? "Проект прошел подготовку и может быть запущен после модерации."
+        : "Опциональный этап модерации: после него можно открыть набор или сразу запускать проект при полной готовности.";
+    }
+
+    if (snapshot.statusCode === "RECRUITMENT") {
+      const blockers = [];
+      if (snapshot.requiredMembers === 0) {
+        blockers.push("создать роли");
+      } else if (snapshot.activeMembers < snapshot.requiredMembers) {
+        blockers.push(`добрать команду ${snapshot.activeMembers}/${snapshot.requiredMembers}`);
+      }
+      if (!snapshot.hasProfessor) {
+        blockers.push("назначить преподавателя");
+      } else if (!snapshot.professorAccepted) {
+        blockers.push("получить подтверждение преподавателя");
+      }
+      if (snapshot.criteriaCount === 0) {
+        blockers.push("добавить критерии");
+      }
+      return blockers.length > 0
+        ? `До запуска осталось: ${blockers.join(", ")}.`
+        : "Команда и критерии готовы: проект можно переводить в ACTIVE.";
+    }
+
+    if (snapshot.statusCode === "ACTIVE") {
+      if (snapshot.tasksTotal === 0) {
+        return "Проект запущен. Следующий шаг: создать и выполнить задачи перед отправкой на оценивание.";
+      }
+      if (!snapshot.professorAccepted) {
+        return `Проект в работе. Завершено ${snapshot.tasksDone}/${snapshot.tasksTotal} задач, но преподаватель еще не подтвердил участие.`;
+      }
+      if (snapshot.tasksDone < snapshot.tasksTotal) {
+        return `Проект в работе. Закройте все задачи: сейчас выполнено ${snapshot.tasksDone}/${snapshot.tasksTotal}.`;
+      }
+      return "Все задачи закрыты: проект можно отправлять преподавателю на оценивание.";
+    }
+
+    if (snapshot.statusCode === "GRADING") {
+      if (snapshot.criteriaCount === 0) {
+        return "Проект находится на оценивании. Для публикации итогов нужно добавить критерии.";
+      }
+      if (snapshot.gradedCriteria < snapshot.criteriaCount) {
+        return `Проект на проверке: оценки выставлены по ${snapshot.gradedCriteria}/${snapshot.criteriaCount} критериям.`;
+      }
+      return "Все критерии оценены: можно публиковать итоговую оценку и переносить проект в архив.";
+    }
+
+    if (snapshot.statusCode === "ARCHIVE") {
+      return "Проект завершен: итог опубликован, карточка остается в истории платформы.";
+    }
+
+    return "Стартовая стадия: заполните описание, роли и стек, затем откройте набор или отправьте проект на модерацию.";
+  }
+
+  function lifecycleStepState(stepCode, currentStatus) {
+    const code = String(stepCode || "").toUpperCase();
+    const status = String(currentStatus || "").toUpperCase();
+
+    if (code === "REVIEW") {
+      return status === "REVIEW" ? "is-current" : "is-optional";
+    }
+
+    const stepIndex = PRIMARY_LIFECYCLE_FLOW.indexOf(code);
+    const currentIndex = PRIMARY_LIFECYCLE_FLOW.indexOf(status);
+
+    if (stepIndex === -1) return "is-upcoming";
+    if (status === "REVIEW") {
+      return code === "DRAFT" ? "is-complete" : "is-upcoming";
+    }
+    if (currentIndex === -1) return stepIndex === 0 ? "is-current" : "is-upcoming";
+    if (stepIndex < currentIndex) return "is-complete";
+    if (stepIndex === currentIndex) return "is-current";
+    return "is-upcoming";
+  }
+
+  function lifecycleStateLabel(stepState, optional) {
+    if (stepState === "is-current") return "Сейчас";
+    if (stepState === "is-complete") return "Пройдено";
+    if (optional) return "Опционально";
+    return "Впереди";
   }
 
   function isRecruitmentApplyMode() {
@@ -848,6 +993,84 @@
     ui.aboutContent.innerHTML = html;
   }
 
+  function renderLifecycle() {
+    if (!ui.lifecycleTimeline || !ui.lifecycleSummary || !ui.lifecycleCurrentStage || !state.project) return;
+
+    const snapshot = lifecycleSnapshot();
+    const currentStatus = snapshot.statusCode || "DRAFT";
+    const headerStatus = statusPresentation(currentStatus);
+    const steps = [
+      {
+        code: "DRAFT",
+        title: "Черновик",
+        copy: "Идея проекта, описание, README, стек и базовые роли команды.",
+        meta: [visibilityLabel(state.project?.visibility), `Стек ${state.stacks.length}`, "README / описание"],
+      },
+      {
+        code: "REVIEW",
+        title: "Модерация",
+        copy: "Опциональная проверка от куратора или администратора перед запуском.",
+        meta: ["Admin override", snapshot.canActivate ? "Можно запускать" : "Промежуточный этап"],
+        optional: true,
+      },
+      {
+        code: "RECRUITMENT",
+        title: "Набор команды",
+        copy: "Формируются роли, команда, преподаватель и критерии готовности проекта.",
+        meta: [`Роли ${snapshot.activeMembers}/${snapshot.requiredMembers}`, `Преподаватель ${snapshot.professorLabel}`, `Критерии ${snapshot.criteriaCount}`],
+      },
+      {
+        code: "ACTIVE",
+        title: "Работа",
+        copy: "Команда выполняет задачи, двигает канбан и готовит проект к сдаче.",
+        meta: [`Задачи ${snapshot.tasksDone}/${snapshot.tasksTotal}`, snapshot.professorAccepted ? "Ревьюер подтвержден" : "Ждем ревьюера"],
+      },
+      {
+        code: "GRADING",
+        title: "Оценивание",
+        copy: "Преподаватель проверяет проект по критериям и выставляет итог.",
+        meta: [`Оценено ${snapshot.gradedCriteria}/${snapshot.criteriaCount}`, `Профессор ${snapshot.professorLabel}`],
+      },
+      {
+        code: "ARCHIVE",
+        title: "Архив",
+        copy: "Финальная стадия: оценка опубликована, проект завершен и сохранен в истории.",
+        meta: [snapshot.statusCode === "ARCHIVE" ? "Проект завершен" : "Финальная стадия", `Критерии ${snapshot.criteriaCount}`],
+      },
+    ];
+
+    ui.lifecycleSummary.textContent = lifecycleSummaryText(snapshot);
+    ui.lifecycleCurrentStage.className = `status-pill ${headerStatus.cls}`;
+    ui.lifecycleCurrentStage.textContent = lifecycleStageLabel(currentStatus);
+
+    ui.lifecycleTimeline.innerHTML = steps.map((step, idx) => {
+      const stepState = lifecycleStepState(step.code, currentStatus);
+      const classes = ["lifecycle-step", stepState];
+      if (step.optional && stepState !== "is-current") {
+        classes.push("is-optional");
+      }
+      const meta = step.meta
+        .filter(Boolean)
+        .map((item) => `<span class="lifecycle-chip">${escapeHTML(item)}</span>`)
+        .join("");
+
+      return (
+        `<article class="${classes.join(" ")}">` +
+          `<div class="lifecycle-step-top">` +
+            `<div class="lifecycle-step-index">${String(idx + 1).padStart(2, "0")}</div>` +
+            `<span class="lifecycle-step-state">${escapeHTML(lifecycleStateLabel(stepState, Boolean(step.optional)))}</span>` +
+          `</div>` +
+          `<div class="lifecycle-step-main">` +
+            `<p class="lifecycle-step-code">${escapeHTML(step.code)}</p>` +
+            `<h3 class="lifecycle-step-title">${escapeHTML(step.title)}</h3>` +
+            `<p class="lifecycle-step-copy">${escapeHTML(step.copy)}</p>` +
+          `</div>` +
+          `<div class="lifecycle-step-meta">${meta || '<span class="lifecycle-chip">Без данных</span>'}</div>` +
+        `</article>`
+      );
+    }).join("");
+  }
+
   function renderStackChips() {
     ui.stackChips.innerHTML = "";
     if (state.stacks.length === 0) {
@@ -907,12 +1130,10 @@
     }
 
     const professorStatusCode = String(state.readiness.professor_status || state.project?.professor_review_status || "NONE").toUpperCase();
-    const professorStatusLabel = (() => {
-      if (professorStatusCode === "PENDING") return "Ожидаем ответа";
-      if (professorStatusCode === "ACCEPTED") return "Подтвержден";
-      if (professorStatusCode === "REJECTED") return "Отклонено";
-      return state.readiness.has_professor ? "Назначен" : "Не назначен";
-    })();
+    const professorStatusLabel = professorReviewLabel(
+      professorStatusCode,
+      Boolean(state.readiness.has_professor || state.project?.professor_id)
+    );
 
     const hasEnoughMembers = Number(state.readiness.active_members || 0) >= Number(state.readiness.required_members || 0) &&
       Number(state.readiness.required_members || 0) > 0;
@@ -1441,6 +1662,7 @@
   }
 
   function renderOverview() {
+    renderLifecycle();
     renderAbout();
     renderStackChips();
     renderTeamMini();

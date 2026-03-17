@@ -141,6 +141,13 @@ func (n *TelegramNotifier) NotifyStopped(ctx context.Context, reason string) err
 	return n.sendWithDedupe(ctx, key, msg)
 }
 
+func (n *TelegramNotifier) SendText(ctx context.Context, text string) error {
+	if n == nil || !n.Enabled() {
+		return errors.New("telegram notifier disabled")
+	}
+	return n.sendDirect(ctx, text)
+}
+
 func (n *TelegramNotifier) sendWithDedupe(ctx context.Context, dedupeKey, text string) error {
 	if !n.Enabled() {
 		return nil

@@ -20,6 +20,7 @@ func NewRouter(
 	authHandler *handlers.AuthHandler,
 	adminHandler *handlers.AdminHandler,
 	notificationsH *handlers.NotificationsHandler,
+	publicContactH *handlers.PublicContactHandler,
 	notifier handlers.NotificationPublisher,
 	jwtSecret string,
 ) *gin.Engine {
@@ -37,6 +38,7 @@ func NewRouter(
 	v2 := r.Group("/v2")
 	authMW := middleware.AuthRequired(jwtSecret)
 
+	registerPublicRoutes(v2, publicContactH)
 	registerAuthRoutes(v2, authMW, authHandler)
 	registerAdminRoutes(v2, authMW, adminHandler)
 	registerProjectsRoutes(v2, authMW, rbacSvc, projectsSvc, notifier)
