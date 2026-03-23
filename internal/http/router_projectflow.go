@@ -24,13 +24,13 @@ func registerProjectFlowRoutes(
 	projectFlow.DELETE("", projectFlowH.DeleteProject)
 	projectFlow.PUT("/stacks", projectFlowH.SetStacks)
 	projectFlow.GET("/stacks",
-		middleware.RequirePermission(rbacSvc, "project.view", middleware.ProjectScopeFromParam("project_id")),
+		middleware.RequirePermission(rbacSvc, "grading.view", middleware.ProjectScopeFromParam("project_id")),
 		projectFlowH.ListStacks,
 	)
 	projectFlow.POST("/recruitment/open", projectFlowH.OpenRecruitment)
 	projectFlow.POST("/positions", projectFlowH.CreatePosition)
 	projectFlow.GET("/positions",
-		middleware.RequirePermission(rbacSvc, "project.view", middleware.ProjectScopeFromParam("project_id")),
+		middleware.RequirePermission(rbacSvc, "grading.view", middleware.ProjectScopeFromParam("project_id")),
 		projectFlowH.ListPositions,
 	)
 	projectFlow.GET("/candidates/students", projectFlowH.ListStudentCandidates)
@@ -39,7 +39,7 @@ func registerProjectFlowRoutes(
 	projectFlow.POST("/members/invite", projectFlowH.InviteMember)
 	projectFlow.POST("/members/respond", projectFlowH.RespondMemberInvite)
 	projectFlow.GET("/members",
-		middleware.RequirePermission(rbacSvc, "project.view", middleware.ProjectScopeFromParam("project_id")),
+		middleware.RequirePermission(rbacSvc, "grading.view", middleware.ProjectScopeFromParam("project_id")),
 		projectFlowH.ListMembers,
 	)
 	projectFlow.POST("/members/:user_id/approve", projectFlowH.ApproveMember)
@@ -50,7 +50,7 @@ func registerProjectFlowRoutes(
 	projectFlow.POST("/professor/respond", projectFlowH.RespondProfessorInvite)
 	projectFlow.POST("/criteria", projectFlowH.CreateCriterion)
 	projectFlow.GET("/criteria",
-		middleware.RequirePermission(rbacSvc, "project.view", middleware.ProjectScopeFromParam("project_id")),
+		middleware.RequirePermission(rbacSvc, "grading.view", middleware.ProjectScopeFromParam("project_id")),
 		projectFlowH.ListCriteria,
 	)
 	projectFlow.GET("/grading", projectFlowH.GetGrading)
@@ -58,7 +58,7 @@ func registerProjectFlowRoutes(
 	projectFlow.POST("/grading/submit", projectFlowH.SubmitProjectForGrading)
 	projectFlow.POST("/grading/publish", projectFlowH.PublishProjectGrading)
 	projectFlow.GET("/readiness",
-		middleware.RequirePermission(rbacSvc, "project.view", middleware.ProjectScopeFromParam("project_id")),
+		middleware.RequirePermission(rbacSvc, "grading.view", middleware.ProjectScopeFromParam("project_id")),
 		projectFlowH.Readiness,
 	)
 	projectFlow.POST("/approve", projectFlowH.ApproveProject)

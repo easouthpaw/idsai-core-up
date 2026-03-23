@@ -50,7 +50,7 @@ func (s *Service) AssignProfessor(ctx context.Context, userID, projectID, profes
 }
 
 func (s *Service) GetAssignedProfessor(ctx context.Context, userID, projectID uuid.UUID) (*ProfessorCandidate, error) {
-	if err := s.requireProjectPermission(ctx, userID, "project.view", projectID); err != nil {
+	if err := s.requireProjectPermission(ctx, userID, "grading.view", projectID); err != nil {
 		return nil, err
 	}
 	p, err := s.projectByID(ctx, projectID)

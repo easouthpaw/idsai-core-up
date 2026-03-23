@@ -1,4 +1,5 @@
 (() => {
+  const auth = window.IDSAIAuth;
   const LS_ACCESS = "idsai_access_token";
   const LS_REFRESH = "idsai_refresh_token";
   const LS_USER = "idsai_rbac_user_id";
@@ -96,70 +97,38 @@
   }
 
   function clearSession() {
-    localStorage.removeItem(LS_ACCESS);
-    localStorage.removeItem(LS_REFRESH);
-    localStorage.removeItem(LS_USER);
-    localStorage.removeItem(LS_IS_ADMIN);
-    localStorage.removeItem(LS_IS_PROFESSOR);
+    auth.clearClientState();
   }
 
   function ensureSession() {
-    const access = localStorage.getItem(LS_ACCESS) || "";
-    if (!access) {
+    const claims = auth.getCachedProfile();
+    if (!claims) {
       window.location.href = "/dev/login";
       return null;
     }
-
-    try {
-      const claims = decodePayload(access);
-      if (!claims.sub) throw new Error("missing sub");
-      localStorage.setItem(LS_USER, claims.sub);
-      localStorage.setItem(LS_IS_ADMIN, claims.is_admin ? "1" : "0");
-      localStorage.setItem(LS_IS_PROFESSOR, claims.is_professor ? "1" : "0");
-      if (claims.is_admin) {
-        window.location.href = "/dev/admin";
-        return null;
-      }
-      if (!claims.is_professor) {
-        window.location.href = "/dev/projects";
-        return null;
-      }
-      return claims;
-    } catch (_) {
-      clearSession();
-      window.location.href = "/dev/login";
+    if (claims.is_admin) {
+      window.location.href = "/dev/admin";
       return null;
     }
+    if (!claims.is_professor) {
+      window.location.href = "/dev/projects";
+      return null;
+    }
+    return claims;
   }
 
   function authHeaders(withJSON) {
     const headers = {};
     if (withJSON) headers["Content-Type"] = "application/json";
-    const access = localStorage.getItem(LS_ACCESS) || "";
-    if (access) headers.Authorization = `Bearer ${access}`;
     return headers;
   }
 
   async function request(method, url, body) {
-    const resp = await fetch(url, {
+    const { resp, data } = await auth.requestJSON(url, {
       method,
-      headers: authHeaders(Boolean(body)),
+      headers: body ? { "Content-Type": "application/json" } : undefined,
       body: body ? JSON.stringify(body) : undefined,
     });
-
-    if (resp.status === 401) {
-      clearSession();
-      window.location.href = "/dev/login";
-      return null;
-    }
-
-    const text = await resp.text();
-    let data = {};
-    try {
-      data = text ? JSON.parse(text) : {};
-    } catch (_) {
-      data = text;
-    }
 
     if (!resp.ok) {
       const errText = data && data.error ? data.error : `${method} ${url} failed (${resp.status})`;
@@ -490,8 +459,7 @@
   function attachEvents() {
     if (ui.logoutBtn) {
       ui.logoutBtn.addEventListener("click", () => {
-        clearSession();
-        window.location.href = "/dev/login";
+        auth.logout();
       });
     }
 
@@ -546,7 +514,7 @@
   }
 
   async function bootstrap() {
-    const claims = ensureSession();
+    const claims = await auth.ensureSession("professor");
     if (!claims) return;
     state.userID = String(claims.sub || "");
 

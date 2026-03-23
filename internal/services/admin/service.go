@@ -3,11 +3,11 @@ package admin
 import (
 	"context"
 	"errors"
+	"idsai-core-up/internal/security/passwords"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
 )
 
 const (
@@ -141,6 +141,7 @@ type Repository interface {
 	UpdateUserStatus(ctx context.Context, userID uuid.UUID, status string) error
 	UpdateUserRole(ctx context.Context, userID uuid.UUID, roleCode string) error
 	UpdateUserPasswordHash(ctx context.Context, userID uuid.UUID, passwordHash string) error
+	RevokeUserSessions(ctx context.Context, userID uuid.UUID) error
 	UpdateProjectStatus(ctx context.Context, projectID uuid.UUID, status string) error
 	DeleteUser(ctx context.Context, userID uuid.UUID) error
 	DeleteProject(ctx context.Context, projectID uuid.UUID) error
@@ -183,13 +184,9 @@ func (s *Service) CreateUser(ctx context.Context, in CreateUserInput) (User, err
 	if email == "" || password == "" || departmentCode == "" || fullName == "" {
 		return User{}, ErrInvalidInput
 	}
-	if len(password) < 6 {
-		return User{}, ErrInvalidInput
-	}
-
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	hash, err := passwords.Hash(password)
 	if err != nil {
-		return User{}, err
+		return User{}, ErrInvalidInput
 	}
 
 	return s.repo.CreateUser(ctx, CreateUserParams{
@@ -206,7 +203,13 @@ func (s *Service) SetUserStatus(ctx context.Context, userID uuid.UUID, status st
 	if err != nil {
 		return err
 	}
-	return s.repo.UpdateUserStatus(ctx, userID, normalized)
+	if err := s.repo.UpdateUserStatus(ctx, userID, normalized); err != nil {
+		return err
+	}
+	if normalized == StatusDisabled {
+		return s.repo.RevokeUserSessions(ctx, userID)
+	}
+	return nil
 }
 
 func (s *Service) SetUserRole(ctx context.Context, userID uuid.UUID, roleCode string) (User, error) {
@@ -222,14 +225,14 @@ func (s *Service) SetUserRole(ctx context.Context, userID uuid.UUID, roleCode st
 
 func (s *Service) ResetUserPassword(ctx context.Context, userID uuid.UUID, password string) error {
 	password = strings.TrimSpace(password)
-	if len(password) < 6 {
+	hash, err := passwords.Hash(password)
+	if err != nil {
 		return ErrInvalidInput
 	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
+	if err := s.repo.UpdateUserPasswordHash(ctx, userID, hash); err != nil {
 		return err
 	}
-	return s.repo.UpdateUserPasswordHash(ctx, userID, string(hash))
+	return s.repo.RevokeUserSessions(ctx, userID)
 }
 
 func (s *Service) SetProjectStatus(ctx context.Context, projectID uuid.UUID, status string) (Project, error) {

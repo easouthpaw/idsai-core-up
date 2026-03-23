@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strings"
 
+	authsvc "idsai-core-up/internal/services/auth"
+
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -22,16 +24,30 @@ func AuthRequired(jwtSecret string) gin.HandlerFunc {
 	secret := []byte(jwtSecret)
 
 	return func(c *gin.Context) {
-		h := c.GetHeader("Authorization")
-		if h == "" || !strings.HasPrefix(h, "Bearer ") {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing bearer token"})
+		raw := ""
+		if cookie, err := c.Cookie(authsvc.AccessCookieName); err == nil {
+			raw = strings.TrimSpace(cookie)
+		}
+		if raw == "" {
+			h := c.GetHeader("Authorization")
+			if h != "" && strings.HasPrefix(h, "Bearer ") {
+				raw = strings.TrimSpace(strings.TrimPrefix(h, "Bearer "))
+			}
+		}
+		if raw == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing auth token"})
 			return
 		}
-		raw := strings.TrimPrefix(h, "Bearer ")
 
-		tok, err := jwt.ParseWithClaims(raw, &AccessClaims{}, func(token *jwt.Token) (any, error) {
-			return secret, nil
-		})
+		tok, err := jwt.ParseWithClaims(
+			raw,
+			&AccessClaims{},
+			func(token *jwt.Token) (any, error) {
+				return secret, nil
+			},
+			jwt.WithIssuer(authsvc.TokenIssuer),
+			jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+		)
 		if err != nil || !tok.Valid {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 			return

@@ -3,6 +3,9 @@ package postgres
 import (
 	"context"
 	"errors"
+	"fmt"
+	"math"
+	"time"
 
 	"idsai-core-up/internal/domain"
 	"idsai-core-up/internal/services/projects"
@@ -128,6 +131,58 @@ SELECT EXISTS (
 	var ok bool
 	err := r.db.QueryRow(ctx, q, userID, projectID, permissionCode).Scan(&ok)
 	return ok, err
+}
+
+func (r *ProjectsRepo) GetProjectReviewSummary(ctx context.Context, projectID uuid.UUID) (*projects.ReviewSummary, error) {
+	const q = `
+SELECT
+  COUNT(c.id) AS total,
+  COALESCE(SUM(CASE WHEN r.is_met = TRUE THEN 1 ELSE 0 END), 0) AS met,
+  MAX(r.updated_at) AS reviewed_at,
+  COALESCE(NULLIF(TRIM(up.full_name), ''), split_part(COALESCE(u.email, ''), '@', 1), 'Преподаватель') AS reviewer
+FROM projects p
+LEFT JOIN users u ON u.id = p.professor_id
+LEFT JOIN user_profiles up ON up.user_id = p.professor_id
+LEFT JOIN project_criteria c ON c.project_id = p.id
+LEFT JOIN project_criterion_reviews r
+  ON r.project_id = p.id
+ AND r.criterion_id = c.id
+ AND r.professor_id = p.professor_id
+WHERE p.id = $1
+GROUP BY reviewer;
+`
+
+	var (
+		total      int
+		met        int
+		reviewedAt *time.Time
+		reviewer   string
+	)
+	if err := r.db.QueryRow(ctx, q, projectID).Scan(&total, &met, &reviewedAt, &reviewer); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		if isUndefinedRelationErr(err, "project_criterion_reviews") {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	score := "0.0"
+	passPercent := 0
+	if total > 0 {
+		passPercent = int(math.Round(float64(met*100) / float64(total)))
+		score = fmt.Sprintf("%.1f", float64(met*5)/float64(total))
+	}
+
+	return &projects.ReviewSummary{
+		Score:       score,
+		PassPercent: passPercent,
+		Met:         met,
+		Total:       total,
+		ReviewedAt:  reviewedAt,
+		Reviewer:    reviewer,
+	}, nil
 }
 
 func (r *ProjectsRepo) ListByCreator(ctx context.Context, createdBy uuid.UUID) ([]domain.Project, error) {

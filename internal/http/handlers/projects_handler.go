@@ -22,21 +22,38 @@ func (h *ProjectsHandler) SetNotifier(pub NotificationPublisher) {
 }
 
 type projectResponse struct {
-	ID                    string    `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	Title                 string    `json:"title" example:"Swagger Demo"`
-	Description           string    `json:"description" example:"created from swagger"`
-	Status                string    `json:"status" example:"DRAFT"`
-	IsPublic              bool      `json:"is_public" example:"false"`
-	CreatedBy             string    `json:"created_by" example:"550e8400-e29b-41d4-a716-446655440000"`
-	CreatedByName         string    `json:"created_by_name,omitempty" example:"Айболат Ермекбай"`
-	CreatedByEmail        string    `json:"created_by_email,omitempty" example:"aibolat.student@idsai.local"`
-	ProfessorID           *string   `json:"professor_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
-	ProfessorReviewStatus string    `json:"professor_review_status" example:"PENDING"`
-	FacultyID             string    `json:"faculty_id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	Visibility            string    `json:"visibility" example:"FACULTY"`
-	GroupID               *string   `json:"group_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
-	CreatedAt             time.Time `json:"created_at"`
-	UpdatedAt             time.Time `json:"updated_at"`
+	ID                    string                        `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Title                 string                        `json:"title" example:"Swagger Demo"`
+	Description           string                        `json:"description" example:"created from swagger"`
+	Status                string                        `json:"status" example:"DRAFT"`
+	IsPublic              bool                          `json:"is_public" example:"false"`
+	CreatedBy             string                        `json:"created_by" example:"550e8400-e29b-41d4-a716-446655440000"`
+	CreatedByName         string                        `json:"created_by_name,omitempty" example:"Айболат Ермекбай"`
+	CreatedByEmail        string                        `json:"created_by_email,omitempty" example:"aibolat.student@idsai.local"`
+	ProfessorID           *string                       `json:"professor_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
+	ProfessorReviewStatus string                        `json:"professor_review_status" example:"PENDING"`
+	FacultyID             string                        `json:"faculty_id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Visibility            string                        `json:"visibility" example:"FACULTY"`
+	GroupID               *string                       `json:"group_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
+	CreatedAt             time.Time                     `json:"created_at"`
+	UpdatedAt             time.Time                     `json:"updated_at"`
+	ViewerAccess          *projectViewerAccessResponse  `json:"viewer_access,omitempty"`
+	ReviewSummary         *projectReviewSummaryResponse `json:"review_summary,omitempty"`
+}
+
+type projectViewerAccessResponse struct {
+	CanViewWorkspace  bool `json:"can_view_workspace"`
+	CanApply          bool `json:"can_apply"`
+	CanViewFinalGrade bool `json:"can_view_final_grade"`
+}
+
+type projectReviewSummaryResponse struct {
+	Score       string     `json:"score"`
+	PassPercent int        `json:"pass_percent"`
+	Met         int        `json:"met"`
+	Total       int        `json:"total"`
+	ReviewedAt  *time.Time `json:"reviewed_at,omitempty"`
+	Reviewer    string     `json:"reviewer,omitempty"`
 }
 
 func toUIVisibility(v string) string {
@@ -92,5 +109,25 @@ func projectToResponse(p domain.Project) projectResponse {
 		resp.GroupID = &s
 	}
 
+	return resp
+}
+
+func projectViewToResponse(view projects.ProjectView) projectResponse {
+	resp := projectToResponse(view.Project)
+	resp.ViewerAccess = &projectViewerAccessResponse{
+		CanViewWorkspace:  view.Access.CanViewWorkspace,
+		CanApply:          view.Access.CanApply,
+		CanViewFinalGrade: view.Access.CanViewFinalGrade,
+	}
+	if view.ReviewSummary != nil {
+		resp.ReviewSummary = &projectReviewSummaryResponse{
+			Score:       view.ReviewSummary.Score,
+			PassPercent: view.ReviewSummary.PassPercent,
+			Met:         view.ReviewSummary.Met,
+			Total:       view.ReviewSummary.Total,
+			ReviewedAt:  view.ReviewSummary.ReviewedAt,
+			Reviewer:    view.ReviewSummary.Reviewer,
+		}
+	}
 	return resp
 }

@@ -20,6 +20,7 @@ type fakeAdminRepo struct {
 	roleCode         string
 	passwordUserID   uuid.UUID
 	passwordHash     string
+	revokedUserID    uuid.UUID
 	userByID         admin.User
 	userByIDErr      error
 }
@@ -57,6 +58,11 @@ func (f *fakeAdminRepo) UpdateUserRole(ctx context.Context, userID uuid.UUID, ro
 func (f *fakeAdminRepo) UpdateUserPasswordHash(ctx context.Context, userID uuid.UUID, passwordHash string) error {
 	f.passwordUserID = userID
 	f.passwordHash = passwordHash
+	return nil
+}
+
+func (f *fakeAdminRepo) RevokeUserSessions(ctx context.Context, userID uuid.UUID) error {
+	f.revokedUserID = userID
 	return nil
 }
 
@@ -131,4 +137,5 @@ func TestService_ResetUserPassword_HashesValue(t *testing.T) {
 	require.Equal(t, userID, repo.passwordUserID)
 	require.NotEmpty(t, repo.passwordHash)
 	require.NotEqual(t, "new-password-123", repo.passwordHash)
+	require.Equal(t, userID, repo.revokedUserID)
 }

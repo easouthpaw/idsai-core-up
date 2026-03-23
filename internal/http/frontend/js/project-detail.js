@@ -1,4 +1,5 @@
 (() => {
+  const auth = window.IDSAIAuth;
   const LS_ACCESS = "idsai_access_token";
   const LS_REFRESH = "idsai_refresh_token";
   const LS_USER = "idsai_rbac_user_id";
@@ -6,6 +7,7 @@
   const LS_STUDENT_NAME = "idsai_student_name";
   const LS_STUDENT_EMAIL = "idsai_student_email";
   const LS_SELECTED_PROJECT = "idsai_selected_project";
+  const LS_STUDENT_SECTION = "idsai_student_section";
   const LS_IS_ADMIN = "idsai_is_admin";
   const LS_IS_PROFESSOR = "idsai_is_professor";
 
@@ -46,7 +48,9 @@
     profileAvatar: document.getElementById("profileAvatar"),
     studentName: document.getElementById("studentName"),
     studentEmail: document.getElementById("studentEmail"),
+    sidebarNavLinks: Array.from(document.querySelectorAll(".side-nav [data-nav-section]")),
 
+    crumbSectionLink: document.getElementById("crumbSectionLink"),
     crumbProject: document.getElementById("crumbProject"),
     title: document.getElementById("projectTitle"),
     statusBadge: document.getElementById("statusBadge"),
@@ -287,58 +291,34 @@
   }
 
   function ensureSession() {
-    const access = localStorage.getItem(LS_ACCESS) || "";
-    if (!access) {
+    const claims = auth.getCachedProfile();
+    if (!claims) {
       window.location.href = "/dev/login";
       return null;
     }
-
-    try {
-      const claims = decodePayload(access);
-      if (!claims.sub || !claims.faculty_id) throw new Error("broken claims");
-      localStorage.setItem(LS_USER, claims.sub);
-      localStorage.setItem(LS_FACULTY, claims.faculty_id);
-      localStorage.setItem(LS_IS_ADMIN, claims.is_admin ? "1" : "0");
-      localStorage.setItem(LS_IS_PROFESSOR, claims.is_professor ? "1" : "0");
-      if (claims.is_admin) {
-        window.location.href = "/dev/admin";
-        return null;
-      }
-      if (claims.is_professor) {
-        window.location.href = "/dev/professor";
-        return null;
-      }
-      return claims;
-    } catch (_) {
-      clearSession();
-      window.location.href = "/dev/login";
+    if (claims.is_admin) {
+      window.location.href = "/dev/admin";
       return null;
     }
+    if (claims.is_professor) {
+      window.location.href = "/dev/professor";
+      return null;
+    }
+    return claims;
   }
 
   function authHeaders(withJSON) {
     const headers = {};
     if (withJSON) headers["Content-Type"] = "application/json";
-
-    const access = localStorage.getItem(LS_ACCESS) || "";
-
-    if (access) headers.Authorization = `Bearer ${access}`;
-
     return headers;
   }
 
   async function request(method, url, body) {
-    const resp = await fetch(url, {
+    const { resp, data } = await auth.requestJSON(url, {
       method,
-      headers: authHeaders(body !== undefined),
+      headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
-
-    const text = await resp.text();
-    let data = text;
-    try {
-      data = JSON.parse(text);
-    } catch (_) {}
 
     if (!resp.ok) {
       const err = new Error(
@@ -364,15 +344,50 @@
   }
 
   function clearSession() {
-    localStorage.removeItem(LS_ACCESS);
-    localStorage.removeItem(LS_REFRESH);
-    localStorage.removeItem(LS_USER);
-    localStorage.removeItem(LS_FACULTY);
-    localStorage.removeItem(LS_IS_ADMIN);
-    localStorage.removeItem(LS_IS_PROFESSOR);
-    localStorage.removeItem(LS_STUDENT_NAME);
-    localStorage.removeItem(LS_STUDENT_EMAIL);
+    auth.clearClientState();
     localStorage.removeItem(LS_SELECTED_PROJECT);
+  }
+
+  function currentStudentSection() {
+    const params = new URLSearchParams(window.location.search || "");
+    const fromURL = String(params.get("nav") || "").trim().toLowerCase();
+    if (fromURL === "community" || fromURL === "invites" || fromURL === "mine") {
+      return fromURL;
+    }
+    const cachedProject = loadJSON(LS_SELECTED_PROJECT, null);
+    const fromProject = String(cachedProject?._nav_section || "").trim().toLowerCase();
+    if (fromProject === "community" || fromProject === "invites" || fromProject === "mine") {
+      return fromProject;
+    }
+    const fromStorage = String(localStorage.getItem(LS_STUDENT_SECTION) || "").trim().toLowerCase();
+    if (fromStorage === "community" || fromStorage === "invites" || fromStorage === "mine") {
+      return fromStorage;
+    }
+    return "mine";
+  }
+
+  function syncStudentSidebar() {
+    const section = currentStudentSection();
+    localStorage.setItem(LS_STUDENT_SECTION, section);
+
+    ui.sidebarNavLinks.forEach((link) => {
+      const value = String(link.getAttribute("data-nav-section") || "").trim().toLowerCase();
+      link.classList.toggle("active", value === section);
+    });
+
+    if (!ui.crumbSectionLink) return;
+    if (section === "community") {
+      ui.crumbSectionLink.textContent = "Сообщество";
+      ui.crumbSectionLink.href = "/dev/projects?tab=community";
+      return;
+    }
+    if (section === "invites") {
+      ui.crumbSectionLink.textContent = "Заявки";
+      ui.crumbSectionLink.href = "/dev/invites";
+      return;
+    }
+    ui.crumbSectionLink.textContent = "Мои проекты";
+    ui.crumbSectionLink.href = "/dev/projects?tab=mine";
   }
 
   function setNotice(message, isError) {
@@ -400,6 +415,39 @@
 
   function projectStatusCode() {
     return String(state.project?.status || "").toUpperCase();
+  }
+
+  function viewerAccess() {
+    if (state.project && typeof state.project.viewer_access === "object" && state.project.viewer_access) {
+      return state.project.viewer_access;
+    }
+    return {
+      can_view_workspace: false,
+      can_apply: false,
+      can_view_final_grade: false,
+    };
+  }
+
+  function canViewWorkspace() {
+    return Boolean(viewerAccess().can_view_workspace);
+  }
+
+  function canApplyToProject() {
+    return Boolean(viewerAccess().can_apply);
+  }
+
+  function canViewFinalGrade() {
+    return Boolean(viewerAccess().can_view_final_grade);
+  }
+
+  function allowedViews() {
+    if (canViewWorkspace()) {
+      return ["overview", "team", "invite", "tasks", "criteria", "review", "edit"];
+    }
+    if (canViewFinalGrade()) {
+      return ["overview", "review"];
+    }
+    return ["overview"];
   }
 
   function isProjectActive() {
@@ -470,6 +518,9 @@
   }
 
   function allMembers() {
+    if (!canViewWorkspace()) {
+      return [];
+    }
     const members = Array.isArray(state.members) ? [...state.members] : [];
     const leadID = String(state.project?.created_by || "").trim();
     if (leadID && !members.some((m) => String(m.user_id) === leadID)) {
@@ -553,11 +604,14 @@
 
   function lifecycleSnapshot() {
     const readiness = state.readiness || {};
+    const publicSummary = state.project && typeof state.project.review_summary === "object"
+      ? state.project.review_summary
+      : null;
     const professorStatusCode = String(readiness.professor_status || state.project?.professor_review_status || "NONE").toUpperCase();
     const hasProfessor = Boolean(readiness.has_professor || state.project?.professor_id);
     const criteriaCount = Array.isArray(state.criteria) && state.criteria.length > 0
       ? state.criteria.length
-      : Number(readiness.criteria_count || 0);
+      : Number(readiness.criteria_count || publicSummary?.total || 0);
     const tasksTotal = Array.isArray(state.tasks) ? state.tasks.length : 0;
     const tasksDone = doneTasksCount();
 
@@ -573,7 +627,7 @@
       professorAccepted: professorStatusCode === "ACCEPTED",
       tasksTotal,
       tasksDone,
-      gradedCriteria: gradedCriteriaCount(),
+      gradedCriteria: Math.max(gradedCriteriaCount(), Number(publicSummary?.total || 0)),
     };
   }
 
@@ -665,7 +719,7 @@
   function isRecruitmentApplyMode() {
     const status = projectStatusCode();
     if (status !== "RECRUITMENT") return false;
-    return currentMemberStatus() === "";
+    return canApplyToProject();
   }
 
   function toRFC3339(localDateTime) {
@@ -757,6 +811,26 @@
   function reviewSummaryData() {
     const criteria = Array.isArray(state.criteria) ? state.criteria : [];
     const grading = gradingByCriterion();
+    const publicSummary = state.project && typeof state.project.review_summary === "object"
+      ? state.project.review_summary
+      : null;
+
+    if ((!criteria.length || grading.size === 0) && publicSummary) {
+      const reviewedAt = publicSummary.reviewed_at ? new Date(publicSummary.reviewed_at) : null;
+      return {
+        total: Number(publicSummary.total || 0),
+        met: Number(publicSummary.met || 0),
+        missed: Math.max(0, Number(publicSummary.total || 0) - Number(publicSummary.met || 0)),
+        reviewed: Number(publicSummary.total || 0),
+        passPercent: Number(publicSummary.pass_percent || 0),
+        score: String(publicSummary.score || "0.0"),
+        reviewer: String(publicSummary.reviewer || "Преподаватель"),
+        reviewedAt: reviewedAt && !Number.isNaN(reviewedAt.getTime()) ? reviewedAt : null,
+        overall: "Итоговая оценка опубликована. Детализация критериев доступна только участникам команды.",
+        hasReview: Number(publicSummary.total || 0) > 0,
+      };
+    }
+
     let met = 0;
     let missed = 0;
     let reviewed = 0;
@@ -966,7 +1040,7 @@
     ui.repoLink.href = repo;
     ui.repoLink.textContent = repo.replace(/^https?:\/\//, "");
 
-    const applyMode = isRecruitmentApplyMode();
+    const applyMode = canApplyToProject();
     const canEdit = isCurrentUserActiveMember() && !applyMode;
 
     ui.favoriteBtn.textContent = state.favorite ? "★ В избранном" : "★ В избранное";
@@ -1577,7 +1651,9 @@
     const summary = reviewSummaryData();
     const status = projectStatusCode();
 
-    if (!criteria.length) {
+    if (!canViewWorkspace() && canViewFinalGrade()) {
+      ui.reviewCriteriaList.innerHTML = '<div class="empty-state">Итоговая оценка опубликована. Детали по критериям видны только участникам команды.</div>';
+    } else if (!criteria.length) {
       ui.reviewCriteriaList.innerHTML = '<div class="empty-state">Критерии пока не настроены преподавателем.</div>';
     } else {
       ui.reviewCriteriaList.innerHTML = criteria
@@ -1671,22 +1747,24 @@
   }
 
   function renderAccessMode() {
-    const applyMode = isRecruitmentApplyMode();
+    const applyMode = canApplyToProject();
+    const workspaceMode = canViewWorkspace();
+    const visibleViews = new Set(allowedViews());
 
     if (ui.applyCard) {
       ui.applyCard.hidden = !applyMode;
     }
     if (ui.stackCard) {
-      ui.stackCard.hidden = applyMode;
+      ui.stackCard.hidden = !workspaceMode;
     }
     if (ui.activityCard) {
-      ui.activityCard.hidden = applyMode;
+      ui.activityCard.hidden = !workspaceMode;
     }
     if (ui.teamMiniCard) {
-      ui.teamMiniCard.hidden = applyMode;
+      ui.teamMiniCard.hidden = !workspaceMode;
     }
     if (ui.pipelineCard) {
-      ui.pipelineCard.hidden = applyMode;
+      ui.pipelineCard.hidden = !workspaceMode;
     }
 
     if (ui.applyHint) {
@@ -1700,19 +1778,35 @@
 
     ui.tabButtons.forEach((btn) => {
       const view = btn.getAttribute("data-view") || "overview";
-      btn.hidden = applyMode && view !== "overview";
+      btn.hidden = !visibleViews.has(view);
     });
     ui.switchViewButtons.forEach((btn) => {
-      btn.hidden = applyMode;
+      btn.hidden = !workspaceMode;
     });
 
-    if (applyMode) {
+    if (!visibleViews.has(state.activeView)) {
       state.activeView = "overview";
-      ui.viewOverview.classList.add("active");
-      [ui.viewTeam, ui.viewInvite, ui.viewTasks, ui.viewCriteria, ui.viewReview, ui.viewEdit].forEach((el) => {
-        if (el) el.classList.remove("active");
-      });
     }
+
+    ui.tabButtons.forEach((btn) => {
+      const view = btn.getAttribute("data-view") || "overview";
+      btn.classList.toggle("active", visibleViews.has(view) && view === state.activeView);
+    });
+
+    const viewMap = {
+      overview: ui.viewOverview,
+      team: ui.viewTeam,
+      invite: ui.viewInvite,
+      tasks: ui.viewTasks,
+      criteria: ui.viewCriteria,
+      review: ui.viewReview,
+      edit: ui.viewEdit,
+    };
+    Object.entries(viewMap).forEach(([key, el]) => {
+      if (!el) return;
+      el.classList.toggle("active", visibleViews.has(key) && key === state.activeView);
+      el.hidden = !visibleViews.has(key);
+    });
   }
 
   function renderEditStackChips() {
@@ -1745,7 +1839,8 @@
   }
 
   function setView(viewName) {
-    const target = ["overview", "team", "invite", "tasks", "criteria", "review", "edit"].includes(viewName)
+    const visibleViews = allowedViews();
+    const target = visibleViews.includes(viewName)
       ? viewName
       : "overview";
 
@@ -1762,7 +1857,9 @@
     };
 
     Object.entries(viewMap).forEach(([key, el]) => {
-      el.classList.toggle("active", key === target);
+      const allowed = visibleViews.includes(key);
+      el.classList.toggle("active", allowed && key === target);
+      el.hidden = !allowed;
     });
 
     ui.tabButtons.forEach((btn) => {
@@ -1783,7 +1880,7 @@
     const params = new URLSearchParams(window.location.search || "");
     const raw = String(params.get("view") || "").trim().toLowerCase();
     if (!raw) return "overview";
-    return ["overview", "team", "invite", "tasks", "criteria", "review", "edit"].includes(raw)
+    return allowedViews().includes(raw)
       ? raw
       : "overview";
   }
@@ -2301,7 +2398,7 @@
     if (projectStatusCode() !== "RECRUITMENT") {
       throw new Error("Подать заявку можно только на этапе набора (RECRUITMENT).");
     }
-    if (currentMemberStatus()) {
+    if (!canApplyToProject()) {
       throw new Error("Вы уже связаны с этим проектом.");
     }
 
@@ -2335,6 +2432,24 @@
     state.project = await request("GET", `/v2/projects/${state.projectID}`);
     rememberUser(localStorage.getItem(LS_USER), localStorage.getItem(LS_STUDENT_NAME), localStorage.getItem(LS_STUDENT_EMAIL));
     rememberUser(state.project?.created_by, state.project?.created_by_name, state.project?.created_by_email);
+
+    if (!canViewWorkspace()) {
+      state.stacks = [];
+      state.positions = [];
+      state.members = [];
+      state.readiness = null;
+      state.criteria = [];
+      state.tasks = [];
+      state.gradingItems = [];
+      state.taskActivities = [];
+      state.professorSummary = null;
+      localStorage.setItem(LS_SELECTED_PROJECT, JSON.stringify({
+        ...state.project,
+        _nav_section: currentStudentSection(),
+      }));
+      renderAll();
+      return;
+    }
 
     const [stacks, positions, members, readiness, criteria, tasks, gradingResp, taskActivityResp, professorResp] = await Promise.all([
       loadOptional("stacks", "GET", `/v2/projects/${state.projectID}/stacks`, []),
@@ -2381,7 +2496,10 @@
       rememberUser(state.professorSummary.user_id, state.professorSummary.full_name, state.professorSummary.email);
     }
 
-    localStorage.setItem(LS_SELECTED_PROJECT, JSON.stringify(state.project));
+    localStorage.setItem(LS_SELECTED_PROJECT, JSON.stringify({
+      ...state.project,
+      _nav_section: currentStudentSection(),
+    }));
 
     renderAll();
   }
@@ -2429,8 +2547,7 @@
 
   function wireEvents() {
     ui.logoutBtn.addEventListener("click", () => {
-      clearSession();
-      window.location.href = "/dev/login";
+      auth.logout();
     });
 
     ui.favoriteBtn.addEventListener("click", () => {
@@ -2659,9 +2776,10 @@
   }
 
   async function bootstrap() {
-    const claims = ensureSession();
+    const claims = await auth.ensureSession("student");
     if (!claims) return;
 
+    syncStudentSidebar();
     bindProfile();
 
     state.projectID = projectIDFromPath();

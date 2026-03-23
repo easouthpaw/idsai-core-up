@@ -44,7 +44,6 @@ func RequestLogger() gin.HandlerFunc {
 }
 
 func shouldSkipRequestLog(method, fullPath, rawPath string, status int) bool {
-	_ = status
 	m := strings.ToUpper(strings.TrimSpace(method))
 	fp := strings.TrimSpace(fullPath)
 	rp := strings.TrimSpace(rawPath)
@@ -58,6 +57,13 @@ func shouldSkipRequestLog(method, fullPath, rawPath string, status int) bool {
 
 	// Skip high-frequency notification polling noise.
 	if m == "GET" && (fp == "/v2/notifications" || fp == "/v2/notifications/unread-count" || rp == "/v2/notifications" || rp == "/v2/notifications/unread-count") {
+		return true
+	}
+	// Skip expected anonymous auth bootstrap checks on the login page.
+	if m == "GET" && (fp == "/v2/auth/me" || rp == "/v2/auth/me") && status == 401 {
+		return true
+	}
+	if m == "POST" && (fp == "/v2/auth/refresh" || rp == "/v2/auth/refresh") && (status == 204 || status == 401) {
 		return true
 	}
 	return false

@@ -43,30 +43,58 @@ func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (domain.P
 }
 
 func (s *Service) GetProjectForViewer(ctx context.Context, projectID, viewerID, viewerFacultyID uuid.UUID) (domain.Project, error) {
+	view, err := s.GetProjectViewForViewer(ctx, projectID, viewerID, viewerFacultyID)
+	if err != nil {
+		return domain.Project{}, err
+	}
+	return view.Project, nil
+}
+
+func (s *Service) GetProjectViewForViewer(ctx context.Context, projectID, viewerID, viewerFacultyID uuid.UUID) (ProjectView, error) {
 	p, err := s.repo.GetByID(ctx, projectID)
 	if err != nil {
-		return domain.Project{}, err
+		return ProjectView{}, err
 	}
 
-	if p.IsPublic || p.CreatedBy == viewerID {
-		return p, nil
+	access := ViewerAccess{}
+	if p.CreatedBy == viewerID {
+		access.CanViewWorkspace = true
+	} else {
+		access.CanViewWorkspace, err = s.repo.HasProjectPermission(ctx, viewerID, projectID, "grading.view")
+		if err != nil {
+			return ProjectView{}, err
+		}
 	}
 
-	// During recruitment, students of the same faculty can read project details
-	// to decide whether to apply.
-	if p.Status == domain.ProjectRecruitment && p.FacultyID == viewerFacultyID {
-		return p, nil
+	hasProjectView := access.CanViewWorkspace || p.CreatedBy == viewerID
+	if !hasProjectView {
+		hasProjectView, err = s.repo.HasProjectPermission(ctx, viewerID, projectID, "project.view")
+		if err != nil {
+			return ProjectView{}, err
+		}
 	}
 
-	ok, err := s.repo.HasProjectPermission(ctx, viewerID, projectID, "project.view")
-	if err != nil {
-		return domain.Project{}, err
-	}
-	if !ok {
-		return domain.Project{}, domain.ErrForbidden
+	sameFacultyRecruitment := p.Status == domain.ProjectRecruitment && p.FacultyID == viewerFacultyID
+	access.CanApply = sameFacultyRecruitment && !hasProjectView && p.CreatedBy != viewerID
+
+	if !(p.IsPublic || hasProjectView || sameFacultyRecruitment) {
+		return ProjectView{}, domain.ErrForbidden
 	}
 
-	return p, nil
+	var summary *ReviewSummary
+	access.CanViewFinalGrade = p.Status == domain.ProjectArchive && (p.IsPublic || access.CanViewWorkspace)
+	if access.CanViewFinalGrade {
+		summary, err = s.repo.GetProjectReviewSummary(ctx, projectID)
+		if err != nil {
+			return ProjectView{}, err
+		}
+	}
+
+	return ProjectView{
+		Project:       p,
+		Access:        access,
+		ReviewSummary: summary,
+	}, nil
 }
 
 func (s *Service) ListProjectsByCreator(ctx context.Context, createdBy uuid.UUID) ([]domain.Project, error) {

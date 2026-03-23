@@ -1,19 +1,12 @@
 (() => {
-  const LS_ACCESS = "idsai_access_token";
-  const LS_REFRESH = "idsai_refresh_token";
-  const LS_USER = "idsai_rbac_user_id";
-  const LS_FACULTY = "idsai_rbac_faculty_id";
-  const LS_STUDENT_NAME = "idsai_student_name";
-  const LS_STUDENT_EMAIL = "idsai_student_email";
-  const LS_IS_ADMIN = "idsai_is_admin";
-  const LS_IS_PROFESSOR = "idsai_is_professor";
-
+  const auth = window.IDSAIAuth;
   const statusEl = document.getElementById("status");
   const respEl = document.getElementById("resp");
   const tabLoginEl = document.getElementById("tabLogin");
   const tabRegisterEl = document.getElementById("tabRegister");
   const panelLoginEl = document.getElementById("panelLogin");
   const panelRegisterEl = document.getElementById("panelRegister");
+  const forgotPasswordBtn = document.getElementById("forgotPasswordBtn");
 
   function setStatus(msg, ok) {
     statusEl.textContent = msg;
@@ -36,81 +29,29 @@
     panelRegisterEl.classList.toggle("active", !isLogin);
   }
 
-  function decodePayload(token) {
-    const parts = token.split(".");
-    if (parts.length < 2) throw new Error("invalid JWT");
-    let payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const mod = payload.length % 4;
-    if (mod > 0) payload += "=".repeat(4 - mod);
-    return JSON.parse(atob(payload));
-  }
-
-  function deriveNameFromEmail(email) {
-    const localPart = String(email || "").trim().split("@")[0] || "";
-    if (!localPart) return "Студент";
-    return localPart;
-  }
-
-  function clearSession() {
-    localStorage.removeItem(LS_ACCESS);
-    localStorage.removeItem(LS_REFRESH);
-    localStorage.removeItem(LS_USER);
-    localStorage.removeItem(LS_FACULTY);
-    localStorage.removeItem(LS_IS_ADMIN);
-    localStorage.removeItem(LS_IS_PROFESSOR);
-  }
-
-  function saveSession(tokens) {
-    localStorage.setItem(LS_ACCESS, tokens.access_token || "");
-    localStorage.setItem(LS_REFRESH, tokens.refresh_token || "");
-
-    const claims = decodePayload(tokens.access_token || "");
-    if (!claims.sub || !claims.faculty_id) {
-      throw new Error("token has no sub/faculty_id");
-    }
-
-    localStorage.setItem(LS_USER, claims.sub);
-    localStorage.setItem(LS_FACULTY, claims.faculty_id);
-    localStorage.setItem(LS_IS_ADMIN, claims.is_admin ? "1" : "0");
-    localStorage.setItem(LS_IS_PROFESSOR, claims.is_professor ? "1" : "0");
-    return claims;
-  }
-
-  function targetByClaims(claims) {
-    if (claims && claims.is_admin) return "/dev/admin";
-    if (claims && claims.is_professor) return "/dev/professor";
-    return "/dev/projects";
-  }
-
-  async function hasValidServerSession(accessToken) {
-    try {
-      const resp = await fetch("/v2/auth/me", {
-        method: "GET",
-        headers: { Authorization: "Bearer " + accessToken },
-      });
-      if (resp.status === 401) return false;
-      return true;
-    } catch (_) {
-      return true;
-    }
+  function targetByProfile(profile) {
+    return auth.targetByProfile(profile);
   }
 
   async function callJSON(url, payload) {
-    const started = performance.now();
-    const resp = await fetch(url, {
+    return auth.requestJSON(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
+      skipAuthRefresh: true,
+      skipAuthRedirect: true,
     });
+  }
 
-    const elapsed = Math.round(performance.now() - started);
-    const text = await resp.text();
-    let data = text;
-    try {
-      data = JSON.parse(text);
-    } catch (_) {}
-
-    return { resp, data, elapsed };
+  async function resendVerification(email) {
+    const out = await callJSON("/v2/auth/verify-email/resend", { email });
+    if (!out.resp.ok) {
+      setStatus("Не удалось повторно отправить письмо подтверждения", false);
+      showJSON(out.data);
+      return;
+    }
+    setStatus("Письмо подтверждения отправлено повторно.", true);
+    showJSON(out.data);
   }
 
   async function login() {
@@ -119,17 +60,34 @@
 
     const out = await callJSON("/v2/auth/login", { email, password });
     if (!out.resp.ok) {
-      setStatus("Ошибка входа: " + out.resp.status + " (" + out.elapsed + " ms)", false);
+      if (out.resp.status === 403 && out.data && out.data.code === "email_verification_required") {
+        setStatus("Подтвердите email перед входом.", false);
+        showJSON(out.data);
+        if (window.confirm("Email еще не подтвержден. Отправить письмо повторно?")) {
+          await resendVerification(email);
+        }
+        return;
+      }
+      setStatus("Ошибка входа: " + out.resp.status, false);
       showJSON(out.data);
       return;
     }
 
-    const claims = saveSession(out.data);
-    localStorage.setItem(LS_STUDENT_EMAIL, email);
-    localStorage.setItem(LS_STUDENT_NAME, deriveNameFromEmail(email));
+    const profile = auth.persistProfile({
+      sub: out.data.user_id,
+      tenant_id: out.data.tenant_id,
+      faculty_id: out.data.faculty_id,
+      department_id: out.data.department_id,
+      email: out.data.email,
+      full_name: out.data.full_name,
+      is_admin: out.data.is_admin,
+      is_professor: out.data.is_professor,
+      email_verified: out.data.email_verified,
+    });
+
     setStatus("Вход выполнен. Переход в кабинет...", true);
-    showJSON(out.data);
-    window.location.href = targetByClaims(claims);
+    showJSON({ status: "authenticated", user_id: out.data.user_id, role: targetByProfile(profile) });
+    window.location.href = targetByProfile(profile);
   }
 
   async function register() {
@@ -143,7 +101,6 @@
       setStatus("Заполни обязательные поля регистрации", false);
       return;
     }
-
     if (password !== password2) {
       setStatus("Пароли не совпадают", false);
       return;
@@ -155,19 +112,88 @@
       full_name: fullName,
       department_code: department,
     });
-
     if (!out.resp.ok) {
-      setStatus("Ошибка регистрации: " + out.resp.status + " (" + out.elapsed + " ms)", false);
+      setStatus("Ошибка регистрации: " + out.resp.status, false);
       showJSON(out.data);
       return;
     }
 
-    const claims = saveSession(out.data);
-    localStorage.setItem(LS_STUDENT_EMAIL, email);
-    localStorage.setItem(LS_STUDENT_NAME, fullName || deriveNameFromEmail(email));
-    setStatus("Регистрация успешна. Переход в кабинет...", true);
+    auth.clearClientState();
+    setTab("login");
+    setStatus("Аккаунт создан. Подтвердите email по ссылке из письма, затем войдите.", true);
     showJSON(out.data);
-    window.location.href = targetByClaims(claims);
+  }
+
+  async function requestPasswordReset() {
+    const suggestedEmail = document.getElementById("loginEmail").value.trim();
+    const email = window.prompt("Введите email для сброса пароля:", suggestedEmail);
+    if (email === null) return;
+
+    const out = await callJSON("/v2/auth/password-reset/request", { email });
+    if (!out.resp.ok) {
+      setStatus("Не удалось отправить письмо для сброса пароля.", false);
+      showJSON(out.data);
+      return;
+    }
+
+    setStatus("Если такой аккаунт существует, письмо для сброса уже отправлено.", true);
+    showJSON(out.data);
+  }
+
+  async function confirmPasswordResetFromCookie() {
+    const password = window.prompt("Введите новый пароль (минимум 10 символов):", "");
+    if (password === null) return;
+    const password2 = window.prompt("Повторите новый пароль:", "");
+    if (password2 === null) return;
+    if (password !== password2) {
+      setStatus("Пароли не совпадают.", false);
+      return;
+    }
+
+    const out = await callJSON("/v2/auth/password-reset/confirm", { password });
+    if (!out.resp.ok) {
+      setStatus("Не удалось обновить пароль.", false);
+      showJSON(out.data);
+      return;
+    }
+
+    auth.clearClientState();
+    setStatus("Пароль обновлен. Теперь можно войти с новым паролем.", true);
+    showJSON(out.data);
+    window.history.replaceState({}, "", "/dev/login");
+  }
+
+  async function restoreExistingSession() {
+    const profile = await auth.ensureSession(undefined, { redirectOnMissing: false });
+    if (!profile) return;
+    window.location.href = targetByProfile(profile);
+  }
+
+  function handleQueryState() {
+    const params = new URLSearchParams(window.location.search);
+    const verified = params.get("verified");
+    const reset = params.get("reset");
+
+    if (verified === "1") {
+      setStatus("Email подтвержден. Теперь можно войти.", true);
+    } else if (verified === "0") {
+      setStatus("Ссылка подтверждения недействительна или истекла.", false);
+    }
+
+    if (reset === "1") {
+      setStatus("Ссылка сброса подтверждена. Задайте новый пароль.", true);
+      setTimeout(() => {
+        confirmPasswordResetFromCookie().catch((e) => {
+          setStatus("Сбой сброса пароля", false);
+          showJSON(e.message || String(e));
+        });
+      }, 80);
+      return;
+    }
+
+    if (reset === "expired") {
+      setStatus("Ссылка сброса пароля недействительна или уже истекла.", false);
+    }
   }
 
   tabLoginEl.addEventListener("click", () => setTab("login"));
@@ -191,25 +217,13 @@
     }
   });
 
-  const token = localStorage.getItem(LS_ACCESS) || "";
-  if (token) {
-    (async () => {
-      try {
-        const claims = decodePayload(token);
-        if (!claims.sub || !claims.faculty_id) throw new Error("invalid claims");
-        const isValid = await hasValidServerSession(token);
-        if (!isValid) {
-          clearSession();
-          return;
-        }
-        localStorage.setItem(LS_USER, claims.sub);
-        localStorage.setItem(LS_FACULTY, claims.faculty_id);
-        localStorage.setItem(LS_IS_ADMIN, claims.is_admin ? "1" : "0");
-        localStorage.setItem(LS_IS_PROFESSOR, claims.is_professor ? "1" : "0");
-        window.location.href = targetByClaims(claims);
-      } catch (_) {
-        clearSession();
-      }
-    })();
-  }
+  forgotPasswordBtn?.addEventListener("click", () => {
+    requestPasswordReset().catch((e) => {
+      setStatus("Сбой запроса сброса пароля", false);
+      showJSON(e.message || String(e));
+    });
+  });
+
+  handleQueryState();
+  restoreExistingSession().catch(() => {});
 })();

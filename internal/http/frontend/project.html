@@ -30,15 +30,15 @@
 
       <p class="nav-title">WORKSPACE</p>
       <nav class="main-nav side-nav" aria-label="Student sections">
-        <a class="nav-link side-link active" data-tab="mine" href="/dev/projects?tab=mine">
+        <a class="nav-link side-link" data-nav-section="mine" href="/dev/projects?tab=mine">
           <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">folder</span></span>
           <span class="nav-label">Мои проекты</span>
         </a>
-        <a class="nav-link side-link" data-tab="community" href="/dev/projects?tab=community">
+        <a class="nav-link side-link" data-nav-section="community" href="/dev/projects?tab=community">
           <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">public</span></span>
           <span class="nav-label">Сообщество</span>
         </a>
-        <a class="nav-link side-link" href="/dev/invites">
+        <a class="nav-link side-link" data-nav-section="invites" href="/dev/invites">
           <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">mark_email_unread</span></span>
           <span class="nav-label">Заявки</span>
         </a>
@@ -79,7 +79,7 @@
     <div class="main-shell">
       <header class="topbar">
         <div class="breadcrumbs">
-          <a href="/dev/projects">Проекты</a>
+          <a id="crumbSectionLink" href="/dev/projects?tab=mine">Проекты</a>
           <span>/</span>
           <strong id="crumbProject">project</strong>
         </div>
@@ -106,16 +106,16 @@
 
           <div class="hero-actions">
             <button id="favoriteBtn" class="ghost-btn" type="button">★ В избранное</button>
-            <button id="openEditViewBtn" class="primary-btn" type="button">✎ Редактировать</button>
+            <button id="openEditViewBtn" class="primary-btn" type="button" hidden>✎ Редактировать</button>
           </div>
         </section>
 
         <nav class="project-tabs" aria-label="Project tabs">
           <button class="tab-btn active" type="button" data-view="overview">Описание</button>
-          <button class="tab-btn" type="button" data-view="team">Команда</button>
-          <button class="tab-btn" type="button" data-view="tasks">Задачи</button>
-          <button class="tab-btn" type="button" data-view="criteria">Критерии</button>
-          <button class="tab-btn" type="button" data-view="review">Ревью</button>
+          <button class="tab-btn" type="button" data-view="team" hidden>Команда</button>
+          <button class="tab-btn" type="button" data-view="tasks" hidden>Задачи</button>
+          <button class="tab-btn" type="button" data-view="criteria" hidden>Критерии</button>
+          <button class="tab-btn" type="button" data-view="review" hidden>Ревью</button>
         </nav>
 
         <div id="pageNotice" class="notice" hidden></div>
@@ -159,7 +159,7 @@
                 </div>
               </article>
 
-              <article id="stackCard" class="card">
+              <article id="stackCard" class="card" hidden>
                 <header class="card-head">
                   <h2>Технологический стек</h2>
                 </header>
@@ -168,7 +168,7 @@
                 </div>
               </article>
 
-              <article id="activityCard" class="card">
+              <article id="activityCard" class="card" hidden>
                 <header class="card-head">
                   <h2>Активность</h2>
                 </header>
@@ -177,7 +177,7 @@
             </div>
 
             <div class="right-stack">
-              <article id="teamMiniCard" class="card">
+              <article id="teamMiniCard" class="card" hidden>
                 <header class="card-head">
                   <h2>Команда</h2>
                   <button class="mini-link" type="button" data-switch-view="team">Управление</button>
@@ -185,7 +185,7 @@
                 <div id="teamMiniList" class="card-body mini-team"></div>
               </article>
 
-              <article id="pipelineCard" class="card">
+              <article id="pipelineCard" class="card" hidden>
                 <header class="card-head">
                   <h2>Пайплайн запуска</h2>
                 </header>
@@ -573,6 +573,49 @@
     </div>
   </div>
 
+  <script>
+    (() => {
+      const LS_SELECTED_PROJECT = "idsai_selected_project";
+      const raw = localStorage.getItem(LS_SELECTED_PROJECT);
+      if (!raw) return;
+      let project = null;
+      try {
+        project = JSON.parse(raw);
+      } catch (_) {
+        return;
+      }
+      if (!project || typeof project !== "object") return;
+      const setText = (id, value) => {
+        const el = document.getElementById(id);
+        if (el && value) el.textContent = String(value);
+      };
+      const title = String(project.title || "").trim();
+      const description = String(project.description || "").trim();
+      if (title) {
+        setText("projectTitle", title);
+        setText("crumbProject", title);
+        document.title = `IDSAI Corp. · ${title}`;
+      }
+      if (project.id) {
+        setText("projectID", `id: ${project.id}`);
+      }
+      const visibility = String(project.visibility || "").toUpperCase();
+      if (visibility) {
+        setText("visibilityLabel", visibility === "PUBLIC" ? "Публичный" : "Приватный");
+      }
+      const status = String(project.status || "").toUpperCase();
+      if (status) {
+        setText("statusBadge", status === "ACTIVE" ? "В работе" : status === "RECRUITMENT" ? "Набор" : status === "ARCHIVE" ? "Архив" : status);
+      }
+      const about = document.getElementById("aboutContent");
+      if (about && description) {
+        about.innerHTML =
+          `<p><strong>${title || "Project"}</strong></p>` +
+          `<p>${description.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("\n", "<br>")}</p>`;
+      }
+    })();
+  </script>
+  <script src="/dev/static/js/auth-session.js" defer></script>
   <script src="/dev/static/js/notifications-popup.js?v=20260307-2" defer></script>
   <script src="/dev/static/js/project-detail.js" defer></script>
 </body>

@@ -22,6 +22,9 @@ type App struct {
 
 func New(ctx context.Context) (*App, error) {
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
 
 	pool, err := db.NewPool(ctx, cfg.DatabaseURL)
 	if err != nil {

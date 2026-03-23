@@ -49,7 +49,7 @@ func (h *ProjectsHandler) Get(c *gin.Context) {
 		return
 	}
 
-	p, err := h.svc.GetProjectForViewer(c.Request.Context(), projectID, userID, facultyID)
+	view, err := h.svc.GetProjectViewForViewer(c.Request.Context(), projectID, userID, facultyID)
 	if err != nil {
 		if errors.Is(err, projects.ErrNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "project not found"})
@@ -63,7 +63,7 @@ func (h *ProjectsHandler) Get(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, projectToResponse(p))
+	c.JSON(http.StatusOK, projectViewToResponse(view))
 }
 
 // ListMyProjects

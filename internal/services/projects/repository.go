@@ -18,6 +18,7 @@ type Repository interface {
 	Create(ctx context.Context, title, description string, facultyID uuid.UUID, visibility string, groupID *uuid.UUID, createdBy uuid.UUID) (uuid.UUID, error)
 	GetByID(ctx context.Context, id uuid.UUID) (domain.Project, error)
 	HasProjectPermission(ctx context.Context, userID, projectID uuid.UUID, permissionCode string) (bool, error)
+	GetProjectReviewSummary(ctx context.Context, projectID uuid.UUID) (*ReviewSummary, error)
 	ListByCreator(ctx context.Context, createdBy uuid.UUID) ([]domain.Project, error)
 	ListPublic(ctx context.Context) ([]domain.Project, error)
 	FindGroupIDByCode(ctx context.Context, facultyID uuid.UUID, code string) (uuid.UUID, error)

@@ -1,4 +1,5 @@
 (() => {
+  const auth = window.IDSAIAuth;
   const LS_ACCESS = "idsai_access_token";
   const LS_REFRESH = "idsai_refresh_token";
   const LS_USER = "idsai_rbac_user_id";
@@ -6,6 +7,7 @@
   const LS_STUDENT_NAME = "idsai_student_name";
   const LS_STUDENT_EMAIL = "idsai_student_email";
   const LS_SELECTED_PROJECT = "idsai_selected_project";
+  const LS_STUDENT_SECTION = "idsai_student_section";
   const LS_IS_ADMIN = "idsai_is_admin";
   const LS_IS_PROFESSOR = "idsai_is_professor";
 
@@ -73,49 +75,24 @@
   function authHeaders(withJSON) {
     const headers = {};
     if (withJSON) headers["Content-Type"] = "application/json";
-
-    const access = localStorage.getItem(LS_ACCESS) || "";
-
-    if (access) headers.Authorization = "Bearer " + access;
-
     return headers;
   }
 
   function ensureSession() {
-    const access = localStorage.getItem(LS_ACCESS) || "";
-    if (!access) {
+    const claims = auth.getCachedProfile();
+    if (!claims) {
       window.location.href = "/dev/login";
       return null;
     }
-
-    try {
-      const claims = decodePayload(access);
-      if (!claims.sub || !claims.faculty_id) throw new Error("broken claims");
-      localStorage.setItem(LS_USER, claims.sub);
-      localStorage.setItem(LS_FACULTY, claims.faculty_id);
-      localStorage.setItem(LS_IS_ADMIN, claims.is_admin ? "1" : "0");
-      localStorage.setItem(LS_IS_PROFESSOR, claims.is_professor ? "1" : "0");
-      if (claims.is_admin) {
-        window.location.href = "/dev/admin";
-        return null;
-      }
-      if (claims.is_professor) {
-        window.location.href = "/dev/professor";
-        return null;
-      }
-      return claims;
-    } catch (_) {
-      localStorage.removeItem(LS_ACCESS);
-      localStorage.removeItem(LS_REFRESH);
-      localStorage.removeItem(LS_USER);
-      localStorage.removeItem(LS_FACULTY);
-      localStorage.removeItem(LS_IS_ADMIN);
-      localStorage.removeItem(LS_IS_PROFESSOR);
-      localStorage.removeItem(LS_STUDENT_NAME);
-      localStorage.removeItem(LS_STUDENT_EMAIL);
-      window.location.href = "/dev/login";
+    if (claims.is_admin) {
+      window.location.href = "/dev/admin";
       return null;
     }
+    if (claims.is_professor) {
+      window.location.href = "/dev/professor";
+      return null;
+    }
+    return claims;
   }
 
   function initials(name, email) {
@@ -173,8 +150,13 @@
 
   function openProject(project) {
     if (!project || !project.id) return;
-    localStorage.setItem(LS_SELECTED_PROJECT, JSON.stringify(project));
-    window.location.href = `/dev/projects/${project.id}`;
+    const navSection = activeTab === "community" ? "community" : "mine";
+    localStorage.setItem(LS_STUDENT_SECTION, navSection);
+    localStorage.setItem(LS_SELECTED_PROJECT, JSON.stringify({
+      ...project,
+      _nav_section: navSection,
+    }));
+    window.location.href = `/dev/projects/${project.id}?nav=${encodeURIComponent(navSection)}`;
   }
 
   function findProjectByID(id) {
@@ -464,6 +446,7 @@
 
   function switchTab(tab) {
     activeTab = tab === "community" ? "community" : "mine";
+    localStorage.setItem(LS_STUDENT_SECTION, activeTab);
     const isMine = activeTab === "mine";
     const url = new URL(window.location.href);
     url.searchParams.set("tab", activeTab);
@@ -600,20 +583,12 @@
   async function loadGroups() {
     setVisibility(selectedVisibility);
 
-    const resp = await fetch("/v2/projects/groups", {
+    const { resp, data } = await auth.requestJSON("/v2/projects/groups", {
       method: "GET",
-      headers: authHeaders(false),
     });
-
-    const text = await resp.text();
-    let data = text;
-    try {
-      data = JSON.parse(text);
-    } catch (_) {}
 
     if (!resp.ok) {
       if (resp.status === 401) {
-        logout();
         throw new Error("Сессия истекла. Войди снова.");
       }
       throw new Error(typeof data === "object" && data && data.error ? data.error : "failed to load groups");
@@ -627,17 +602,11 @@
 
   async function loadMineProjects() {
     const started = performance.now();
-    const resp = await fetch("/v2/projects/my", {
+    const { resp, data } = await auth.requestJSON("/v2/projects/my", {
       method: "GET",
-      headers: authHeaders(false),
     });
 
     const elapsed = Math.round(performance.now() - started);
-    const text = await resp.text();
-    let data = text;
-    try {
-      data = JSON.parse(text);
-    } catch (_) {}
 
     if (!resp.ok) {
       myProjects = [];
@@ -653,17 +622,11 @@
 
   async function loadCommunityProjects() {
     const started = performance.now();
-    const resp = await fetch("/v2/projects/public", {
+    const { resp, data } = await auth.requestJSON("/v2/projects/public", {
       method: "GET",
-      headers: authHeaders(false),
     });
 
     const elapsed = Math.round(performance.now() - started);
-    const text = await resp.text();
-    let data = text;
-    try {
-      data = JSON.parse(text);
-    } catch (_) {}
 
     if (!resp.ok) {
       publicProjects = [];
@@ -701,18 +664,13 @@
     }
 
     const started = performance.now();
-    const resp = await fetch("/v2/projects", {
+    const { resp, data } = await auth.requestJSON("/v2/projects", {
       method: "POST",
-      headers: authHeaders(true),
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
 
     const elapsed = Math.round(performance.now() - started);
-    const text = await resp.text();
-    let data = text;
-    try {
-      data = JSON.parse(text);
-    } catch (_) {}
 
     if (!resp.ok) {
       setStatus(createStatusEl, `Create failed: ${resp.status} (${elapsed} ms)`, false);
@@ -722,14 +680,13 @@
 
     const createdID = typeof data === "object" && data ? String(data.project_id || "") : "";
     if (createdID && stacks.length > 0) {
-      const stacksResp = await fetch(`/v2/projects/${createdID}/stacks`, {
+      const { resp: stacksResp, data: stacksData } = await auth.requestJSON(`/v2/projects/${createdID}/stacks`, {
         method: "PUT",
-        headers: authHeaders(true),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stacks }),
       });
       if (!stacksResp.ok) {
-        const stacksText = await stacksResp.text();
-        logLine(`stacks save failed for ${createdID}: ${stacksResp.status} ${stacksText}`);
+        logLine(`stacks save failed for ${createdID}: ${stacksResp.status} ${JSON.stringify(stacksData)}`);
       }
     }
 
@@ -741,13 +698,7 @@
   }
 
   function logout() {
-    localStorage.removeItem(LS_ACCESS);
-    localStorage.removeItem(LS_REFRESH);
-    localStorage.removeItem(LS_USER);
-    localStorage.removeItem(LS_FACULTY);
-    localStorage.removeItem(LS_STUDENT_NAME);
-    localStorage.removeItem(LS_STUDENT_EMAIL);
-    window.location.href = "/dev/login";
+    auth.logout();
   }
 
   document.getElementById("createBtn").addEventListener("click", async () => {
@@ -850,20 +801,22 @@
     }
   });
 
-  const claims = ensureSession();
-  if (!claims) return;
+  void (async () => {
+    const claims = await auth.ensureSession("student");
+    if (!claims) return;
 
-  bindProfile();
-  logLine("session initialized");
-  loadGroups()
-    .then(async () => {
-      await loadMineProjects();
-      await loadCommunityProjects();
-      switchTab(initialTabFromURL());
-      logLine("all systems operational");
-    })
-    .catch((e) => {
-      setStatus(null, "Initial load failed", false);
-      logLine(e.message || String(e));
-    });
+    bindProfile();
+    logLine("session initialized");
+    loadGroups()
+      .then(async () => {
+        await loadMineProjects();
+        await loadCommunityProjects();
+        switchTab(initialTabFromURL());
+        logLine("all systems operational");
+      })
+      .catch((e) => {
+        setStatus(null, "Initial load failed", false);
+        logLine(e.message || String(e));
+      });
+  })();
 })();

@@ -1,4 +1,5 @@
 (() => {
+  const auth = window.IDSAIAuth;
   const LS_ACCESS = "idsai_access_token";
   const LS_REFRESH = "idsai_refresh_token";
   const LS_USER = "idsai_rbac_user_id";
@@ -123,40 +124,20 @@
   }
 
   function clearSession() {
-    localStorage.removeItem(LS_ACCESS);
-    localStorage.removeItem(LS_REFRESH);
-    localStorage.removeItem(LS_USER);
-    localStorage.removeItem(LS_FACULTY);
-    localStorage.removeItem(LS_STUDENT_NAME);
-    localStorage.removeItem(LS_STUDENT_EMAIL);
-    localStorage.removeItem(LS_IS_ADMIN);
-    localStorage.removeItem(LS_IS_PROFESSOR);
+    auth.clearClientState();
   }
 
   function ensureAdminSession() {
-    const access = localStorage.getItem(LS_ACCESS) || "";
-    if (!access) {
+    const claims = auth.getCachedProfile();
+    if (!claims) {
       window.location.href = "/dev/login";
       return null;
     }
-
-    try {
-      const claims = decodePayload(access);
-      if (!claims.sub || !claims.faculty_id) throw new Error("broken token");
-      localStorage.setItem(LS_USER, claims.sub);
-      localStorage.setItem(LS_FACULTY, claims.faculty_id);
-      localStorage.setItem(LS_IS_ADMIN, claims.is_admin ? "1" : "0");
-      localStorage.setItem(LS_IS_PROFESSOR, claims.is_professor ? "1" : "0");
-      if (!claims.is_admin) {
-        window.location.href = claims.is_professor ? "/dev/professor" : "/dev/projects";
-        return null;
-      }
-      return claims;
-    } catch (_) {
-      clearSession();
-      window.location.href = "/dev/login";
+    if (!claims.is_admin) {
+      window.location.href = claims.is_professor ? "/dev/professor" : "/dev/projects";
       return null;
     }
+    return claims;
   }
 
   function hydrateProfile() {
@@ -172,23 +153,13 @@
   }
 
   function authHeaders(withJSON) {
-    const access = localStorage.getItem(LS_ACCESS) || "";
     const headers = {};
-    if (access) headers.Authorization = "Bearer " + access;
     if (withJSON) headers["Content-Type"] = "application/json";
     return headers;
   }
 
   async function requestJSON(url, opts) {
-    const resp = await fetch(url, opts);
-    const text = await resp.text();
-    let data = {};
-    try {
-      data = text ? JSON.parse(text) : {};
-    } catch (_) {
-      data = { raw: text };
-    }
-    return { resp, data };
+    return auth.requestJSON(url, opts);
   }
 
   function handleAuthFail(status) {
@@ -1136,10 +1107,10 @@
 
       if (action === "reset-password") {
         const name = target.dataset.name || "пользователь";
-        const nextPassword = window.prompt(`Введите новый пароль для "${name}" (минимум 6 символов):`, "");
+        const nextPassword = window.prompt(`Введите новый пароль для "${name}" (минимум 10 символов):`, "");
         if (nextPassword === null) return;
-        if (String(nextPassword).trim().length < 6) {
-          alert("Пароль должен быть не короче 6 символов.");
+        if (String(nextPassword).trim().length < 10) {
+          alert("Пароль должен быть не короче 10 символов.");
           return;
         }
         const ok = await resetUserPassword(userID, nextPassword);
@@ -1199,13 +1170,12 @@
     });
 
     logoutBtnEl.addEventListener("click", () => {
-      clearSession();
-      window.location.href = "/dev/login";
+      auth.logout();
     });
   }
 
   async function main() {
-    const claims = ensureAdminSession();
+    const claims = await auth.ensureSession("admin");
     if (!claims) return;
 
     hydrateProfile();

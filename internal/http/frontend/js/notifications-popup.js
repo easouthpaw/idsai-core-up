@@ -1,11 +1,10 @@
 (() => {
+  const auth = window.IDSAIAuth;
   if (window.__idsaiNotificationsPopupInitialized) {
     return;
   }
   window.__idsaiNotificationsPopupInitialized = true;
 
-  const LS_ACCESS = "idsai_access_token";
-  const LS_REFRESH = "idsai_refresh_token";
   const API_LIST = "/v2/notifications?limit=100&offset=0";
   const API_MARK_READ = (id) => `/v2/notifications/${id}/read`;
   const API_MARK_ALL_READ = "/v2/notifications/read-all";
@@ -29,23 +28,6 @@
   const panelList = panel.querySelector("#idsaiNotifyList");
   let pollTimer = null;
 
-  function token() {
-    const access = localStorage.getItem(LS_ACCESS) || "";
-    if (!access) return "";
-    if (isTokenExpired(access)) {
-      localStorage.removeItem(LS_ACCESS);
-      localStorage.removeItem(LS_REFRESH);
-      return "";
-    }
-    return access;
-  }
-
-  function authHeaders() {
-    const access = token();
-    if (!access) return {};
-    return { Authorization: `Bearer ${access}` };
-  }
-
   function handleUnauthorized() {
     if (state.unauthorized) return;
     state.unauthorized = true;
@@ -53,47 +35,15 @@
       clearInterval(pollTimer);
       pollTimer = null;
     }
-    localStorage.removeItem(LS_ACCESS);
-    localStorage.removeItem(LS_REFRESH);
+    auth.clearClientState();
     if (!window.location.pathname.startsWith("/dev/login")) {
       window.location.href = "/dev/login";
     }
   }
 
-  function isTokenExpired(jwt) {
-    const token = String(jwt || "").trim();
-    if (!token) return true;
-    const parts = token.split(".");
-    if (parts.length < 2) return true;
-    try {
-      let payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-      const mod = payload.length % 4;
-      if (mod > 0) payload += "=".repeat(4 - mod);
-      const decoded = JSON.parse(atob(payload));
-      const exp = Number(decoded.exp);
-      if (!Number.isFinite(exp) || exp <= 0) return false;
-      return Date.now() >= exp * 1000;
-    } catch (_) {
-      return true;
-    }
-  }
-
-  async function fetchJSON(url, options = {}) {
-    const resp = await fetch(url, options);
-    const text = await resp.text();
-    let data = {};
-    try {
-      data = text ? JSON.parse(text) : {};
-    } catch (_) {
-      data = {};
-    }
-    return { resp, data };
-  }
-
   async function apiNoBody(method, url) {
-    return fetchJSON(url, {
+    return auth.requestJSON(url, {
       method,
-      headers: authHeaders(),
     });
   }
 
@@ -177,8 +127,7 @@
 
   async function loadNotifications() {
     if (state.unauthorized) return [];
-    if (!token()) return [];
-    const { resp, data } = await fetchJSON(API_LIST, { headers: authHeaders() });
+    const { resp, data } = await auth.requestJSON(API_LIST, { method: "GET" });
     if (resp.status === 401) {
       handleUnauthorized();
       return [];
@@ -227,7 +176,7 @@
 
   async function markRead(id) {
     if (state.unauthorized) return false;
-    if (!id || !token()) return false;
+    if (!id) return false;
     const { resp } = await apiNoBody("POST", API_MARK_READ(id));
     if (resp.status === 401) {
       handleUnauthorized();
@@ -242,7 +191,6 @@
 
   async function markAllRead() {
     if (state.unauthorized) return;
-    if (!token()) return;
     const { resp } = await apiNoBody("POST", API_MARK_ALL_READ);
     if (resp.status === 401) {
       handleUnauthorized();
@@ -257,7 +205,7 @@
 
   async function deleteNotification(id) {
     if (state.unauthorized) return;
-    if (!id || !token()) return;
+    if (!id) return;
     const { resp } = await apiNoBody("DELETE", API_DELETE(id));
     if (resp.status === 401) {
       handleUnauthorized();
@@ -271,7 +219,6 @@
 
   async function clearAllNotifications() {
     if (state.unauthorized) return;
-    if (!token()) return;
     const { resp } = await apiNoBody("DELETE", API_CLEAR);
     if (resp.status === 401) {
       handleUnauthorized();
@@ -390,7 +337,6 @@
 
   async function sync() {
     if (state.unauthorized) return;
-    if (!token()) return;
     const items = await loadNotifications();
     state.items = items;
     renderPanel();
@@ -433,7 +379,8 @@
   }
 
   async function start() {
-    if (!token()) return;
+    const profile = await auth.ensureSession(undefined, { redirectOnMissing: false });
+    if (!profile) return;
     renderPanel();
     await sync();
     pollTimer = setInterval(() => {

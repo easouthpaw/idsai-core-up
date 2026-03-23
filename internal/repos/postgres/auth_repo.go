@@ -2,11 +2,14 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	svc "idsai-core-up/internal/services/auth"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -27,6 +30,9 @@ WHERE code = $1
 `
 	var tenantID uuid.UUID
 	err := r.db.QueryRow(ctx, q, tenantCode).Scan(&tenantID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, svc.ErrNotFound
+	}
 	return tenantID, err
 }
 
@@ -39,17 +45,26 @@ WHERE d.tenant_id = $1
 `
 	var deptID, facultyID uuid.UUID
 	err := r.db.QueryRow(ctx, q, tenantID, departmentCode).Scan(&deptID, &facultyID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, uuid.Nil, svc.ErrNotFound
+	}
 	return deptID, facultyID, err
 }
 
-func (r *AuthRepo) CreateUser(ctx context.Context, tenantID uuid.UUID, email, passwordHash, status string) (uuid.UUID, error) {
+func (r *AuthRepo) CreateUser(ctx context.Context, in svc.CreateUserParams) (uuid.UUID, error) {
 	const q = `
-INSERT INTO users(tenant_id, email, password_hash, status)
-VALUES ($1, $2, $3, $4)
+INSERT INTO users(tenant_id, email, password_hash, status, email_verified_at, password_changed_at)
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING id;
 `
 	var id uuid.UUID
-	err := r.db.QueryRow(ctx, q, tenantID, email, passwordHash, status).Scan(&id)
+	err := r.db.QueryRow(ctx, q, in.TenantID, in.Email, in.PasswordHash, in.Status, in.EmailVerifiedAt, in.PasswordChangedAt).Scan(&id)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return uuid.Nil, svc.ErrUserExists
+		}
+	}
 	return id, err
 }
 
@@ -113,18 +128,14 @@ SELECT
       AND ra.user_id = u.id
       AND r.code = 'PROFESSOR'
       AND (ra.expires_at IS NULL OR ra.expires_at > now())
-  ) AS is_professor
+  ) AS is_professor,
+  u.email_verified_at
 FROM users u
 JOIN user_profiles p ON p.user_id=u.id
 WHERE u.tenant_id = $1
   AND u.email = $2;
 `
-	var out svc.User
-	err := r.db.QueryRow(ctx, q, tenantID, email).Scan(
-		&out.ID, &out.TenantID, &out.Email, &out.PasswordHash, &out.Status,
-		&out.FacultyID, &out.DepartmentID, &out.FullName, &out.IsAdmin, &out.IsProfessor,
-	)
-	return out, err
+	return r.scanUser(ctx, q, tenantID, email)
 }
 
 func (r *AuthRepo) FindUserByID(ctx context.Context, tenantID, userID uuid.UUID) (svc.User, error) {
@@ -157,18 +168,48 @@ SELECT
       AND ra.user_id = u.id
       AND r.code = 'PROFESSOR'
       AND (ra.expires_at IS NULL OR ra.expires_at > now())
-  ) AS is_professor
+  ) AS is_professor,
+  u.email_verified_at
 FROM users u
 JOIN user_profiles p ON p.user_id=u.id
 WHERE u.tenant_id = $1
   AND u.id = $2;
 `
-	var out svc.User
-	err := r.db.QueryRow(ctx, q, tenantID, userID).Scan(
-		&out.ID, &out.TenantID, &out.Email, &out.PasswordHash, &out.Status,
-		&out.FacultyID, &out.DepartmentID, &out.FullName, &out.IsAdmin, &out.IsProfessor,
-	)
-	return out, err
+	return r.scanUser(ctx, q, tenantID, userID)
+}
+
+func (r *AuthRepo) UpdateUserPasswordHash(ctx context.Context, tenantID, userID uuid.UUID, passwordHash string, changedAt time.Time) error {
+	tag, err := r.db.Exec(ctx, `
+UPDATE users
+SET password_hash = $3,
+    password_changed_at = $4
+WHERE tenant_id = $1
+  AND id = $2;
+`, tenantID, userID, passwordHash, changedAt)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return svc.ErrNotFound
+	}
+	return nil
+}
+
+func (r *AuthRepo) MarkUserEmailVerified(ctx context.Context, tenantID, userID uuid.UUID, verifiedAt time.Time) error {
+	tag, err := r.db.Exec(ctx, `
+UPDATE users
+SET email_verified_at = COALESCE(email_verified_at, $3),
+    status = CASE WHEN status = 'PENDING' THEN 'ACTIVE' ELSE status END
+WHERE tenant_id = $1
+  AND id = $2;
+`, tenantID, userID, verifiedAt)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return svc.ErrNotFound
+	}
+	return nil
 }
 
 func (r *AuthRepo) InsertRefreshToken(ctx context.Context, tenantID, userID uuid.UUID, tokenHash string, expiresAt time.Time) error {
@@ -184,22 +225,116 @@ func (r *AuthRepo) FindRefreshToken(ctx context.Context, tokenHash string) (uuid
 	const q = `
 SELECT tenant_id, user_id, expires_at, revoked_at
 FROM refresh_tokens
-WHERE token_hash=$1;
+WHERE token_hash = $1;
 `
 	var tenantID uuid.UUID
 	var userID uuid.UUID
 	var exp time.Time
 	var revokedAt *time.Time
 	err := r.db.QueryRow(ctx, q, tokenHash).Scan(&tenantID, &userID, &exp, &revokedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, uuid.Nil, time.Time{}, nil, svc.ErrNotFound
+	}
 	return tenantID, userID, exp, revokedAt, err
 }
 
 func (r *AuthRepo) RevokeRefreshToken(ctx context.Context, tokenHash string) error {
 	const q = `
 UPDATE refresh_tokens
-SET revoked_at=now()
-WHERE token_hash=$1 AND revoked_at IS NULL;
+SET revoked_at = now()
+WHERE token_hash = $1
+  AND revoked_at IS NULL;
 `
 	_, err := r.db.Exec(ctx, q, tokenHash)
 	return err
+}
+
+func (r *AuthRepo) RevokeUserRefreshTokens(ctx context.Context, tenantID, userID uuid.UUID) error {
+	_, err := r.db.Exec(ctx, `
+UPDATE refresh_tokens
+SET revoked_at = now()
+WHERE tenant_id = $1
+  AND user_id = $2
+  AND revoked_at IS NULL;
+`, tenantID, userID)
+	return err
+}
+
+func (r *AuthRepo) InsertAuthToken(ctx context.Context, tenantID, userID uuid.UUID, purpose, tokenHash string, expiresAt time.Time) error {
+	_, err := r.db.Exec(ctx, `
+INSERT INTO auth_tokens(tenant_id, user_id, purpose, token_hash, expires_at)
+VALUES ($1, $2, $3, $4, $5);
+`, tenantID, userID, purpose, tokenHash, expiresAt)
+	return err
+}
+
+func (r *AuthRepo) FindAuthToken(ctx context.Context, purpose, tokenHash string) (svc.AuthTokenRecord, error) {
+	var record svc.AuthTokenRecord
+	err := r.db.QueryRow(ctx, `
+SELECT id, tenant_id, user_id, purpose, token_hash, expires_at, consumed_at
+FROM auth_tokens
+WHERE purpose = $1
+  AND token_hash = $2;
+`, purpose, tokenHash).Scan(
+		&record.ID,
+		&record.TenantID,
+		&record.UserID,
+		&record.Purpose,
+		&record.TokenHash,
+		&record.ExpiresAt,
+		&record.ConsumedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return svc.AuthTokenRecord{}, svc.ErrNotFound
+	}
+	return record, err
+}
+
+func (r *AuthRepo) ConsumeAuthToken(ctx context.Context, tokenID uuid.UUID, consumedAt time.Time) error {
+	tag, err := r.db.Exec(ctx, `
+UPDATE auth_tokens
+SET consumed_at = $2
+WHERE id = $1
+  AND consumed_at IS NULL;
+`, tokenID, consumedAt)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return svc.ErrNotFound
+	}
+	return nil
+}
+
+func (r *AuthRepo) InvalidateAuthTokens(ctx context.Context, tenantID, userID uuid.UUID, purpose string) error {
+	_, err := r.db.Exec(ctx, `
+UPDATE auth_tokens
+SET consumed_at = now()
+WHERE tenant_id = $1
+  AND user_id = $2
+  AND purpose = $3
+  AND consumed_at IS NULL;
+`, tenantID, userID, purpose)
+	return err
+}
+
+func (r *AuthRepo) scanUser(ctx context.Context, q string, args ...any) (svc.User, error) {
+	var out svc.User
+	err := r.db.QueryRow(ctx, q, args...).Scan(
+		&out.ID,
+		&out.TenantID,
+		&out.Email,
+		&out.PasswordHash,
+		&out.Status,
+		&out.FacultyID,
+		&out.DepartmentID,
+		&out.FullName,
+		&out.IsAdmin,
+		&out.IsProfessor,
+		&out.EmailVerifiedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return svc.User{}, svc.ErrNotFound
+	}
+	return out, err
 }

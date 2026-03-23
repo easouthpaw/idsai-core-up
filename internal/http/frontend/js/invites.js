@@ -1,10 +1,12 @@
 (() => {
+  const auth = window.IDSAIAuth;
   const LS_ACCESS = "idsai_access_token";
   const LS_REFRESH = "idsai_refresh_token";
   const LS_USER = "idsai_rbac_user_id";
   const LS_FACULTY = "idsai_rbac_faculty_id";
   const LS_STUDENT_NAME = "idsai_student_name";
   const LS_STUDENT_EMAIL = "idsai_student_email";
+  const LS_STUDENT_SECTION = "idsai_student_section";
   const LS_IS_ADMIN = "idsai_is_admin";
   const LS_IS_PROFESSOR = "idsai_is_professor";
 
@@ -75,68 +77,38 @@
   }
 
   function clearSession() {
-    localStorage.removeItem(LS_ACCESS);
-    localStorage.removeItem(LS_REFRESH);
-    localStorage.removeItem(LS_USER);
-    localStorage.removeItem(LS_FACULTY);
-    localStorage.removeItem(LS_IS_ADMIN);
-    localStorage.removeItem(LS_IS_PROFESSOR);
-    localStorage.removeItem(LS_STUDENT_NAME);
-    localStorage.removeItem(LS_STUDENT_EMAIL);
+    auth.clearClientState();
   }
 
   function ensureSession() {
-    const access = localStorage.getItem(LS_ACCESS) || "";
-    if (!access) {
+    const claims = auth.getCachedProfile();
+    if (!claims) {
       window.location.href = "/dev/login";
       return null;
     }
-
-    try {
-      const claims = decodePayload(access);
-      if (!claims.sub || !claims.faculty_id) throw new Error("broken claims");
-      localStorage.setItem(LS_USER, claims.sub);
-      localStorage.setItem(LS_FACULTY, claims.faculty_id);
-      localStorage.setItem(LS_IS_ADMIN, claims.is_admin ? "1" : "0");
-      localStorage.setItem(LS_IS_PROFESSOR, claims.is_professor ? "1" : "0");
-      if (claims.is_admin) {
-        window.location.href = "/dev/admin";
-        return null;
-      }
-      if (claims.is_professor) {
-        window.location.href = "/dev/professor";
-        return null;
-      }
-      return claims;
-    } catch (_) {
-      clearSession();
-      window.location.href = "/dev/login";
+    if (claims.is_admin) {
+      window.location.href = "/dev/admin";
       return null;
     }
+    if (claims.is_professor) {
+      window.location.href = "/dev/professor";
+      return null;
+    }
+    return claims;
   }
 
   function authHeaders(withJSON) {
     const headers = {};
     if (withJSON) headers["Content-Type"] = "application/json";
-
-    const access = localStorage.getItem(LS_ACCESS) || "";
-    if (access) headers.Authorization = `Bearer ${access}`;
-
     return headers;
   }
 
   async function request(method, url, body) {
-    const resp = await fetch(url, {
+    const { resp, data } = await auth.requestJSON(url, {
       method,
-      headers: authHeaders(body !== undefined),
+      headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
-
-    const text = await resp.text();
-    let data = text;
-    try {
-      data = JSON.parse(text);
-    } catch (_) {}
 
     if (!resp.ok) {
       const err = new Error(
@@ -227,7 +199,7 @@
         ? `<button class="invite-btn" data-action="open">Открыть проект</button>` +
           `<button class="invite-btn accept" data-action="accept">Принять</button>` +
           `<button class="invite-btn reject" data-action="reject">Отклонить</button>`
-        : `<a class="invite-btn" href="/dev/projects/${encodeURIComponent(item.project_id || "")}">Открыть проект</a>` +
+        : `<a class="invite-btn" href="/dev/projects/${encodeURIComponent(item.project_id || "")}?nav=invites">Открыть проект</a>` +
           `<button class="invite-btn accept" data-action="accept">Принять</button>` +
           `<button class="invite-btn reject" data-action="reject">Отклонить</button>`;
 
@@ -280,7 +252,7 @@
           `</div>` +
         `</div>` +
         `<div class="invite-actions">` +
-          `<a class="invite-btn" href="/dev/projects/${encodeURIComponent(item.project_id || "")}">Открыть проект</a>` +
+          `<a class="invite-btn" href="/dev/projects/${encodeURIComponent(item.project_id || "")}?nav=invites">Открыть проект</a>` +
         `</div>`;
       ui.outgoingList.appendChild(card);
     });
@@ -330,7 +302,8 @@
     const action = button.getAttribute("data-action");
 
     if (action === "open") {
-      window.location.href = `/dev/projects/${projectID}`;
+      localStorage.setItem(LS_STUDENT_SECTION, "invites");
+      window.location.href = `/dev/projects/${projectID}?nav=invites`;
       return;
     }
     if ((action === "accept" || action === "reject") && memberStatus === "APPLIED") {
@@ -394,8 +367,7 @@
 
   function wireEvents() {
     ui.logoutBtn.addEventListener("click", () => {
-      clearSession();
-      window.location.href = "/dev/login";
+      auth.logout();
     });
 
     ui.tabIncoming.addEventListener("click", () => setTab("incoming"));
@@ -409,9 +381,10 @@
   }
 
   async function bootstrap() {
-    const claims = ensureSession();
+    const claims = await auth.ensureSession("student");
     if (!claims) return;
 
+    localStorage.setItem(LS_STUDENT_SECTION, "invites");
     bindProfile();
     wireEvents();
 

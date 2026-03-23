@@ -170,8 +170,8 @@ WHERE UPPER(d.code) = UPPER($1);
 
 	var userID uuid.UUID
 	if err := tx.QueryRow(ctx, `
-INSERT INTO users(tenant_id, email, password_hash, status)
-VALUES ($1, $2, $3, 'ACTIVE')
+INSERT INTO users(tenant_id, email, password_hash, status, email_verified_at, password_changed_at)
+VALUES ($1, $2, $3, 'ACTIVE', now(), now())
 RETURNING id;
 `, tenantID, in.Email, in.PasswordHash).Scan(&userID); err != nil {
 		var pgErr *pgconn.PgError
@@ -277,7 +277,8 @@ WHERE r.code = $4;
 func (r *AdminRepo) UpdateUserPasswordHash(ctx context.Context, userID uuid.UUID, passwordHash string) error {
 	tag, err := r.db.Exec(ctx, `
 UPDATE users
-SET password_hash = $2
+SET password_hash = $2,
+    password_changed_at = now()
 WHERE id = $1;
 `, userID, passwordHash)
 	if err != nil {
@@ -287,6 +288,16 @@ WHERE id = $1;
 		return svc.ErrUserNotFound
 	}
 	return nil
+}
+
+func (r *AdminRepo) RevokeUserSessions(ctx context.Context, userID uuid.UUID) error {
+	_, err := r.db.Exec(ctx, `
+UPDATE refresh_tokens
+SET revoked_at = now()
+WHERE user_id = $1
+  AND revoked_at IS NULL;
+`, userID)
+	return err
 }
 
 func (r *AdminRepo) UpdateProjectStatus(ctx context.Context, projectID uuid.UUID, status string) error {

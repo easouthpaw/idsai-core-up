@@ -29,7 +29,7 @@ type wiredModules struct {
 }
 
 func wireModules(pool *pgxpool.Pool, cfg config.Config) wiredModules {
-	authModule := authmodule.New(pool, cfg.JWTSecret)
+	authModule := authmodule.New(pool, cfg)
 	adminModule := adminmodule.New(pool)
 	rbacModule := rbacmodule.New(pool)
 	projectsModule := projectsmodule.New(pool, rbacModule.Repo)

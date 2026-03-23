@@ -42,7 +42,7 @@ func (s *Service) ListCriteria(ctx context.Context, projectID uuid.UUID) ([]Crit
 }
 
 func (s *Service) GetGrading(ctx context.Context, userID, projectID uuid.UUID) ([]CriterionGrade, error) {
-	if err := s.requireProjectPermission(ctx, userID, "project.view", projectID); err != nil {
+	if err := s.requireProjectPermission(ctx, userID, "grading.view", projectID); err != nil {
 		return nil, err
 	}
 	p, err := s.projectByID(ctx, projectID)
