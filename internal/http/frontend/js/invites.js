@@ -6,6 +6,7 @@
   const LS_FACULTY = "idsai_rbac_faculty_id";
   const LS_STUDENT_NAME = "idsai_student_name";
   const LS_STUDENT_EMAIL = "idsai_student_email";
+  const LS_AVATAR_URL = "idsai_avatar_url";
   const LS_STUDENT_SECTION = "idsai_student_section";
   const LS_IS_ADMIN = "idsai_is_admin";
   const LS_IS_PROFESSOR = "idsai_is_professor";
@@ -52,6 +53,18 @@
     }
     const e = String(email || "").trim();
     return e ? e.slice(0, 2).toUpperCase() : "ST";
+  }
+
+  function renderAvatar(el, fallbackText, avatarURL) {
+    if (!el) return;
+    const url = String(avatarURL || "").trim();
+    if (url) {
+      el.classList.add("has-image");
+      el.innerHTML = `<img src="${escapeHTML(url)}" alt="Avatar" loading="lazy" />`;
+      return;
+    }
+    el.classList.remove("has-image");
+    el.textContent = fallbackText;
   }
 
   function formatDate(raw) {
@@ -127,10 +140,11 @@
   function bindProfile() {
     const name = localStorage.getItem(LS_STUDENT_NAME) || "Student";
     const email = localStorage.getItem(LS_STUDENT_EMAIL) || "student@university.edu";
+    const avatarURL = localStorage.getItem(LS_AVATAR_URL) || "";
 
     ui.studentName.textContent = name;
     ui.studentEmail.textContent = email;
-    ui.profileAvatar.textContent = initials(name, email);
+    renderAvatar(ui.profileAvatar, initials(name, email), avatarURL);
   }
 
   function badgeClass(status) {

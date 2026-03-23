@@ -104,6 +104,7 @@ SELECT
   u.id,
   u.tenant_id,
   u.email,
+  COALESCE(u.pending_email, ''),
   u.password_hash,
   u.status,
   p.faculty_id,
@@ -129,7 +130,10 @@ SELECT
       AND r.code = 'PROFESSOR'
       AND (ra.expires_at IS NULL OR ra.expires_at > now())
   ) AS is_professor,
-  u.email_verified_at
+  u.email_verified_at,
+  u.pending_email_requested_at,
+  COALESCE(u.avatar_key, ''),
+  u.avatar_updated_at
 FROM users u
 JOIN user_profiles p ON p.user_id=u.id
 WHERE u.tenant_id = $1
@@ -144,6 +148,7 @@ SELECT
   u.id,
   u.tenant_id,
   u.email,
+  COALESCE(u.pending_email, ''),
   u.password_hash,
   u.status,
   p.faculty_id,
@@ -169,7 +174,10 @@ SELECT
       AND r.code = 'PROFESSOR'
       AND (ra.expires_at IS NULL OR ra.expires_at > now())
   ) AS is_professor,
-  u.email_verified_at
+  u.email_verified_at,
+  u.pending_email_requested_at,
+  COALESCE(u.avatar_key, ''),
+  u.avatar_updated_at
 FROM users u
 JOIN user_profiles p ON p.user_id=u.id
 WHERE u.tenant_id = $1
@@ -195,6 +203,22 @@ WHERE tenant_id = $1
 	return nil
 }
 
+func (r *AuthRepo) UpdateUserProfileFullName(ctx context.Context, tenantID, userID uuid.UUID, fullName string) error {
+	tag, err := r.db.Exec(ctx, `
+UPDATE user_profiles
+SET full_name = $3
+WHERE tenant_id = $1
+  AND user_id = $2;
+`, tenantID, userID, fullName)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return svc.ErrNotFound
+	}
+	return nil
+}
+
 func (r *AuthRepo) MarkUserEmailVerified(ctx context.Context, tenantID, userID uuid.UUID, verifiedAt time.Time) error {
 	tag, err := r.db.Exec(ctx, `
 UPDATE users
@@ -203,6 +227,83 @@ SET email_verified_at = COALESCE(email_verified_at, $3),
 WHERE tenant_id = $1
   AND id = $2;
 `, tenantID, userID, verifiedAt)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return svc.ErrNotFound
+	}
+	return nil
+}
+
+func (r *AuthRepo) IsEmailInUse(ctx context.Context, tenantID, excludeUserID uuid.UUID, email string) (bool, error) {
+	var inUse bool
+	err := r.db.QueryRow(ctx, `
+SELECT EXISTS (
+  SELECT 1
+  FROM users
+  WHERE tenant_id = $1
+    AND id <> $2
+    AND (
+      email = $3
+      OR pending_email = $3
+    )
+) AS in_use;
+`, tenantID, excludeUserID, email).Scan(&inUse)
+	return inUse, err
+}
+
+func (r *AuthRepo) SetPendingEmail(ctx context.Context, tenantID, userID uuid.UUID, pendingEmail string, requestedAt time.Time) error {
+	tag, err := r.db.Exec(ctx, `
+UPDATE users
+SET pending_email = $3,
+    pending_email_requested_at = $4
+WHERE tenant_id = $1
+  AND id = $2;
+`, tenantID, userID, pendingEmail, requestedAt)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return svc.ErrNotFound
+	}
+	return nil
+}
+
+func (r *AuthRepo) ActivatePendingEmail(ctx context.Context, tenantID, userID uuid.UUID, activatedAt time.Time) (string, error) {
+	var email string
+	err := r.db.QueryRow(ctx, `
+UPDATE users
+SET email = pending_email,
+    pending_email = NULL,
+    pending_email_requested_at = NULL,
+    email_verified_at = $3
+WHERE tenant_id = $1
+  AND id = $2
+  AND pending_email IS NOT NULL
+RETURNING email;
+`, tenantID, userID, activatedAt).Scan(&email)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", svc.ErrNoPendingEmail
+		}
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return "", svc.ErrEmailInUse
+		}
+		return "", err
+	}
+	return email, nil
+}
+
+func (r *AuthRepo) UpdateUserAvatarKey(ctx context.Context, tenantID, userID uuid.UUID, avatarKey *string, updatedAt time.Time) error {
+	tag, err := r.db.Exec(ctx, `
+UPDATE users
+SET avatar_key = $3,
+    avatar_updated_at = $4
+WHERE tenant_id = $1
+  AND id = $2;
+`, tenantID, userID, avatarKey, updatedAt)
 	if err != nil {
 		return err
 	}
@@ -324,6 +425,7 @@ func (r *AuthRepo) scanUser(ctx context.Context, q string, args ...any) (svc.Use
 		&out.ID,
 		&out.TenantID,
 		&out.Email,
+		&out.PendingEmail,
 		&out.PasswordHash,
 		&out.Status,
 		&out.FacultyID,
@@ -332,6 +434,9 @@ func (r *AuthRepo) scanUser(ctx context.Context, q string, args ...any) (svc.Use
 		&out.IsAdmin,
 		&out.IsProfessor,
 		&out.EmailVerifiedAt,
+		&out.PendingEmailAt,
+		&out.AvatarKey,
+		&out.AvatarUpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return svc.User{}, svc.ErrNotFound

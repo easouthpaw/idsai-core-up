@@ -2,6 +2,7 @@ package projects
 
 import (
 	"context"
+	"time"
 
 	"idsai-core-up/internal/domain"
 
@@ -19,6 +20,8 @@ type Repository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (domain.Project, error)
 	HasProjectPermission(ctx context.Context, userID, projectID uuid.UUID, permissionCode string) (bool, error)
 	GetProjectReviewSummary(ctx context.Context, projectID uuid.UUID) (*ReviewSummary, error)
+	SetProjectImage(ctx context.Context, projectID uuid.UUID, imageKey string, updatedAt time.Time) error
+	ClearProjectImage(ctx context.Context, projectID uuid.UUID) error
 	ListByCreator(ctx context.Context, createdBy uuid.UUID) ([]domain.Project, error)
 	ListPublic(ctx context.Context) ([]domain.Project, error)
 	FindGroupIDByCode(ctx context.Context, facultyID uuid.UUID, code string) (uuid.UUID, error)

@@ -5,6 +5,7 @@
   const LS_USER = "idsai_rbac_user_id";
   const LS_STUDENT_NAME = "idsai_student_name";
   const LS_STUDENT_EMAIL = "idsai_student_email";
+  const LS_AVATAR_URL = "idsai_avatar_url";
   const LS_IS_ADMIN = "idsai_is_admin";
   const LS_IS_PROFESSOR = "idsai_is_professor";
 
@@ -128,13 +129,26 @@
     return e ? e.slice(0, 2).toUpperCase() : "PR";
   }
 
+  function renderAvatar(el, fallbackText, avatarURL) {
+    if (!el) return;
+    const url = String(avatarURL || "").trim();
+    if (url) {
+      el.classList.add("has-image");
+      el.innerHTML = `<img src="${escapeHTML(url)}" alt="Avatar" loading="lazy" />`;
+      return;
+    }
+    el.classList.remove("has-image");
+    el.textContent = fallbackText;
+  }
+
   function bindProfile() {
     const name = localStorage.getItem(LS_STUDENT_NAME) || "Преподаватель";
     const email = localStorage.getItem(LS_STUDENT_EMAIL) || "professor@idsai.dev";
+    const avatarURL = localStorage.getItem(LS_AVATAR_URL) || "";
     const avatar = document.getElementById("profAvatar");
     const nameEl = document.getElementById("profName");
     const emailEl = document.getElementById("profEmail");
-    if (avatar) avatar.textContent = initials(name, email);
+    renderAvatar(avatar, initials(name, email), avatarURL);
     if (nameEl) nameEl.textContent = name;
     if (emailEl) emailEl.textContent = email;
   }

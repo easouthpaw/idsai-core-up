@@ -3,6 +3,7 @@ package app
 import (
 	"idsai-core-up/internal/config"
 	"idsai-core-up/internal/http/handlers"
+	"idsai-core-up/internal/infra/storage"
 	adminmodule "idsai-core-up/internal/modules/admin"
 	authmodule "idsai-core-up/internal/modules/auth"
 	notificationsmodule "idsai-core-up/internal/modules/notifications"
@@ -29,6 +30,8 @@ type wiredModules struct {
 }
 
 func wireModules(pool *pgxpool.Pool, cfg config.Config) wiredModules {
+	objectStorage := storage.NewFromConfig(cfg)
+
 	authModule := authmodule.New(pool, cfg)
 	adminModule := adminmodule.New(pool)
 	rbacModule := rbacmodule.New(pool)
@@ -37,6 +40,8 @@ func wireModules(pool *pgxpool.Pool, cfg config.Config) wiredModules {
 	notificationsModule := notificationsmodule.New(pool)
 
 	authModule.Service.SetNotifier(notificationsModule.Service)
+	authModule.Service.SetStorage(objectStorage)
+	projectsModule.Service.SetStorage(objectStorage)
 	adminModule.Handler.SetNotifier(notificationsModule.Service)
 	projectFlowModule.Handler.SetNotifier(notificationsModule.Service)
 

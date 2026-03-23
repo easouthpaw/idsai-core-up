@@ -25,8 +25,19 @@ func NewProjectsRepo(db *pgxpool.Pool) *ProjectsRepo {
 
 func (r *ProjectsRepo) Create(ctx context.Context, title, description string, facultyID uuid.UUID, visibility string, groupID *uuid.UUID, createdBy uuid.UUID) (uuid.UUID, error) {
 	const qCreateProject = `
-INSERT INTO projects(tenant_id, title, description, status, is_public, created_by, faculty_id, visibility, group_id)
-VALUES ((SELECT tenant_id FROM faculties WHERE id = $3), $1, $2, 'DRAFT', ($4 = 'PUBLIC'), $5, $3, $4, $6)
+INSERT INTO projects(tenant_id, title, description, status, is_public, created_by, faculty_id, visibility, group_id, default_cover_variant)
+VALUES (
+  (SELECT tenant_id FROM faculties WHERE id = $3),
+  $1,
+  $2,
+  'DRAFT',
+  ($4 = 'PUBLIC'),
+  $5,
+  $3,
+  $4,
+  $6,
+  1 + (ABS(hashtext(COALESCE($1, '') || ':' || COALESCE($2, ''))) % 6)
+)
 RETURNING id;
 `
 	const qCreateLeadMember = `
@@ -67,10 +78,13 @@ SELECT
   COALESCE(NULLIF(TRIM(up.full_name), ''), split_part(COALESCE(u.email, ''), '@', 1), p.created_by::text) AS created_by_name,
   COALESCE(u.email, '') AS created_by_email,
   p.professor_id,
-  p.professor_review_status,
+  COALESCE(p.professor_review_status, 'NONE') AS professor_review_status,
   p.faculty_id,
   p.visibility,
   p.group_id,
+  COALESCE(p.image_key, '') AS image_key,
+  p.default_cover_variant,
+  p.image_updated_at,
   p.created_at,
   p.updated_at
 FROM projects p
@@ -81,6 +95,7 @@ WHERE p.id = $1;
 	var p domain.Project
 	var professorID *uuid.UUID
 	var groupID *uuid.UUID
+	var imageUpdatedAt *time.Time
 
 	err := r.db.QueryRow(ctx, q, id).Scan(
 		&p.ID,
@@ -96,6 +111,9 @@ WHERE p.id = $1;
 		&p.FacultyID,
 		&p.Visibility,
 		&groupID,
+		&p.ImageKey,
+		&p.DefaultCoverVariant,
+		&imageUpdatedAt,
 		&p.CreatedAt,
 		&p.UpdatedAt,
 	)
@@ -107,6 +125,7 @@ WHERE p.id = $1;
 	}
 	p.ProfessorID = professorID
 	p.GroupID = groupID
+	p.ImageUpdatedAt = imageUpdatedAt
 	return p, nil
 }
 
@@ -185,6 +204,38 @@ GROUP BY reviewer;
 	}, nil
 }
 
+func (r *ProjectsRepo) SetProjectImage(ctx context.Context, projectID uuid.UUID, imageKey string, updatedAt time.Time) error {
+	tag, err := r.db.Exec(ctx, `
+UPDATE projects
+SET image_key = $2,
+    image_updated_at = $3
+WHERE id = $1;
+`, projectID, imageKey, updatedAt)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return projects.ErrNotFound
+	}
+	return nil
+}
+
+func (r *ProjectsRepo) ClearProjectImage(ctx context.Context, projectID uuid.UUID) error {
+	tag, err := r.db.Exec(ctx, `
+UPDATE projects
+SET image_key = NULL,
+    image_updated_at = now()
+WHERE id = $1;
+`, projectID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return projects.ErrNotFound
+	}
+	return nil
+}
+
 func (r *ProjectsRepo) ListByCreator(ctx context.Context, createdBy uuid.UUID) ([]domain.Project, error) {
 	const q = `
 SELECT
@@ -197,10 +248,13 @@ SELECT
   COALESCE(NULLIF(TRIM(up.full_name), ''), split_part(COALESCE(u.email, ''), '@', 1), p.created_by::text) AS created_by_name,
   COALESCE(u.email, '') AS created_by_email,
   p.professor_id,
-  p.professor_review_status,
+  COALESCE(p.professor_review_status, 'NONE') AS professor_review_status,
   p.faculty_id,
   p.visibility,
   p.group_id,
+  COALESCE(p.image_key, '') AS image_key,
+  p.default_cover_variant,
+  p.image_updated_at,
   p.created_at,
   p.updated_at
 FROM projects p
@@ -220,6 +274,7 @@ ORDER BY p.created_at DESC;
 		var p domain.Project
 		var professorID *uuid.UUID
 		var groupID *uuid.UUID
+		var imageUpdatedAt *time.Time
 
 		if err := rows.Scan(
 			&p.ID,
@@ -235,6 +290,9 @@ ORDER BY p.created_at DESC;
 			&p.FacultyID,
 			&p.Visibility,
 			&groupID,
+			&p.ImageKey,
+			&p.DefaultCoverVariant,
+			&imageUpdatedAt,
 			&p.CreatedAt,
 			&p.UpdatedAt,
 		); err != nil {
@@ -243,6 +301,7 @@ ORDER BY p.created_at DESC;
 
 		p.ProfessorID = professorID
 		p.GroupID = groupID
+		p.ImageUpdatedAt = imageUpdatedAt
 		projects = append(projects, p)
 	}
 
@@ -265,10 +324,13 @@ SELECT
   COALESCE(NULLIF(TRIM(up.full_name), ''), split_part(COALESCE(u.email, ''), '@', 1), p.created_by::text) AS created_by_name,
   COALESCE(u.email, '') AS created_by_email,
   p.professor_id,
-  p.professor_review_status,
+  COALESCE(p.professor_review_status, 'NONE') AS professor_review_status,
   p.faculty_id,
   p.visibility,
   p.group_id,
+  COALESCE(p.image_key, '') AS image_key,
+  p.default_cover_variant,
+  p.image_updated_at,
   p.created_at,
   p.updated_at
 FROM projects p
@@ -288,6 +350,7 @@ ORDER BY p.created_at DESC;
 		var p domain.Project
 		var professorID *uuid.UUID
 		var groupID *uuid.UUID
+		var imageUpdatedAt *time.Time
 
 		if err := rows.Scan(
 			&p.ID,
@@ -303,6 +366,9 @@ ORDER BY p.created_at DESC;
 			&p.FacultyID,
 			&p.Visibility,
 			&groupID,
+			&p.ImageKey,
+			&p.DefaultCoverVariant,
+			&imageUpdatedAt,
 			&p.CreatedAt,
 			&p.UpdatedAt,
 		); err != nil {
@@ -311,6 +377,7 @@ ORDER BY p.created_at DESC;
 
 		p.ProfessorID = professorID
 		p.GroupID = groupID
+		p.ImageUpdatedAt = imageUpdatedAt
 		items = append(items, p)
 	}
 

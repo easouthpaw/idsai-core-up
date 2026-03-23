@@ -7,13 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode"
 
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/bcrypt"
 )
 
 const (
-	MinLength = 10
+	MinLength = 8
 
 	argonTime    uint32 = 3
 	argonMemory  uint32 = 64 * 1024
@@ -23,8 +24,10 @@ const (
 )
 
 var (
-	ErrPasswordTooShort = fmt.Errorf("password must be at least %d characters", MinLength)
-	ErrPasswordBlank    = errors.New("password must not be blank")
+	ErrPasswordTooShort    = fmt.Errorf("password must be at least %d characters", MinLength)
+	ErrPasswordBlank       = errors.New("password must not be blank")
+	ErrPasswordNeedsLetter = errors.New("password must include at least one letter")
+	ErrPasswordNeedsDigit  = errors.New("password must include at least one number")
 )
 
 type VerifyResult struct {
@@ -38,6 +41,22 @@ func Validate(password string) error {
 	}
 	if len(password) < MinLength {
 		return ErrPasswordTooShort
+	}
+	hasLetter := false
+	hasDigit := false
+	for _, ch := range password {
+		if unicode.IsLetter(ch) {
+			hasLetter = true
+		}
+		if unicode.IsDigit(ch) {
+			hasDigit = true
+		}
+	}
+	if !hasLetter {
+		return ErrPasswordNeedsLetter
+	}
+	if !hasDigit {
+		return ErrPasswordNeedsDigit
 	}
 	return nil
 }

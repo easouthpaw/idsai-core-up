@@ -31,6 +31,8 @@ type fakeProjectsRepo struct {
 	groupErr              error
 	groups                []projects.Group
 	groupsErr             error
+	setProjectImageErr    error
+	clearProjectImageErr  error
 }
 
 func (f fakeProjectsRepo) Create(ctx context.Context, title, description string, facultyID uuid.UUID, visibility string, groupID *uuid.UUID, createdBy uuid.UUID) (uuid.UUID, error) {
@@ -50,6 +52,14 @@ func (f fakeProjectsRepo) HasProjectPermission(ctx context.Context, userID, proj
 
 func (f fakeProjectsRepo) GetProjectReviewSummary(ctx context.Context, projectID uuid.UUID) (*projects.ReviewSummary, error) {
 	return f.reviewSummary, f.reviewSummaryErr
+}
+
+func (f fakeProjectsRepo) SetProjectImage(ctx context.Context, projectID uuid.UUID, imageKey string, updatedAt time.Time) error {
+	return f.setProjectImageErr
+}
+
+func (f fakeProjectsRepo) ClearProjectImage(ctx context.Context, projectID uuid.UUID) error {
+	return f.clearProjectImageErr
 }
 
 func (f fakeProjectsRepo) ListByCreator(ctx context.Context, createdBy uuid.UUID) ([]domain.Project, error) {

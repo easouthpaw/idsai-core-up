@@ -1,0 +1,176 @@
+.settings-content {
+  display: grid;
+  gap: 16px;
+  padding: 20px 24px 28px;
+}
+
+.settings-hero {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  padding: 18px 20px;
+}
+
+.settings-hero h1 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.settings-hero p {
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
+.settings-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.settings-card-head {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.settings-card-head h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.settings-card-head p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.settings-card-body {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px 20px;
+}
+
+.avatar-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+.settings-avatar {
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #8b5cf6 0%, #6366f1 100%);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font: 700 26px "IBM Plex Mono", ui-monospace, monospace;
+  overflow: hidden;
+  border: 1px solid #dbe0e9;
+}
+
+.settings-avatar.has-image {
+  background: #f8fafc;
+}
+
+.settings-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatar-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.avatar-actions p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.row-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.field-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.field-grid.two {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.field-grid label {
+  color: #344054;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.field-grid input {
+  width: 100%;
+  min-height: 42px;
+  border-radius: 10px;
+  border: 1px solid #d0d5dd;
+  background: #fff;
+  color: #111827;
+  padding: 10px 12px;
+  font: 500 14px "Manrope", sans-serif;
+}
+
+.field-grid input[readonly] {
+  background: #f8fafc;
+  color: #475467;
+}
+
+.field-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.email-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.inline-status {
+  margin: 0;
+  color: #475467;
+  font-size: 13px;
+  min-height: 20px;
+}
+
+.inline-status.err {
+  color: #dc2626;
+}
+
+.inline-status.ok {
+  color: #15803d;
+}
+
+.password-rules {
+  margin: 0;
+  padding-left: 18px;
+  color: #475467;
+  font-size: 13px;
+  display: grid;
+  gap: 4px;
+}
+
+@media (max-width: 980px) {
+  .field-grid.two {
+    grid-template-columns: 1fr;
+  }
+}

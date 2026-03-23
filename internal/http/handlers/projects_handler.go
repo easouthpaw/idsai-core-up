@@ -35,6 +35,10 @@ type projectResponse struct {
 	FacultyID             string                        `json:"faculty_id" example:"550e8400-e29b-41d4-a716-446655440000"`
 	Visibility            string                        `json:"visibility" example:"FACULTY"`
 	GroupID               *string                       `json:"group_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
+	ImageKey              string                        `json:"image_key,omitempty"`
+	ImageURL              string                        `json:"image_url,omitempty"`
+	HasCustomImage        bool                          `json:"has_custom_image"`
+	DefaultCoverVariant   int                           `json:"default_cover_variant"`
 	CreatedAt             time.Time                     `json:"created_at"`
 	UpdatedAt             time.Time                     `json:"updated_at"`
 	ViewerAccess          *projectViewerAccessResponse  `json:"viewer_access,omitempty"`
@@ -90,6 +94,10 @@ func projectToResponse(p domain.Project) projectResponse {
 		FacultyID:             p.FacultyID.String(),
 		Visibility:            toUIVisibility(p.Visibility),
 		GroupID:               nil,
+		ImageKey:              strings.TrimSpace(p.ImageKey),
+		ImageURL:              strings.TrimSpace(p.ImageURL),
+		HasCustomImage:        strings.TrimSpace(p.ImageKey) != "",
+		DefaultCoverVariant:   p.DefaultCoverVariant,
 		CreatedAt:             p.CreatedAt,
 		UpdatedAt:             p.UpdatedAt,
 	}
@@ -107,6 +115,9 @@ func projectToResponse(p domain.Project) projectResponse {
 	if p.GroupID != nil {
 		s := p.GroupID.String()
 		resp.GroupID = &s
+	}
+	if resp.DefaultCoverVariant <= 0 {
+		resp.DefaultCoverVariant = 1
 	}
 
 	return resp

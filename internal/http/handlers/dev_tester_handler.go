@@ -52,3 +52,7 @@ func DevProfessorCriteriaPage(c *gin.Context) {
 func DevProfessorGradingPage(c *gin.Context) {
 	c.FileFromFS("professor-grading.html", devFrontendFS)
 }
+
+func DevSettingsPage(c *gin.Context) {
+	c.FileFromFS("settings.html", devFrontendFS)
+}

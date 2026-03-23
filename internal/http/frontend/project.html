@@ -65,10 +65,10 @@
       </nav>
 
       <div class="sidebar-bottom">
-        <button class="bottom-link" type="button" disabled>
+        <a class="bottom-link" href="/dev/settings">
           <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">settings</span></span>
           <span class="nav-label">Настройки</span>
-        </button>
+        </a>
         <button id="logoutBtn" class="bottom-link danger" type="button">
           <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">logout</span></span>
           <span class="nav-label">Выйти</span>
@@ -102,6 +102,10 @@
               <span id="statusBadge" class="status-pill">В работе</span>
               <span id="projectID" class="meta-mono">id: -</span>
             </div>
+          </div>
+
+          <div class="hero-cover-wrap">
+            <img id="heroCoverImage" class="hero-cover-image" src="/dev/static/assets/code-screen.jpg" alt="Project cover" />
           </div>
 
           <div class="hero-actions">
@@ -411,8 +415,13 @@
 
             <div class="edit-body">
               <div class="cover-slot">
-                <img class="cover-placeholder" src="/dev/static/assets/code-screen.jpg" alt="Project cover" />
-                <span>Кликните для замены</span>
+                <img id="editCoverPreview" class="cover-placeholder" src="/dev/static/assets/code-screen.jpg" alt="Project cover" />
+                <input id="editCoverInput" type="file" accept="image/jpeg,image/jpg,image/png,image/webp" hidden />
+                <div class="cover-actions">
+                  <button id="uploadCoverBtn" class="ghost-btn" type="button">Загрузить</button>
+                  <button id="removeCoverBtn" class="ghost-btn danger-btn" type="button">Удалить</button>
+                </div>
+                <span id="coverStatus">Рекомендуем формат 16:9, JPG/PNG/WEBP.</span>
               </div>
 
               <div class="edit-fields">

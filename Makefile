@@ -8,7 +8,7 @@ run:
 	DATABASE_URL="$(DB_URL)" go run $(APP)
 
 up:
-	docker compose up -d postgres
+	docker compose up -d postgres minio
 
 migrate:
 	$(GOOSE) -dir migrations postgres "$(DB_URL)" up

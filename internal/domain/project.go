@@ -33,4 +33,8 @@ type Project struct {
 	FacultyID             uuid.UUID
 	Visibility            string
 	GroupID               *uuid.UUID
+	ImageKey              string
+	ImageURL              string
+	DefaultCoverVariant   int
+	ImageUpdatedAt        *time.Time
 }

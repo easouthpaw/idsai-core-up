@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"idsai-core-up/internal/http/middleware"
+	"idsai-core-up/internal/security/passwords"
 	"idsai-core-up/internal/services/auth"
 
 	"github.com/gin-gonic/gin"
@@ -50,6 +51,8 @@ type passwordResetRequestReq struct {
 
 type passwordResetConfirmReq struct {
 	Token    string `json:"token"`
+	Email    string `json:"email"`
+	Code     string `json:"code"`
 	Password string `json:"password" binding:"required"`
 }
 
@@ -69,7 +72,10 @@ type meResp struct {
 	FacultyID     string `json:"faculty_id"`
 	DepartmentID  string `json:"department_id"`
 	Email         string `json:"email"`
+	PendingEmail  string `json:"pending_email,omitempty"`
+	PendingStatus string `json:"pending_email_status,omitempty"`
 	FullName      string `json:"full_name"`
+	AvatarURL     string `json:"avatar_url,omitempty"`
 	IsAdmin       bool   `json:"is_admin"`
 	IsProfessor   bool   `json:"is_professor"`
 	EmailVerified bool   `json:"email_verified"`
@@ -109,10 +115,23 @@ func writeAuthError(c *gin.Context, err error) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 	case errors.Is(err, auth.ErrInvalidInput):
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid input"})
+	case errors.Is(err, passwords.ErrPasswordBlank),
+		errors.Is(err, passwords.ErrPasswordTooShort),
+		errors.Is(err, passwords.ErrPasswordNeedsLetter),
+		errors.Is(err, passwords.ErrPasswordNeedsDigit):
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	case errors.Is(err, auth.ErrNotFound):
 		c.JSON(http.StatusBadRequest, gin.H{"error": "resource not found"})
 	case errors.Is(err, auth.ErrUserExists):
 		c.JSON(http.StatusConflict, gin.H{"error": "user already exists"})
+	case errors.Is(err, auth.ErrEmailInUse):
+		c.JSON(http.StatusConflict, gin.H{"error": "email already in use"})
+	case errors.Is(err, auth.ErrNoPendingEmail):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no pending email"})
+	case errors.Is(err, auth.ErrInvalidCurrentPassword):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid current password"})
+	case errors.Is(err, auth.ErrStorageUnavailable):
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "storage unavailable"})
 	case errors.Is(err, auth.ErrSessionExpired), errors.Is(err, auth.ErrSessionInvalid):
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "session invalid"})
 	case errors.Is(err, auth.ErrTokenExpired):
@@ -131,11 +150,25 @@ func buildMeResp(u auth.User) meResp {
 		FacultyID:     u.FacultyID.String(),
 		DepartmentID:  u.DepartmentID.String(),
 		Email:         u.Email,
+		PendingEmail:  strings.TrimSpace(u.PendingEmail),
+		PendingStatus: pendingEmailStatus(u),
 		FullName:      u.FullName,
+		AvatarURL:     strings.TrimSpace(u.AvatarURL),
 		IsAdmin:       u.IsAdmin,
 		IsProfessor:   u.IsProfessor,
 		EmailVerified: u.EmailVerifiedAt != nil,
 	}
+}
+
+func pendingEmailStatus(u auth.User) string {
+	pending := strings.TrimSpace(u.PendingEmail)
+	if pending == "" {
+		return ""
+	}
+	if u.PendingEmailAt == nil {
+		return "pending_verification"
+	}
+	return "verification_sent"
 }
 
 func (h *AuthHandler) RegisterStudent(c *gin.Context) {
@@ -297,6 +330,19 @@ func (h *AuthHandler) PasswordResetConfirm(c *gin.Context) {
 	var req passwordResetConfirmReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
+		return
+	}
+
+	code := strings.TrimSpace(req.Code)
+	email := strings.TrimSpace(req.Email)
+	if code != "" && email != "" {
+		if err := h.svc.ResetPasswordByCode(c.Request.Context(), tenantCodeFromHeader(c), email, code, req.Password); err != nil {
+			writeAuthError(c, err)
+			return
+		}
+		clearPasswordResetCookie(c)
+		clearSessionCookies(c)
+		c.JSON(http.StatusOK, authStatusResp{Status: "password_reset"})
 		return
 	}
 

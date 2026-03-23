@@ -225,9 +225,18 @@ body.admin-body .modal-status.err {
 body.projects-body .layout,
 body.project-body .app-shell,
 body.admin-body .admin-layout {
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
   display: grid;
   grid-template-columns: 244px minmax(0, 1fr);
+}
+
+body.projects-body,
+body.project-body,
+body.admin-body {
+  height: 100vh;
+  min-height: 100vh;
+  overflow: hidden;
 }
 
 body.projects-body .sidebar,
@@ -235,11 +244,17 @@ body.project-body .sidebar,
 body.admin-body .admin-sidebar {
   width: 244px;
   min-width: 244px;
+  height: 100vh;
+  max-height: 100vh;
+  align-self: start;
+  position: sticky;
+  top: 0;
   background: linear-gradient(180deg, #171a1f 0%, #14171d 100%);
   border-right: 1px solid #2b313c;
   padding: 14px 10px;
   box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.22);
   overflow-y: auto;
+  overflow-x: hidden;
   transition: none;
 }
 
@@ -297,6 +312,27 @@ body.projects-body .mine-owner {
   border: 1px solid rgba(139, 92, 246, 0.35);
   background: linear-gradient(160deg, #8b5cf6 0%, #6366f1 100%);
   color: #fff;
+}
+
+body.projects-body .avatar.has-image,
+body.project-body .avatar.has-image,
+body.admin-body .avatar.has-image,
+body.admin-body .chip-avatar.has-image,
+body.professor-body .avatar.has-image {
+  background: #0f172a;
+  color: transparent;
+}
+
+body.projects-body .avatar img,
+body.project-body .avatar img,
+body.admin-body .avatar img,
+body.admin-body .chip-avatar img,
+body.professor-body .avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+  display: block;
 }
 
 body.projects-body .profile-name,
@@ -431,8 +467,10 @@ body.projects-body .content-shell,
 body.project-body .main-shell,
 body.admin-body .admin-shell {
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: auto;
 }
 
 body.projects-body .topbar,
@@ -1753,20 +1791,41 @@ body.auth-body ::-webkit-scrollbar-track {
 }
 
 @media (max-width: 1024px) {
+  body.projects-body,
+  body.project-body,
+  body.admin-body {
+    height: auto;
+    min-height: 100vh;
+    overflow: auto;
+  }
+
   body.auth-body .split,
   body.projects-body .layout,
   body.project-body .app-shell,
   body.admin-body .admin-layout {
+    height: auto;
+    min-height: 100vh;
     grid-template-columns: 1fr;
   }
 
   body.projects-body .sidebar,
   body.project-body .sidebar,
   body.admin-body .admin-sidebar {
+    position: static;
+    top: auto;
     width: 100%;
     min-width: 0;
+    height: auto;
+    max-height: none;
     border-right: 0;
     border-bottom: 1px solid #2b313c;
+    overflow: visible;
+  }
+
+  body.projects-body .content-shell,
+  body.project-body .main-shell,
+  body.admin-body .admin-shell {
+    overflow: visible;
   }
 
   body.projects-body .topbar,

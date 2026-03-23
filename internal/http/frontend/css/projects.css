@@ -113,6 +113,18 @@ body.modal-open {
   flex-shrink: 0;
 }
 
+.avatar.has-image {
+  background: #0f172a;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  display: block;
+  object-fit: cover;
+}
+
 .profile-name {
   margin: 0;
   font-size: 18px;
@@ -243,13 +255,26 @@ body.modal-open {
   color: #fff;
 }
 
+.bottom-link.active {
+  background: #1e2a38;
+  color: #fff;
+}
+
 .nav-item.active .icon-box,
 .nav-link.active .icon-box {
   background: rgba(26, 111, 196, 0.2);
 }
 
+.bottom-link.active .icon-box {
+  background: rgba(26, 111, 196, 0.2);
+}
+
 .nav-item.active .icon-box .material-symbols-outlined,
 .nav-link.active .icon-box .material-symbols-outlined {
+  color: #4fa3e8;
+}
+
+.bottom-link.active .icon-box .material-symbols-outlined {
   color: #4fa3e8;
 }
 
@@ -528,6 +553,10 @@ body.modal-open {
   grid-template-columns: 1fr;
 }
 
+.project-grid.list-view .project-cover {
+  height: 108px;
+}
+
 .project-card {
   border: 1px solid #dfe3ea;
   border-radius: 12px;
@@ -535,6 +564,22 @@ body.modal-open {
   padding: 14px;
   display: grid;
   gap: 8px;
+}
+
+.project-cover {
+  width: 100%;
+  height: 132px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #d8dee8;
+  background: #f8fafc;
+}
+
+.project-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .mine-card {

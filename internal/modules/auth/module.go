@@ -25,6 +25,7 @@ func New(pool *pgxpool.Pool, cfg config.Config) Output {
 		AccessTTL:              time.Duration(cfg.AuthAccessTTLMinutes) * time.Minute,
 		RefreshTTL:             time.Duration(cfg.AuthRefreshTTLHours) * time.Hour,
 		VerificationTTL:        time.Duration(cfg.EmailVerificationTTLHours) * time.Hour,
+		EmailChangeTTL:         time.Duration(cfg.EmailChangeTTLHours) * time.Hour,
 		PasswordResetTTL:       time.Duration(cfg.PasswordResetTTLMinutes) * time.Minute,
 		MaxFailedLoginAttempts: cfg.MaxLoginAttempts,
 		LoginAttemptWindow:     time.Duration(cfg.LoginAttemptWindowMinutes) * time.Minute,

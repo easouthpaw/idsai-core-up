@@ -9,6 +9,7 @@ const (
 
 	TokenPurposeEmailVerification = "EMAIL_VERIFICATION"
 	TokenPurposePasswordReset     = "PASSWORD_RESET"
+	TokenPurposeEmailChange       = "EMAIL_CHANGE"
 
 	TokenIssuer             = "idsai-core-up"
 	AccessCookieName        = "idsai_access"
@@ -23,8 +24,12 @@ var (
 	ErrTooManyAttempts           = errors.New("too many attempts")
 	ErrNotFound                  = errors.New("not found")
 	ErrUserExists                = errors.New("user already exists")
+	ErrEmailInUse                = errors.New("email already in use")
 	ErrTokenExpired              = errors.New("token expired")
 	ErrTokenInvalid              = errors.New("token invalid")
 	ErrSessionExpired            = errors.New("session expired")
 	ErrSessionInvalid            = errors.New("session invalid")
+	ErrInvalidCurrentPassword    = errors.New("invalid current password")
+	ErrNoPendingEmail            = errors.New("no pending email")
+	ErrStorageUnavailable        = errors.New("storage unavailable")
 )

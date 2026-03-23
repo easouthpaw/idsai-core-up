@@ -32,8 +32,15 @@ type Config struct {
 	AuthRefreshTTLHours       int
 	PasswordResetTTLMinutes   int
 	EmailVerificationTTLHours int
+	EmailChangeTTLHours       int
 	MaxLoginAttempts          int
 	LoginAttemptWindowMinutes int
+	StorageEndpoint           string
+	StorageAccessKey          string
+	StorageSecretKey          string
+	StorageBucket             string
+	StorageUseSSL             bool
+	StoragePublicBaseURL      string
 }
 
 func Load() Config {
@@ -62,8 +69,15 @@ func Load() Config {
 		AuthRefreshTTLHours:       getenvInt("AUTH_REFRESH_TTL_HOURS", 168),
 		PasswordResetTTLMinutes:   getenvInt("AUTH_PASSWORD_RESET_TTL_MINUTES", 30),
 		EmailVerificationTTLHours: getenvInt("AUTH_EMAIL_VERIFICATION_TTL_HOURS", 24),
+		EmailChangeTTLHours:       getenvInt("AUTH_EMAIL_CHANGE_TTL_HOURS", 24),
 		MaxLoginAttempts:          getenvInt("AUTH_MAX_LOGIN_ATTEMPTS", 5),
 		LoginAttemptWindowMinutes: getenvInt("AUTH_LOGIN_ATTEMPT_WINDOW_MINUTES", 15),
+		StorageEndpoint:           getenv("MINIO_ENDPOINT", ""),
+		StorageAccessKey:          getenv("MINIO_ACCESS_KEY", ""),
+		StorageSecretKey:          getenv("MINIO_SECRET_KEY", ""),
+		StorageBucket:             getenv("MINIO_BUCKET", "idsai-media"),
+		StorageUseSSL:             getenvBool("MINIO_USE_SSL", false),
+		StoragePublicBaseURL:      getenv("MINIO_PUBLIC_BASE_URL", ""),
 	}
 }
 

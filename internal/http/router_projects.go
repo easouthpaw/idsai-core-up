@@ -31,4 +31,6 @@ func registerProjectsRoutes(
 	)
 
 	p.GET("/:project_id", projectsH.Get)
+	p.POST("/:project_id/image", projectsH.UploadImage)
+	p.DELETE("/:project_id/image", projectsH.DeleteImage)
 }

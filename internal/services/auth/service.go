@@ -7,8 +7,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"idsai-core-up/internal/infra/images"
 	"idsai-core-up/internal/security/passwords"
 	notifsvc "idsai-core-up/internal/services/notifications"
+	"math/big"
 	"net/url"
 	"strings"
 	"time"
@@ -23,6 +25,7 @@ type User struct {
 	ID              uuid.UUID
 	TenantID        uuid.UUID
 	Email           string
+	PendingEmail    string
 	PasswordHash    string
 	Status          string
 	FacultyID       uuid.UUID
@@ -31,6 +34,10 @@ type User struct {
 	IsAdmin         bool
 	IsProfessor     bool
 	EmailVerifiedAt *time.Time
+	AvatarKey       string
+	PendingEmailAt  *time.Time
+	AvatarUpdatedAt *time.Time
+	AvatarURL       string
 }
 
 type CreateUserParams struct {
@@ -64,8 +71,13 @@ type Repository interface {
 	GrantStudentFacultyRole(ctx context.Context, tenantID, userID, facultyID uuid.UUID) error
 	FindUserByEmail(ctx context.Context, tenantID uuid.UUID, email string) (User, error)
 	FindUserByID(ctx context.Context, tenantID, userID uuid.UUID) (User, error)
+	UpdateUserProfileFullName(ctx context.Context, tenantID, userID uuid.UUID, fullName string) error
 	UpdateUserPasswordHash(ctx context.Context, tenantID, userID uuid.UUID, passwordHash string, changedAt time.Time) error
 	MarkUserEmailVerified(ctx context.Context, tenantID, userID uuid.UUID, verifiedAt time.Time) error
+	IsEmailInUse(ctx context.Context, tenantID, excludeUserID uuid.UUID, email string) (bool, error)
+	SetPendingEmail(ctx context.Context, tenantID, userID uuid.UUID, pendingEmail string, requestedAt time.Time) error
+	ActivatePendingEmail(ctx context.Context, tenantID, userID uuid.UUID, activatedAt time.Time) (string, error)
+	UpdateUserAvatarKey(ctx context.Context, tenantID, userID uuid.UUID, avatarKey *string, updatedAt time.Time) error
 	InsertRefreshToken(ctx context.Context, tenantID, userID uuid.UUID, tokenHash string, expiresAt time.Time) error
 	FindRefreshToken(ctx context.Context, tokenHash string) (tenantID uuid.UUID, userID uuid.UUID, expiresAt time.Time, revokedAt *time.Time, err error)
 	RevokeRefreshToken(ctx context.Context, tokenHash string) error
@@ -77,12 +89,20 @@ type Repository interface {
 	InvalidateAuthTokens(ctx context.Context, tenantID, userID uuid.UUID, purpose string) error
 }
 
+type ObjectStorage interface {
+	PutObject(ctx context.Context, key, contentType string, body []byte) error
+	DeleteObject(ctx context.Context, key string) error
+	PublicURL(key string) string
+	Available() bool
+}
+
 type Config struct {
 	JWTSecret              string
 	PublicBaseURL          string
 	AccessTTL              time.Duration
 	RefreshTTL             time.Duration
 	VerificationTTL        time.Duration
+	EmailChangeTTL         time.Duration
 	PasswordResetTTL       time.Duration
 	MaxFailedLoginAttempts int
 	LoginAttemptWindow     time.Duration
@@ -95,10 +115,12 @@ type Service struct {
 	accessTTL        time.Duration
 	refreshTTL       time.Duration
 	verificationTTL  time.Duration
+	emailChangeTTL   time.Duration
 	passwordResetTTL time.Duration
 	loginLimiter     *attemptLimiter
 	recoveryLimiter  *attemptLimiter
 	notifier         NotificationPublisher
+	storage          ObjectStorage
 }
 
 type NotificationPublisher interface {
@@ -133,6 +155,9 @@ func NewService(repo Repository, cfg Config) *Service {
 	if cfg.VerificationTTL <= 0 {
 		cfg.VerificationTTL = 24 * time.Hour
 	}
+	if cfg.EmailChangeTTL <= 0 {
+		cfg.EmailChangeTTL = 24 * time.Hour
+	}
 	if cfg.PasswordResetTTL <= 0 {
 		cfg.PasswordResetTTL = 30 * time.Minute
 	}
@@ -144,6 +169,7 @@ func NewService(repo Repository, cfg Config) *Service {
 		accessTTL:        cfg.AccessTTL,
 		refreshTTL:       cfg.RefreshTTL,
 		verificationTTL:  cfg.VerificationTTL,
+		emailChangeTTL:   cfg.EmailChangeTTL,
 		passwordResetTTL: cfg.PasswordResetTTL,
 		loginLimiter:     newAttemptLimiter(cfg.LoginAttemptWindow, cfg.MaxFailedLoginAttempts),
 		recoveryLimiter:  newAttemptLimiter(15*time.Minute, 5),
@@ -152,6 +178,10 @@ func NewService(repo Repository, cfg Config) *Service {
 
 func (s *Service) SetNotifier(notifier NotificationPublisher) {
 	s.notifier = notifier
+}
+
+func (s *Service) SetStorage(storage ObjectStorage) {
+	s.storage = storage
 }
 
 func (s *Service) AccessTTL() time.Duration {
@@ -264,6 +294,7 @@ func (s *Service) Login(ctx context.Context, actorKey, tenantCode, email, passwo
 		s.loginLimiter.Fail(limitKey)
 		return Session{}, ErrInvalidCredentials
 	}
+	u.AvatarURL = s.resolveAvatarURL(u.AvatarKey)
 
 	tokens, err := s.issueTokens(ctx, u.TenantID, u.ID, u.FacultyID, u.DepartmentID, u.IsAdmin, u.IsProfessor)
 	if err != nil {
@@ -307,6 +338,7 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (Session, er
 		_ = s.repo.RevokeRefreshToken(ctx, h)
 		return Session{}, ErrSessionInvalid
 	}
+	u.AvatarURL = s.resolveAvatarURL(u.AvatarKey)
 
 	if err := s.repo.RevokeRefreshToken(ctx, h); err != nil {
 		return Session{}, err
@@ -338,7 +370,195 @@ func (s *Service) Me(ctx context.Context, tenantID, userID uuid.UUID) (User, err
 	if tenantID == uuid.Nil || userID == uuid.Nil {
 		return User{}, ErrInvalidInput
 	}
-	return s.repo.FindUserByID(ctx, tenantID, userID)
+	u, err := s.repo.FindUserByID(ctx, tenantID, userID)
+	if err != nil {
+		return User{}, err
+	}
+	u.AvatarURL = s.resolveAvatarURL(u.AvatarKey)
+	return u, nil
+}
+
+func (s *Service) UpdateProfile(ctx context.Context, tenantID, userID uuid.UUID, fullName string) (User, error) {
+	fullName = strings.TrimSpace(fullName)
+	if tenantID == uuid.Nil || userID == uuid.Nil || len(fullName) < 2 || len(fullName) > 120 {
+		return User{}, ErrInvalidInput
+	}
+	if err := s.repo.UpdateUserProfileFullName(ctx, tenantID, userID, fullName); err != nil {
+		return User{}, err
+	}
+	return s.Me(ctx, tenantID, userID)
+}
+
+func (s *Service) StartEmailChange(ctx context.Context, actorKey string, tenantID, userID uuid.UUID, nextEmail string) error {
+	nextEmail = normalizeEmail(nextEmail)
+	if tenantID == uuid.Nil || userID == uuid.Nil || nextEmail == "" {
+		return ErrInvalidInput
+	}
+
+	user, err := s.repo.FindUserByID(ctx, tenantID, userID)
+	if err != nil {
+		return err
+	}
+	if strings.EqualFold(strings.TrimSpace(user.Email), nextEmail) {
+		return ErrInvalidInput
+	}
+
+	limitKey := recoveryAttemptKey("email-change", actorKey, tenantID.String(), nextEmail)
+	if !s.recoveryLimiter.Allow(limitKey) {
+		return ErrTooManyAttempts
+	}
+	defer s.recoveryLimiter.Fail(limitKey)
+
+	inUse, err := s.repo.IsEmailInUse(ctx, tenantID, userID, nextEmail)
+	if err != nil {
+		return err
+	}
+	if inUse {
+		return ErrEmailInUse
+	}
+
+	now := time.Now().UTC()
+	if err := s.repo.SetPendingEmail(ctx, tenantID, userID, nextEmail, now); err != nil {
+		return err
+	}
+	return s.issueEmailChangeToken(ctx, tenantID, userID, nextEmail)
+}
+
+func (s *Service) ResendEmailChange(ctx context.Context, actorKey string, tenantID, userID uuid.UUID) error {
+	if tenantID == uuid.Nil || userID == uuid.Nil {
+		return ErrInvalidInput
+	}
+	user, err := s.repo.FindUserByID(ctx, tenantID, userID)
+	if err != nil {
+		return err
+	}
+	pendingEmail := normalizeEmail(user.PendingEmail)
+	if pendingEmail == "" {
+		return ErrNoPendingEmail
+	}
+
+	limitKey := recoveryAttemptKey("email-change-resend", actorKey, tenantID.String(), pendingEmail)
+	if !s.recoveryLimiter.Allow(limitKey) {
+		return ErrTooManyAttempts
+	}
+	defer s.recoveryLimiter.Fail(limitKey)
+
+	return s.issueEmailChangeToken(ctx, tenantID, userID, pendingEmail)
+}
+
+func (s *Service) ConfirmEmailChange(ctx context.Context, rawToken string) (User, error) {
+	record, err := s.findUsableAuthToken(ctx, TokenPurposeEmailChange, rawToken)
+	if err != nil {
+		return User{}, err
+	}
+
+	now := time.Now().UTC()
+	if _, err := s.repo.ActivatePendingEmail(ctx, record.TenantID, record.UserID, now); err != nil {
+		return User{}, err
+	}
+	if err := s.repo.ConsumeAuthToken(ctx, record.ID, now); err != nil {
+		return User{}, err
+	}
+	if err := s.repo.RevokeUserRefreshTokens(ctx, record.TenantID, record.UserID); err != nil {
+		return User{}, err
+	}
+	return s.Me(ctx, record.TenantID, record.UserID)
+}
+
+func (s *Service) ConfirmEmailChangeCode(ctx context.Context, tenantID, userID uuid.UUID, code string) (User, error) {
+	if tenantID == uuid.Nil || userID == uuid.Nil || !isVerificationCode(code) {
+		return User{}, ErrInvalidInput
+	}
+	return s.ConfirmEmailChange(ctx, scopedCodeToken(userID, code))
+}
+
+func (s *Service) ChangePassword(ctx context.Context, tenantID, userID uuid.UUID, currentPassword, newPassword string) error {
+	if tenantID == uuid.Nil || userID == uuid.Nil {
+		return ErrInvalidInput
+	}
+	if err := passwords.Validate(newPassword); err != nil {
+		return err
+	}
+
+	u, err := s.repo.FindUserByID(ctx, tenantID, userID)
+	if err != nil {
+		return err
+	}
+	verifyResult, err := passwords.Verify(u.PasswordHash, currentPassword)
+	if err != nil {
+		return err
+	}
+	if !verifyResult.Valid {
+		return ErrInvalidCurrentPassword
+	}
+
+	hash, err := passwords.Hash(newPassword)
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	if err := s.repo.UpdateUserPasswordHash(ctx, tenantID, userID, hash, now); err != nil {
+		return err
+	}
+	if err := s.repo.RevokeUserRefreshTokens(ctx, tenantID, userID); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Service) UpdateAvatar(ctx context.Context, tenantID, userID uuid.UUID, raw []byte) (User, error) {
+	if tenantID == uuid.Nil || userID == uuid.Nil || len(raw) == 0 {
+		return User{}, ErrInvalidInput
+	}
+	if s.storage == nil || !s.storage.Available() {
+		return User{}, ErrStorageUnavailable
+	}
+
+	processed, contentType, err := images.ProcessAvatar(raw)
+	if err != nil {
+		return User{}, err
+	}
+
+	current, err := s.repo.FindUserByID(ctx, tenantID, userID)
+	if err != nil {
+		return User{}, err
+	}
+
+	now := time.Now().UTC()
+	key := fmt.Sprintf("users/avatars/%s/%d-%s.jpg", userID.String(), now.Unix(), uuid.NewString())
+	if err := s.storage.PutObject(ctx, key, contentType, processed); err != nil {
+		return User{}, ErrStorageUnavailable
+	}
+	if err := s.repo.UpdateUserAvatarKey(ctx, tenantID, userID, &key, now); err != nil {
+		_ = s.storage.DeleteObject(ctx, key)
+		return User{}, err
+	}
+
+	if oldKey := strings.TrimSpace(current.AvatarKey); oldKey != "" && oldKey != key {
+		_ = s.storage.DeleteObject(ctx, oldKey)
+	}
+	return s.Me(ctx, tenantID, userID)
+}
+
+func (s *Service) DeleteAvatar(ctx context.Context, tenantID, userID uuid.UUID) (User, error) {
+	if tenantID == uuid.Nil || userID == uuid.Nil {
+		return User{}, ErrInvalidInput
+	}
+	current, err := s.repo.FindUserByID(ctx, tenantID, userID)
+	if err != nil {
+		return User{}, err
+	}
+
+	now := time.Now().UTC()
+	if err := s.repo.UpdateUserAvatarKey(ctx, tenantID, userID, nil, now); err != nil {
+		return User{}, err
+	}
+	if s.storage != nil && s.storage.Available() {
+		if oldKey := strings.TrimSpace(current.AvatarKey); oldKey != "" {
+			_ = s.storage.DeleteObject(ctx, oldKey)
+		}
+	}
+	return s.Me(ctx, tenantID, userID)
 }
 
 func (s *Service) ResendVerification(ctx context.Context, actorKey, tenantCode, email string) error {
@@ -353,11 +573,17 @@ func (s *Service) ResendVerification(ctx context.Context, actorKey, tenantCode, 
 
 	tenantID, err := s.repo.FindTenantByCode(ctx, tenantCode)
 	if err != nil {
-		return nil
+		if errors.Is(err, ErrNotFound) {
+			return nil
+		}
+		return err
 	}
 	u, err := s.repo.FindUserByEmail(ctx, tenantID, email)
 	if err != nil {
-		return nil
+		if errors.Is(err, ErrNotFound) {
+			return nil
+		}
+		return err
 	}
 	if u.EmailVerifiedAt != nil || u.Status == StatusDisabled {
 		return nil
@@ -378,12 +604,18 @@ func (s *Service) RequestPasswordReset(ctx context.Context, actorKey, tenantCode
 
 	tenantID, err := s.repo.FindTenantByCode(ctx, tenantCode)
 	if err != nil {
-		return nil
+		if errors.Is(err, ErrNotFound) {
+			return nil
+		}
+		return err
 	}
 
 	u, err := s.repo.FindUserByEmail(ctx, tenantID, email)
 	if err != nil {
-		return nil
+		if errors.Is(err, ErrNotFound) {
+			return nil
+		}
+		return err
 	}
 	if u.Status != StatusActive || u.EmailVerifiedAt == nil {
 		return nil
@@ -393,10 +625,11 @@ func (s *Service) RequestPasswordReset(ctx context.Context, actorKey, tenantCode
 		return err
 	}
 
-	raw, err := randomToken(32)
+	code, err := randomNumericCode(6)
 	if err != nil {
 		return err
 	}
+	raw := scopedCodeToken(u.ID, code)
 
 	expiresAt := time.Now().UTC().Add(s.passwordResetTTL)
 	if err := s.repo.InsertAuthToken(ctx, u.TenantID, u.ID, TokenPurposePasswordReset, hashToken(raw), expiresAt); err != nil {
@@ -410,12 +643,17 @@ func (s *Service) RequestPasswordReset(ctx context.Context, actorKey, tenantCode
 			UserID:    u.ID,
 			Type:      "account.password_reset",
 			Title:     "Сброс пароля",
-			Body:      "Мы получили запрос на сброс пароля. Перейдите по ссылке из письма, чтобы задать новый пароль.",
+			Body:      "Мы получили запрос на сброс пароля. Используйте код подтверждения из письма, чтобы задать новый пароль.",
 			Payload:   map[string]any{"action": "password_reset"},
 			WithEmail: true,
 			EmailTo:   u.Email,
 			EmailSubj: "IDSAI: сброс пароля",
-			EmailBody: fmt.Sprintf("Чтобы задать новый пароль, перейдите по ссылке: %s\nСсылка действует %d минут.", link, int(s.passwordResetTTL.Minutes())),
+			EmailBody: fmt.Sprintf(
+				"Код подтверждения для сброса пароля: %s\nКод действует %d минут.\n\nЕсли удобнее, можно открыть ссылку: %s",
+				code,
+				int(s.passwordResetTTL.Minutes()),
+				link,
+			),
 		})
 	}
 
@@ -456,6 +694,24 @@ func (s *Service) ResetPassword(ctx context.Context, rawToken, newPassword strin
 		return err
 	}
 	return nil
+}
+
+func (s *Service) ResetPasswordByCode(ctx context.Context, tenantCode, email, code, newPassword string) error {
+	code = strings.TrimSpace(code)
+	if !isVerificationCode(code) {
+		return ErrInvalidInput
+	}
+
+	tenantID, err := s.repo.FindTenantByCode(ctx, normalizeTenantCode(tenantCode))
+	if err != nil {
+		return ErrTokenInvalid
+	}
+	u, err := s.repo.FindUserByEmail(ctx, tenantID, normalizeEmail(email))
+	if err != nil {
+		return ErrTokenInvalid
+	}
+
+	return s.ResetPassword(ctx, scopedCodeToken(u.ID, code), newPassword)
 }
 
 func (s *Service) VerifyEmail(ctx context.Context, rawToken string) error {
@@ -502,6 +758,46 @@ func (s *Service) issueVerification(ctx context.Context, tenantID, userID uuid.U
 			EmailTo:   email,
 			EmailSubj: "IDSAI: подтверждение email",
 			EmailBody: fmt.Sprintf("Подтвердите email по ссылке: %s\nСсылка действует %d часов.", link, int(s.verificationTTL.Hours())),
+		})
+	}
+
+	return nil
+}
+
+func (s *Service) issueEmailChangeToken(ctx context.Context, tenantID, userID uuid.UUID, pendingEmail string) error {
+	if err := s.repo.InvalidateAuthTokens(ctx, tenantID, userID, TokenPurposeEmailChange); err != nil {
+		return err
+	}
+
+	code, err := randomNumericCode(6)
+	if err != nil {
+		return err
+	}
+	raw := scopedCodeToken(userID, code)
+
+	expiresAt := time.Now().UTC().Add(s.emailChangeTTL)
+	if err := s.repo.InsertAuthToken(ctx, tenantID, userID, TokenPurposeEmailChange, hashToken(raw), expiresAt); err != nil {
+		return err
+	}
+
+	if s.notifier != nil {
+		link := s.publicBaseURL + "/v2/auth/settings/email/verify?token=" + url.QueryEscape(raw)
+		_, _ = s.notifier.Notify(ctx, notifsvc.CreateInput{
+			TenantID:  tenantID,
+			UserID:    userID,
+			Type:      "account.email_change",
+			Title:     "Подтверждение нового email",
+			Body:      "Подтвердите новый email кодом из письма, чтобы завершить изменение адреса для входа.",
+			Payload:   map[string]any{"action": "email_change"},
+			WithEmail: true,
+			EmailTo:   pendingEmail,
+			EmailSubj: "IDSAI: подтверждение нового email",
+			EmailBody: fmt.Sprintf(
+				"Код подтверждения нового email: %s\nКод действует %d часов.\n\nЕсли удобнее, можно открыть ссылку: %s",
+				code,
+				int(s.emailChangeTTL.Hours()),
+				link,
+			),
 		})
 	}
 
@@ -586,12 +882,52 @@ func recoveryAttemptKey(kind, actorKey, tenantCode, email string) string {
 	return strings.Join([]string{kind, strings.TrimSpace(actorKey), tenantCode, email}, "|")
 }
 
+func (s *Service) resolveAvatarURL(key string) string {
+	key = strings.TrimSpace(key)
+	if key == "" || s.storage == nil {
+		return ""
+	}
+	return strings.TrimSpace(s.storage.PublicURL(key))
+}
+
 func randomToken(n int) (string, error) {
 	b := make([]byte, n)
 	if _, err := rand.Read(b); err != nil {
 		return "", err
 	}
 	return hex.EncodeToString(b), nil
+}
+
+func randomNumericCode(digits int) (string, error) {
+	if digits <= 0 || digits > 18 {
+		return "", ErrInvalidInput
+	}
+	max := big.NewInt(1)
+	for i := 0; i < digits; i++ {
+		max.Mul(max, big.NewInt(10))
+	}
+	n, err := rand.Int(rand.Reader, max)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%0*d", digits, n.Int64()), nil
+}
+
+func scopedCodeToken(userID uuid.UUID, code string) string {
+	return userID.String() + "." + strings.TrimSpace(code)
+}
+
+func isVerificationCode(code string) bool {
+	code = strings.TrimSpace(code)
+	if len(code) != 6 {
+		return false
+	}
+	for _, ch := range code {
+		if ch < '0' || ch > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func hashToken(raw string) string {

@@ -5,6 +5,7 @@
   const LS_FACULTY = "idsai_rbac_faculty_id";
   const LS_STUDENT_NAME = "idsai_student_name";
   const LS_STUDENT_EMAIL = "idsai_student_email";
+  const LS_AVATAR_URL = "idsai_avatar_url";
   const LS_IS_ADMIN = "idsai_is_admin";
   const LS_IS_PROFESSOR = "idsai_is_professor";
 
@@ -20,6 +21,7 @@
     localStorage.removeItem(LS_FACULTY);
     localStorage.removeItem(LS_STUDENT_NAME);
     localStorage.removeItem(LS_STUDENT_EMAIL);
+    localStorage.removeItem(LS_AVATAR_URL);
     localStorage.removeItem(LS_IS_ADMIN);
     localStorage.removeItem(LS_IS_PROFESSOR);
   }
@@ -35,6 +37,7 @@
     localStorage.setItem(LS_FACULTY, profile.faculty_id || "");
     localStorage.setItem(LS_STUDENT_NAME, profile.full_name || profile.email || "Student");
     localStorage.setItem(LS_STUDENT_EMAIL, profile.email || "");
+    localStorage.setItem(LS_AVATAR_URL, profile.avatar_url || "");
     localStorage.setItem(LS_IS_ADMIN, profile.is_admin ? "1" : "0");
     localStorage.setItem(LS_IS_PROFESSOR, profile.is_professor ? "1" : "0");
     return profile;
@@ -48,7 +51,10 @@
       faculty_id: String(data.faculty_id || ""),
       department_id: String(data.department_id || ""),
       email: String(data.email || ""),
+      pending_email: String(data.pending_email || ""),
+      pending_email_status: String(data.pending_email_status || ""),
       full_name: String(data.full_name || ""),
+      avatar_url: String(data.avatar_url || ""),
       is_admin: Boolean(data.is_admin),
       is_professor: Boolean(data.is_professor),
       email_verified: Boolean(data.email_verified),

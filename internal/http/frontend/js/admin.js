@@ -6,6 +6,7 @@
   const LS_FACULTY = "idsai_rbac_faculty_id";
   const LS_STUDENT_NAME = "idsai_student_name";
   const LS_STUDENT_EMAIL = "idsai_student_email";
+  const LS_AVATAR_URL = "idsai_avatar_url";
   const LS_IS_ADMIN = "idsai_is_admin";
   const LS_IS_PROFESSOR = "idsai_is_professor";
 
@@ -123,6 +124,18 @@
     return text.slice(0, 2).toUpperCase();
   }
 
+  function renderAvatar(el, fallbackText, avatarURL) {
+    if (!el) return;
+    const url = String(avatarURL || "").trim();
+    if (url) {
+      el.classList.add("has-image");
+      el.innerHTML = `<img src="${escapeHTML(url)}" alt="Avatar" loading="lazy" />`;
+      return;
+    }
+    el.classList.remove("has-image");
+    el.textContent = fallbackText;
+  }
+
   function clearSession() {
     auth.clearClientState();
   }
@@ -143,13 +156,14 @@
   function hydrateProfile() {
     const email = localStorage.getItem(LS_STUDENT_EMAIL) || "admin@idsai.local";
     const name = localStorage.getItem(LS_STUDENT_NAME) || "Главный администратор";
+    const avatarURL = localStorage.getItem(LS_AVATAR_URL) || "";
     const iv = initials(name || email);
 
     adminNameEl.textContent = name;
     sidebarNameEl.textContent = name;
     adminEmailEl.textContent = email;
-    adminAvatarEl.textContent = iv;
-    sidebarInitialsEl.textContent = iv;
+    renderAvatar(adminAvatarEl, iv, avatarURL);
+    renderAvatar(sidebarInitialsEl, iv, avatarURL);
   }
 
   function authHeaders(withJSON) {

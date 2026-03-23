@@ -46,11 +46,31 @@ func (f *authHandlerRepo) FindUserByID(ctx context.Context, tenantID, userID uui
 	return f.user, nil
 }
 
+func (f *authHandlerRepo) UpdateUserProfileFullName(ctx context.Context, tenantID, userID uuid.UUID, fullName string) error {
+	return nil
+}
+
 func (f *authHandlerRepo) UpdateUserPasswordHash(ctx context.Context, tenantID, userID uuid.UUID, passwordHash string, changedAt time.Time) error {
 	return nil
 }
 
 func (f *authHandlerRepo) MarkUserEmailVerified(ctx context.Context, tenantID, userID uuid.UUID, verifiedAt time.Time) error {
+	return nil
+}
+
+func (f *authHandlerRepo) IsEmailInUse(ctx context.Context, tenantID, excludeUserID uuid.UUID, email string) (bool, error) {
+	return false, nil
+}
+
+func (f *authHandlerRepo) SetPendingEmail(ctx context.Context, tenantID, userID uuid.UUID, pendingEmail string, requestedAt time.Time) error {
+	return nil
+}
+
+func (f *authHandlerRepo) ActivatePendingEmail(ctx context.Context, tenantID, userID uuid.UUID, activatedAt time.Time) (string, error) {
+	return f.user.Email, nil
+}
+
+func (f *authHandlerRepo) UpdateUserAvatarKey(ctx context.Context, tenantID, userID uuid.UUID, avatarKey *string, updatedAt time.Time) error {
 	return nil
 }
 
@@ -93,7 +113,7 @@ func (f *authHandlerRepo) InvalidateAuthTokens(ctx context.Context, tenantID, us
 func newAuthHandlerForTest(t *testing.T) *AuthHandler {
 	t.Helper()
 
-	hash, err := passwords.Hash("valid-password")
+	hash, err := passwords.Hash("valid-password1")
 	require.NoError(t, err)
 
 	now := time.Now().UTC()
@@ -127,7 +147,7 @@ func TestAuthHandlerLoginSetsHttpOnlyCookiesByDefault(t *testing.T) {
 
 	body, err := json.Marshal(map[string]string{
 		"email":    "student@example.edu",
-		"password": "valid-password",
+		"password": "valid-password1",
 	})
 	require.NoError(t, err)
 
@@ -160,7 +180,7 @@ func TestAuthHandlerLoginTokenModeReturnsTokens(t *testing.T) {
 
 	body, err := json.Marshal(map[string]string{
 		"email":    "student@example.edu",
-		"password": "valid-password",
+		"password": "valid-password1",
 	})
 	require.NoError(t, err)
 

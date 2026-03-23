@@ -79,7 +79,10 @@
       faculty_id: out.data.faculty_id,
       department_id: out.data.department_id,
       email: out.data.email,
+      pending_email: out.data.pending_email,
+      pending_email_status: out.data.pending_email_status,
       full_name: out.data.full_name,
+      avatar_url: out.data.avatar_url,
       is_admin: out.data.is_admin,
       is_professor: out.data.is_professor,
       email_verified: out.data.email_verified,
@@ -128,20 +131,26 @@
     const suggestedEmail = document.getElementById("loginEmail").value.trim();
     const email = window.prompt("Введите email для сброса пароля:", suggestedEmail);
     if (email === null) return;
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    if (!normalizedEmail) {
+      setStatus("Email обязателен для сброса пароля.", false);
+      return;
+    }
 
-    const out = await callJSON("/v2/auth/password-reset/request", { email });
+    const out = await callJSON("/v2/auth/password-reset/request", { email: normalizedEmail });
     if (!out.resp.ok) {
       setStatus("Не удалось отправить письмо для сброса пароля.", false);
       showJSON(out.data);
       return;
     }
 
-    setStatus("Если такой аккаунт существует, письмо для сброса уже отправлено.", true);
+    setStatus("Если такой аккаунт существует, код для сброса уже отправлен на email.", true);
     showJSON(out.data);
+    await confirmPasswordResetByCode(normalizedEmail);
   }
 
   async function confirmPasswordResetFromCookie() {
-    const password = window.prompt("Введите новый пароль (минимум 10 символов):", "");
+    const password = window.prompt("Введите новый пароль (минимум 8 символов, буквы и цифры):", "");
     if (password === null) return;
     const password2 = window.prompt("Повторите новый пароль:", "");
     if (password2 === null) return;
@@ -151,6 +160,41 @@
     }
 
     const out = await callJSON("/v2/auth/password-reset/confirm", { password });
+    if (!out.resp.ok) {
+      setStatus("Не удалось обновить пароль.", false);
+      showJSON(out.data);
+      return;
+    }
+
+    auth.clearClientState();
+    setStatus("Пароль обновлен. Теперь можно войти с новым паролем.", true);
+    showJSON(out.data);
+    window.history.replaceState({}, "", "/dev/login");
+  }
+
+  async function confirmPasswordResetByCode(email) {
+    const code = window.prompt("Введите 6-значный код из письма:", "");
+    if (code === null) return;
+    const normalizedCode = String(code || "").trim();
+    if (!/^\d{6}$/.test(normalizedCode)) {
+      setStatus("Код должен содержать ровно 6 цифр.", false);
+      return;
+    }
+
+    const password = window.prompt("Введите новый пароль (минимум 8 символов, буквы и цифры):", "");
+    if (password === null) return;
+    const password2 = window.prompt("Повторите новый пароль:", "");
+    if (password2 === null) return;
+    if (password !== password2) {
+      setStatus("Пароли не совпадают.", false);
+      return;
+    }
+
+    const out = await callJSON("/v2/auth/password-reset/confirm", {
+      email,
+      code: normalizedCode,
+      password,
+    });
     if (!out.resp.ok) {
       setStatus("Не удалось обновить пароль.", false);
       showJSON(out.data);
@@ -173,6 +217,8 @@
     const params = new URLSearchParams(window.location.search);
     const verified = params.get("verified");
     const reset = params.get("reset");
+    const emailChange = params.get("email_change");
+    const passwordChanged = params.get("password_changed");
 
     if (verified === "1") {
       setStatus("Email подтвержден. Теперь можно войти.", true);
@@ -193,6 +239,16 @@
 
     if (reset === "expired") {
       setStatus("Ссылка сброса пароля недействительна или уже истекла.", false);
+      return;
+    }
+
+    if (emailChange === "1") {
+      setStatus("Email успешно подтвержден и обновлен. Войдите с новым адресом.", true);
+      return;
+    }
+
+    if (passwordChanged === "1") {
+      setStatus("Пароль обновлен. Войдите снова с новым паролем.", true);
     }
   }
 

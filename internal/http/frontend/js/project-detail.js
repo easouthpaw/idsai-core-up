@@ -6,6 +6,7 @@
   const LS_FACULTY = "idsai_rbac_faculty_id";
   const LS_STUDENT_NAME = "idsai_student_name";
   const LS_STUDENT_EMAIL = "idsai_student_email";
+  const LS_AVATAR_URL = "idsai_avatar_url";
   const LS_SELECTED_PROJECT = "idsai_selected_project";
   const LS_STUDENT_SECTION = "idsai_student_section";
   const LS_IS_ADMIN = "idsai_is_admin";
@@ -43,6 +44,14 @@
     DESIGNER: new Set(["team.view", "task.create", "task.update.own", "submission.create", "comment.create"]),
   };
   const PRIMARY_LIFECYCLE_FLOW = ["DRAFT", "RECRUITMENT", "ACTIVE", "GRADING", "ARCHIVE"];
+  const DEFAULT_PROJECT_COVERS = [
+    "https://images.pexels.com/photos/16129724/pexels-photo-16129724.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600",
+    "https://images.pexels.com/photos/17323801/pexels-photo-17323801.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600",
+    "https://images.pexels.com/photos/4508751/pexels-photo-4508751.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600",
+    "https://images.pexels.com/photos/5257576/pexels-photo-5257576.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600",
+    "https://images.pexels.com/photos/10499056/pexels-photo-10499056.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600",
+    "https://images.pexels.com/photos/12899157/pexels-photo-12899157.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600",
+  ];
 
   const ui = {
     profileAvatar: document.getElementById("profileAvatar"),
@@ -57,6 +66,7 @@
     visibilityLabel: document.getElementById("visibilityLabel"),
     projectID: document.getElementById("projectID"),
     repoLink: document.getElementById("repoLink"),
+    heroCoverImage: document.getElementById("heroCoverImage"),
 
     pageNotice: document.getElementById("pageNotice"),
     globalSearchInput: document.getElementById("globalSearchInput"),
@@ -153,6 +163,11 @@
     editVisibilityPublic: document.getElementById("editVisibilityPublic"),
     editVisibilityPrivate: document.getElementById("editVisibilityPrivate"),
     editStackChips: document.getElementById("editStackChips"),
+    editCoverPreview: document.getElementById("editCoverPreview"),
+    editCoverInput: document.getElementById("editCoverInput"),
+    uploadCoverBtn: document.getElementById("uploadCoverBtn"),
+    removeCoverBtn: document.getElementById("removeCoverBtn"),
+    coverStatus: document.getElementById("coverStatus"),
 
     taskModal: document.getElementById("taskModal"),
     taskModalTitleInput: document.getElementById("taskModalTitleInput"),
@@ -244,6 +259,87 @@
     return f ? f.slice(0, 2).toUpperCase() : "ST";
   }
 
+  function renderAvatar(el, fallbackText, avatarURL) {
+    if (!el) return;
+    const url = String(avatarURL || "").trim();
+    if (url) {
+      el.classList.add("has-image");
+      el.innerHTML = `<img src="${escapeHTML(url)}" alt="Avatar" loading="lazy" />`;
+      return;
+    }
+    el.classList.remove("has-image");
+    el.textContent = fallbackText;
+  }
+
+  function stableHash(value) {
+    const s = String(value || "");
+    let h = 0;
+    for (let i = 0; i < s.length; i += 1) {
+      h = (h * 31 + s.charCodeAt(i)) % 100000;
+    }
+    return h;
+  }
+
+  function defaultCoverIndex(project) {
+    const variant = Number.parseInt(String(project && project.default_cover_variant !== undefined ? project.default_cover_variant : ""), 10);
+    if (Number.isFinite(variant) && variant > 0) {
+      return (variant - 1) % DEFAULT_PROJECT_COVERS.length;
+    }
+    return stableHash(project && (project.id || project.title || "")) % DEFAULT_PROJECT_COVERS.length;
+  }
+
+  function defaultCoverURL(project) {
+    return DEFAULT_PROJECT_COVERS[defaultCoverIndex(project)] || DEFAULT_PROJECT_COVERS[0];
+  }
+
+  function projectCoverURL(project) {
+    const custom = String(project && project.image_url ? project.image_url : "").trim();
+    if (custom) return custom;
+    return defaultCoverURL(project);
+  }
+
+  function bindCoverFallback(img, fallback) {
+    if (!img) return;
+    img.onerror = () => {
+      if (fallback && img.src !== fallback) {
+        img.src = fallback;
+      }
+    };
+  }
+
+  function renderProjectCovers() {
+    const project = state.project;
+    if (!project) return;
+
+    const fallback = defaultCoverURL(project);
+    const cover = projectCoverURL(project);
+
+    if (ui.heroCoverImage) {
+      ui.heroCoverImage.src = cover;
+      bindCoverFallback(ui.heroCoverImage, fallback);
+    }
+    if (ui.editCoverPreview) {
+      ui.editCoverPreview.src = cover;
+      bindCoverFallback(ui.editCoverPreview, fallback);
+    }
+  }
+
+  function setCoverStatus(message, isError) {
+    if (!ui.coverStatus) return;
+    ui.coverStatus.textContent = message || "";
+    ui.coverStatus.classList.toggle("err", Boolean(isError));
+    ui.coverStatus.classList.toggle("ok", Boolean(message) && !Boolean(isError));
+  }
+
+  function setButtonLoading(btn, loading, loadingText) {
+    if (!btn) return;
+    if (!btn.dataset.baseText) {
+      btn.dataset.baseText = btn.textContent || "";
+    }
+    btn.disabled = Boolean(loading);
+    btn.textContent = loading ? loadingText : btn.dataset.baseText;
+  }
+
   function formatDate(raw) {
     if (!raw) return "-";
     const d = new Date(raw);
@@ -331,6 +427,24 @@
       throw err;
     }
 
+    return data;
+  }
+
+  async function requestForm(method, url, formData) {
+    const { resp, data } = await auth.requestJSON(url, {
+      method,
+      body: formData,
+    });
+    if (!resp.ok) {
+      const err = new Error(
+        typeof data === "object" && data && data.error
+          ? String(data.error)
+          : `${resp.status} ${resp.statusText}`
+      );
+      err.status = resp.status;
+      err.data = data;
+      throw err;
+    }
     return data;
   }
 
@@ -1002,10 +1116,11 @@
   function bindProfile() {
     const name = localStorage.getItem(LS_STUDENT_NAME) || "Student";
     const email = localStorage.getItem(LS_STUDENT_EMAIL) || "student@university.edu";
+    const avatarURL = localStorage.getItem(LS_AVATAR_URL) || "";
 
     ui.studentName.textContent = name;
     ui.studentEmail.textContent = email;
-    ui.profileAvatar.textContent = initials(name, email);
+    renderAvatar(ui.profileAvatar, initials(name, email), avatarURL);
   }
 
   function bindProjectMetaToUI() {
@@ -1047,11 +1162,15 @@
     ui.favoriteBtn.hidden = applyMode;
     ui.openEditViewBtn.hidden = !canEdit;
     ui.openEditViewBtn.disabled = !canEdit;
+    if (ui.uploadCoverBtn) ui.uploadCoverBtn.disabled = !canEdit;
+    if (ui.removeCoverBtn) ui.removeCoverBtn.disabled = !canEdit;
     if (ui.deleteProjectBtn) {
       const canDelete = isCurrentUserCreator();
       ui.deleteProjectBtn.hidden = !canDelete;
       ui.deleteProjectBtn.disabled = !canDelete;
     }
+
+    renderProjectCovers();
   }
 
   function renderAbout() {
@@ -2141,6 +2260,31 @@
     renderPermissionChecklist(permissionPresetForRole(roleCode));
   }
 
+  async function onUploadCover(file) {
+    if (!file) return;
+    const allowed = new Set(["image/jpeg", "image/png", "image/webp"]);
+    if (!allowed.has(String(file.type || "").toLowerCase())) {
+      throw new Error("Поддерживаются JPG/PNG/WEBP.");
+    }
+    if (Number(file.size || 0) > 12 * 1024 * 1024) {
+      throw new Error("Файл слишком большой (макс. 12MB).");
+    }
+
+    const form = new FormData();
+    form.append("image", file);
+    const project = await requestForm("POST", `/v2/projects/${state.projectID}/image`, form);
+    state.project = project;
+    renderProjectCovers();
+    setCoverStatus("Обложка проекта обновлена.", false);
+  }
+
+  async function onRemoveCover() {
+    const project = await request("DELETE", `/v2/projects/${state.projectID}/image`);
+    state.project = project;
+    renderProjectCovers();
+    setCoverStatus("Обложка проекта удалена. Используется вариант по умолчанию.", false);
+  }
+
   async function onSaveProject() {
     const title = ui.editTitleInput.value.trim();
     const shortDescription = ui.editShortDescriptionInput.value.trim();
@@ -2580,6 +2724,42 @@
         setNotice(err.message || String(err), true);
       }
     });
+
+    if (ui.uploadCoverBtn && ui.editCoverInput) {
+      ui.uploadCoverBtn.addEventListener("click", () => {
+        ui.editCoverInput.click();
+      });
+      ui.editCoverInput.addEventListener("change", async () => {
+        const file = ui.editCoverInput.files && ui.editCoverInput.files[0] ? ui.editCoverInput.files[0] : null;
+        if (!file) return;
+        setButtonLoading(ui.uploadCoverBtn, true, "Загрузка...");
+        try {
+          await onUploadCover(file);
+          setNotice("Обложка проекта обновлена.", false);
+        } catch (err) {
+          setCoverStatus(err.message || String(err), true);
+          setNotice(err.message || String(err), true);
+        } finally {
+          ui.editCoverInput.value = "";
+          setButtonLoading(ui.uploadCoverBtn, false, "Загрузить");
+        }
+      });
+    }
+
+    if (ui.removeCoverBtn) {
+      ui.removeCoverBtn.addEventListener("click", async () => {
+        setButtonLoading(ui.removeCoverBtn, true, "Удаление...");
+        try {
+          await onRemoveCover();
+          setNotice("Обложка удалена.", false);
+        } catch (err) {
+          setCoverStatus(err.message || String(err), true);
+          setNotice(err.message || String(err), true);
+        } finally {
+          setButtonLoading(ui.removeCoverBtn, false, "Удалить");
+        }
+      });
+    }
 
     if (ui.deleteProjectBtn) {
       ui.deleteProjectBtn.addEventListener("click", async () => {

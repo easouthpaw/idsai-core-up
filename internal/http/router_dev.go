@@ -35,6 +35,7 @@ func registerDevAndDocsRoutes(r *gin.Engine, pool *pgxpool.Pool) {
 	r.GET("/dev/professor/reviews", handlers.DevProfessorReviewsPage)
 	r.GET("/dev/professor/criteria", handlers.DevProfessorCriteriaPage)
 	r.GET("/dev/professor/grading", handlers.DevProfessorGradingPage)
+	r.GET("/dev/settings", handlers.DevSettingsPage)
 	r.GET("/dev/tester", handlers.DevLoginPage)
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))

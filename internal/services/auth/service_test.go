@@ -49,6 +49,10 @@ func (f *fakeRepo) FindUserByID(ctx context.Context, tenantID, userID uuid.UUID)
 	return f.user, nil
 }
 
+func (f *fakeRepo) UpdateUserProfileFullName(ctx context.Context, tenantID, userID uuid.UUID, fullName string) error {
+	return nil
+}
+
 func (f *fakeRepo) UpdateUserPasswordHash(ctx context.Context, tenantID, userID uuid.UUID, passwordHash string, changedAt time.Time) error {
 	f.updatedPasswordHash = passwordHash
 	f.updatedPasswordUserID = userID
@@ -56,6 +60,22 @@ func (f *fakeRepo) UpdateUserPasswordHash(ctx context.Context, tenantID, userID 
 }
 
 func (f *fakeRepo) MarkUserEmailVerified(ctx context.Context, tenantID, userID uuid.UUID, verifiedAt time.Time) error {
+	return nil
+}
+
+func (f *fakeRepo) IsEmailInUse(ctx context.Context, tenantID, excludeUserID uuid.UUID, email string) (bool, error) {
+	return false, nil
+}
+
+func (f *fakeRepo) SetPendingEmail(ctx context.Context, tenantID, userID uuid.UUID, pendingEmail string, requestedAt time.Time) error {
+	return nil
+}
+
+func (f *fakeRepo) ActivatePendingEmail(ctx context.Context, tenantID, userID uuid.UUID, activatedAt time.Time) (string, error) {
+	return f.user.Email, nil
+}
+
+func (f *fakeRepo) UpdateUserAvatarKey(ctx context.Context, tenantID, userID uuid.UUID, avatarKey *string, updatedAt time.Time) error {
 	return nil
 }
 
@@ -100,7 +120,7 @@ func (f *fakeRepo) InvalidateAuthTokens(ctx context.Context, tenantID, userID uu
 }
 
 func TestLoginRateLimitedAfterFailures(t *testing.T) {
-	hash, err := passwords.Hash("valid-password")
+	hash, err := passwords.Hash("valid-password1")
 	require.NoError(t, err)
 
 	now := time.Now().UTC()
@@ -124,16 +144,16 @@ func TestLoginRateLimitedAfterFailures(t *testing.T) {
 	})
 
 	for range 5 {
-		_, err = svc.Login(context.Background(), "127.0.0.1", "CORE", repo.user.Email, "wrong-password")
+		_, err = svc.Login(context.Background(), "127.0.0.1", "CORE", repo.user.Email, "wrong-password1")
 		require.ErrorIs(t, err, ErrInvalidCredentials)
 	}
 
-	_, err = svc.Login(context.Background(), "127.0.0.1", "CORE", repo.user.Email, "wrong-password")
+	_, err = svc.Login(context.Background(), "127.0.0.1", "CORE", repo.user.Email, "wrong-password1")
 	require.ErrorIs(t, err, ErrTooManyAttempts)
 }
 
 func TestLoginRehashesLegacyBcryptPassword(t *testing.T) {
-	legacyHash, err := bcrypt.GenerateFromPassword([]byte("legacy-password"), bcrypt.DefaultCost)
+	legacyHash, err := bcrypt.GenerateFromPassword([]byte("legacy-password1"), bcrypt.DefaultCost)
 	require.NoError(t, err)
 
 	now := time.Now().UTC()
@@ -156,7 +176,7 @@ func TestLoginRehashesLegacyBcryptPassword(t *testing.T) {
 		JWTSecret: "01234567890123456789012345678901",
 	})
 
-	session, err := svc.Login(context.Background(), "127.0.0.1", "CORE", repo.user.Email, "legacy-password")
+	session, err := svc.Login(context.Background(), "127.0.0.1", "CORE", repo.user.Email, "legacy-password1")
 	require.NoError(t, err)
 	require.NotEmpty(t, session.Tokens.AccessToken)
 	require.NotEmpty(t, session.Tokens.RefreshToken)
