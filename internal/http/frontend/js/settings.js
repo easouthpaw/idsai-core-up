@@ -1,10 +1,12 @@
 (() => {
   const auth = window.IDSAIAuth;
+  const roleSidebar = window.IDSAIRoleSidebar;
   const LS_STUDENT_NAME = "idsai_student_name";
   const LS_STUDENT_EMAIL = "idsai_student_email";
   const LS_AVATAR_URL = "idsai_avatar_url";
 
   const ui = {
+    sidebarHost: document.querySelector("[data-role-sidebar]"),
     sidebarAvatar: document.getElementById("profileAvatar"),
     sidebarName: document.getElementById("studentName"),
     sidebarEmail: document.getElementById("studentEmail"),
@@ -120,6 +122,26 @@
     };
   }
 
+  function bindLogout() {
+    if (!ui.logoutBtn || ui.logoutBtn.dataset.bound === "1") return;
+    ui.logoutBtn.dataset.bound = "1";
+    ui.logoutBtn.addEventListener("click", () => auth.logout());
+  }
+
+  function syncSidebar(profile) {
+    if (roleSidebar && typeof roleSidebar.renderSidebar === "function" && ui.sidebarHost) {
+      roleSidebar.renderSidebar(ui.sidebarHost, {
+        profile,
+        role: "auto",
+        active: "settings",
+        adminViewMode: "links",
+      });
+    }
+
+    ui.logoutBtn = document.getElementById("logoutBtn");
+    bindLogout();
+  }
+
   function applyProfile(data) {
     const profile = toProfilePayload(data);
     auth.persistProfile(profile);
@@ -131,6 +153,8 @@
     localStorage.setItem(LS_STUDENT_NAME, name);
     localStorage.setItem(LS_STUDENT_EMAIL, email);
     localStorage.setItem(LS_AVATAR_URL, avatarURL);
+
+    syncSidebar(profile);
 
     if (ui.sidebarName) ui.sidebarName.textContent = name;
     if (ui.sidebarEmail) ui.sidebarEmail.textContent = email;
@@ -484,10 +508,6 @@
   }
 
   function wireEvents() {
-    if (ui.logoutBtn) {
-      ui.logoutBtn.addEventListener("click", () => auth.logout());
-    }
-
     ui.saveProfileBtn.addEventListener("click", () => {
       void saveProfile();
     });
@@ -535,6 +555,8 @@
   async function bootstrap() {
     const profile = await auth.ensureSession();
     if (!profile) return;
+
+    syncSidebar(profile);
 
     const isStudent = !profile.is_admin && !profile.is_professor;
     if (!isStudent && ui.groupChangeBox) {

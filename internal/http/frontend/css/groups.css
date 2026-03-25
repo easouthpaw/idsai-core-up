@@ -25,6 +25,13 @@ body.groups-body {
   min-height: 100vh;
   background: var(--groups-bg);
   color: var(--groups-text);
+}
+
+body.groups-body.role-admin {
+  font-family: "Manrope", sans-serif;
+}
+
+body.groups-body.role-teacher {
   font-family: "Inter", sans-serif;
 }
 
@@ -33,12 +40,9 @@ body.groups-body {
   display: grid;
 }
 
-body.groups-body.role-admin .groups-layout {
-  grid-template-columns: auto minmax(0, 1fr);
-}
-
+body.groups-body.role-admin .groups-layout,
 body.groups-body.role-teacher .groups-layout {
-  grid-template-columns: 268px minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
 }
 
 .groups-main {

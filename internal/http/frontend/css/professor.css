@@ -22,7 +22,7 @@ body {
 body.professor-body {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 268px minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
   background: var(--prof-bg);
   color: var(--prof-text);
   font-family: "Inter", sans-serif;
@@ -646,6 +646,27 @@ td .muted {
   gap: 10px;
 }
 
+.grading-empty {
+  border: 1px dashed #c8d5e8;
+  border-radius: 12px;
+  background: #f8fbff;
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.grading-empty h3 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.grading-empty p {
+  margin: 0;
+  color: #5f7090;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
 .grading-item {
   border: 1px solid #dbe4f0;
   border-radius: 12px;
@@ -821,7 +842,7 @@ td .muted {
     grid-template-columns: 1fr;
   }
 
-  .prof-sidebar {
+  .role-sidebar {
     min-height: auto;
   }
 

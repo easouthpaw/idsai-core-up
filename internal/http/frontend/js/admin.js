@@ -10,7 +10,7 @@
   const LS_IS_ADMIN = "idsai_is_admin";
   const LS_IS_PROFESSOR = "idsai_is_professor";
 
-  const viewButtons = Array.from(document.querySelectorAll(".side-link[data-view]"));
+  const viewButtons = Array.from(document.querySelectorAll(".role-sidebar__link[data-sidebar-view]"));
   const viewEls = Array.from(document.querySelectorAll(".view"));
   const crumbCurrentEl = document.getElementById("crumbCurrent");
   const quickSearchInputEl = document.getElementById("quickSearchInput");
@@ -573,7 +573,7 @@
     state.activeView = next;
 
     viewButtons.forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.view === next);
+      btn.classList.toggle("active", btn.dataset.sidebarView === next);
     });
 
     viewEls.forEach((el) => {
@@ -981,7 +981,7 @@
   function bindEvents() {
     viewButtons.forEach((btn) => {
       btn.addEventListener("click", () => {
-        const next = btn.dataset.view || "dashboard";
+        const next = btn.dataset.sidebarView || "dashboard";
         setView(next, false);
       });
     });
