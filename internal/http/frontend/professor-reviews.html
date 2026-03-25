@@ -12,36 +12,12 @@
   <link rel="stylesheet" href="/dev/static/css/dev-theme.css" />
 </head>
 <body class="professor-body">
-  <aside class="prof-sidebar">
-    <div class="prof-brand">
-      <img src="/dev/static/assets/idsai-corp-logo.png" alt="IDSAI Corp. logo" />
-      <div>
-        <strong>IDSAI Corp.</strong>
-        <p>Преподаватель</p>
-      </div>
-    </div>
-
-    <div class="prof-user">
-      <div id="profAvatar" class="avatar">PR</div>
-      <div>
-        <strong id="profName">Профессор</strong>
-        <p id="profEmail">professor@idsai.dev</p>
-      </div>
-    </div>
-
-    <nav class="prof-nav">
-      <a href="/dev/professor">Дашборд</a>
-      <a class="active" href="/dev/professor/reviews">Заявки на ревью</a>
-      <a href="/dev/professor/criteria">Критерии</a>
-      <a href="/dev/professor/grading">Оценивание</a>
-      <a href="/dev/projects">Проекты</a>
-      <a href="/dev/settings">Настройки</a>
-    </nav>
-
-    <footer class="prof-sidebar-foot">
-      <button id="logoutBtn" type="button">Выйти</button>
-    </footer>
-  </aside>
+  <aside
+    data-role-sidebar
+    data-sidebar-role="teacher"
+    data-sidebar-active="reviews"
+    class="prof-sidebar"
+  ></aside>
 
   <main class="prof-main">
     <header class="prof-header">
@@ -74,11 +50,12 @@
           </tbody>
         </table>
       </div>
-      <p id="pageStatus" class="page-status"></p>
+      <p id="pageStatus" class="page-status" aria-live="polite"></p>
     </section>
   </main>
 
   <script src="/dev/static/js/auth-session.js" defer></script>
+  <script src="/dev/static/js/role-sidebar.js" defer></script>
   <script src="/dev/static/js/notifications-popup.js?v=20260307-2" defer></script>
   <script src="/dev/static/js/professor.js" defer></script>
 </body>

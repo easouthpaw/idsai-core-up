@@ -129,7 +129,7 @@
     const url = String(avatarURL || "").trim();
     if (url) {
       el.classList.add("has-image");
-      el.innerHTML = `<img src="${escapeHTML(url)}" alt="Avatar" loading="lazy" />`;
+      el.innerHTML = `<img src="${escapeHTML(url)}" alt="Avatar" width="64" height="64" loading="lazy" />`;
       return;
     }
     el.classList.remove("has-image");
@@ -554,6 +554,20 @@
     quickSearchInputEl.value = state.dashboardSearch;
   }
 
+  function syncViewInURL(view) {
+    const next = view === "users" || view === "projects" ? view : "";
+    const url = new URL(window.location.href);
+
+    if (next) {
+      url.searchParams.set("view", next);
+    } else {
+      url.searchParams.delete("view");
+    }
+
+    const nextPath = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState({}, "", nextPath);
+  }
+
   function setView(view, skipLoad) {
     const next = view === "users" || view === "projects" ? view : "dashboard";
     state.activeView = next;
@@ -568,6 +582,7 @@
 
     crumbCurrentEl.textContent = next;
     syncTopbarByView();
+    syncViewInURL(next);
 
     if (skipLoad) return;
 
@@ -1194,7 +1209,8 @@
 
     hydrateProfile();
     bindEvents();
-    setView("dashboard", true);
+    const initialView = new URLSearchParams(window.location.search).get("view");
+    setView(initialView || "dashboard", true);
 
     await reloadAll();
   }

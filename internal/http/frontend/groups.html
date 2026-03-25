@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>IDSAI Corp. Groups</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Material+Symbols+Outlined:wght@400;500;600&display=swap" rel="stylesheet">
+  <link id="groupsRoleTheme" rel="stylesheet" href="/dev/static/css/admin.css" />
+  <link rel="stylesheet" href="/dev/static/css/groups.css" />
+  <link rel="stylesheet" href="/dev/static/css/dev-theme.css" />
+</head>
+<body class="groups-body role-admin">
+  <div class="groups-layout">
+    <aside
+      data-role-sidebar
+      data-sidebar-role="auto"
+      data-sidebar-active="groups"
+      data-sidebar-theme-link="groupsRoleTheme"
+      data-admin-view-mode="links"
+      class="admin-sidebar"
+    ></aside>
+
+    <main class="groups-main">
+      <header class="groups-head">
+        <div>
+          <div class="groups-breadcrumbs">
+            <span>IDSAI</span>
+            <span>/</span>
+            <strong>Группы</strong>
+          </div>
+          <h1>Кафедры и студенческие группы</h1>
+          <p>Единая структура по кафедрам, группам и студентам.</p>
+        </div>
+      </header>
+
+      <section class="groups-card filters-card" aria-label="Фильтры групп">
+        <label>
+          Кафедра
+          <select id="departmentFilter" name="department_filter">
+            <option value="">Все кафедры</option>
+          </select>
+        </label>
+
+        <label>
+          Поиск студента или группы
+          <input id="searchInput" type="search" name="groups_search" autocomplete="off" placeholder="Например: IS-45 или Иванов" />
+        </label>
+
+        <button id="refreshBtn" type="button">Обновить</button>
+      </section>
+
+      <p id="pageStatus" class="page-status" aria-live="polite"></p>
+
+      <section class="groups-card tree-card">
+        <div class="section-title">
+          <h2>Структура</h2>
+          <span>Кафедра -> Группа -> Студенты</span>
+        </div>
+        <div id="treeRoot" class="tree-root"></div>
+      </section>
+
+      <section id="adminRequestsSection" class="groups-card requests-card" hidden>
+        <div class="section-title">
+          <h2>Заявки на смену группы</h2>
+          <span>Только для администраторов</span>
+        </div>
+        <div class="requests-controls">
+          <label>
+            Статус
+            <select id="requestStatusFilter" name="request_status_filter">
+              <option value="">Все</option>
+              <option value="PENDING">Ожидает</option>
+              <option value="APPROVED">Одобрено</option>
+              <option value="REJECTED">Отклонено</option>
+            </select>
+          </label>
+          <button id="refreshRequestsBtn" type="button">Обновить заявки</button>
+        </div>
+        <div id="requestsList" class="requests-list"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/dev/static/js/auth-session.js" defer></script>
+  <script src="/dev/static/js/role-sidebar.js" defer></script>
+  <script src="/dev/static/js/groups.js" defer></script>
+</body>
+</html>

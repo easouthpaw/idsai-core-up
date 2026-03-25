@@ -13,60 +13,13 @@
 </head>
 <body class="admin-body">
   <div class="admin-layout">
-    <aside class="admin-sidebar">
-      <div class="brand">
-        <div class="brand-icon">
-          <img src="/dev/static/assets/idsai-corp-logo.png" alt="IDSAI Corp. logo" />
-        </div>
-        <div class="logo-text">
-          <strong>IDSAI Corp.</strong>
-          <small>Admin Console</small>
-        </div>
-      </div>
-
-      <nav class="side-nav" aria-label="Навигация админки">
-        <button class="side-link active" data-view="dashboard" type="button">
-          <span class="icon-box"><span class="material-symbols-outlined">dashboard</span></span>
-          <span class="nav-label">Дашборд</span>
-        </button>
-        <button class="side-link" data-view="projects" type="button">
-          <span class="icon-box"><span class="material-symbols-outlined">folder_data</span></span>
-          <span class="nav-label">Проекты</span>
-        </button>
-        <button class="side-link" data-view="users" type="button">
-          <span class="icon-box"><span class="material-symbols-outlined">group</span></span>
-          <span class="nav-label">Пользователи</span>
-        </button>
-        <button class="side-link ghost" type="button" disabled>
-          <span class="icon-box"><span class="material-symbols-outlined">schedule</span></span>
-          <span class="nav-label">Расписание</span>
-        </button>
-        <a class="side-link ghost" href="/dev/settings">
-          <span class="icon-box"><span class="material-symbols-outlined">settings</span></span>
-          <span class="nav-label">Настройки</span>
-        </a>
-      </nav>
-
-      <p class="workspace-title">Рабочие пространства</p>
-      <div class="workspace-list">
-        <span class="workspace-item"><i class="dot violet"></i><span class="user-info-text">Кафедра ИВТ</span></span>
-        <span class="workspace-item"><i class="dot amber"></i><span class="user-info-text">Студсовет</span></span>
-      </div>
-
-      <div class="sidebar-bottom">
-        <div class="admin-chip">
-          <div id="sidebarInitials" class="chip-avatar">AD</div>
-          <div class="user-info-text">
-            <p id="sidebarName">Администратор</p>
-            <small>SUPER_ADMIN</small>
-          </div>
-        </div>
-        <button id="logoutBtn" class="logout-btn" type="button">
-          <span class="icon-box"><span class="material-symbols-outlined">logout</span></span>
-          <span class="nav-label">Выйти</span>
-        </button>
-      </div>
-    </aside>
+    <aside
+      data-role-sidebar
+      data-sidebar-role="admin"
+      data-sidebar-active="dashboard"
+      data-admin-view-mode="inline"
+      class="admin-sidebar"
+    ></aside>
 
     <div class="admin-shell">
       <header class="admin-topbar">
@@ -78,7 +31,7 @@
         <div class="topbar-actions">
           <label class="quick-search" for="quickSearchInput">
             <span class="material-symbols-outlined">search</span>
-            <input id="quickSearchInput" type="search" placeholder="Поиск пользователей или проектов..." />
+            <input id="quickSearchInput" name="quick_search" type="search" autocomplete="off" placeholder="Поиск пользователей или проектов..." />
           </label>
           <button id="quickAddStudentBtn" class="top-btn" type="button">+ Студент</button>
           <button id="quickAddProfessorBtn" class="top-btn green" type="button">+ Преподаватель</button>
@@ -226,7 +179,7 @@
               <div class="panel-tools">
                 <label class="search-wrap" for="searchInput">
                   <span class="material-symbols-outlined">search</span>
-                  <input id="searchInput" type="search" placeholder="Поиск по имени или email..." />
+                  <input id="searchInput" name="users_search" type="search" autocomplete="off" placeholder="Поиск по имени или email..." />
                 </label>
                 <button id="usersRefreshBtn" class="icon-action" type="button" aria-label="Обновить">↻</button>
               </div>
@@ -299,7 +252,7 @@
               <div class="panel-tools">
                 <label class="search-wrap" for="projectSearchInput">
                   <span class="material-symbols-outlined">search</span>
-                  <input id="projectSearchInput" type="search" placeholder="Поиск проекта или автора..." />
+                  <input id="projectSearchInput" name="projects_search" type="search" autocomplete="off" placeholder="Поиск проекта или автора..." />
                 </label>
               </div>
             </div>
@@ -331,29 +284,29 @@
 
   <div id="createModal" class="modal" hidden>
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="createTitle">
-      <button id="closeModalBtn" class="close-btn" type="button">×</button>
+      <button id="closeModalBtn" class="close-btn" type="button" aria-label="Закрыть окно создания пользователя">×</button>
       <h3 id="createTitle">Создать пользователя</h3>
       <p id="createSubtitle">Заполните данные нового пользователя.</p>
 
       <div class="modal-grid two">
         <div>
-          <label>ФИО</label>
-          <input id="fullNameInput" type="text" placeholder="Иванов Иван Иванович" />
+          <label for="fullNameInput">ФИО</label>
+          <input id="fullNameInput" name="full_name" type="text" autocomplete="name" placeholder="Иванов Иван Иванович" />
         </div>
         <div>
-          <label>Email</label>
-          <input id="emailInput" type="email" placeholder="user@university.edu" />
+          <label for="emailInput">Email</label>
+          <input id="emailInput" name="email" type="email" autocomplete="email" spellcheck="false" placeholder="user@university.edu" />
         </div>
       </div>
 
       <div class="modal-grid two">
         <div>
-          <label>Пароль</label>
-          <input id="passwordInput" type="password" placeholder="минимум 10 символов" />
+          <label for="passwordInput">Пароль</label>
+          <input id="passwordInput" name="password" type="password" autocomplete="new-password" placeholder="минимум 10 символов" />
         </div>
         <div>
-          <label>Код кафедры</label>
-          <select id="departmentInput">
+          <label for="departmentInput">Код кафедры</label>
+          <select id="departmentInput" name="department_code" autocomplete="off">
             <option value="CPI">CPI</option>
             <option value="INF">INF</option>
             <option value="SEC">SEC</option>
@@ -364,7 +317,7 @@
         </div>
       </div>
 
-      <div id="modalStatus" class="modal-status"></div>
+      <div id="modalStatus" class="modal-status" aria-live="polite"></div>
 
       <button id="submitCreateBtn" class="submit-btn" type="button">Создать</button>
     </div>
@@ -372,13 +325,13 @@
 
   <div id="projectStatusModal" class="modal" hidden>
     <div class="modal-card compact" role="dialog" aria-modal="true" aria-labelledby="projectModalTitle">
-      <button id="projectModalCloseBtn" class="close-btn" type="button">×</button>
+      <button id="projectModalCloseBtn" class="close-btn" type="button" aria-label="Закрыть окно подтверждения">×</button>
       <h3 id="projectModalTitle">Подтверждение действия</h3>
       <p id="projectModalSubtitle">Введите название проекта для подтверждения.</p>
-      <label>Название проекта</label>
-      <input id="projectConfirmInput" type="text" placeholder="Название проекта" />
+      <label for="projectConfirmInput">Название проекта</label>
+      <input id="projectConfirmInput" name="project_title_confirm" type="text" autocomplete="off" placeholder="Название проекта" />
       <small id="projectModalExpected" class="expected-caption"></small>
-      <div id="projectModalStatus" class="modal-status"></div>
+      <div id="projectModalStatus" class="modal-status" aria-live="polite"></div>
       <div class="modal-actions">
         <button id="projectModalCancelBtn" class="cancel-btn" type="button">Отмена</button>
         <button id="projectModalSubmitBtn" class="danger-btn" type="button">Отклонить проект</button>
@@ -388,7 +341,7 @@
 
   <div id="projectObserveModal" class="modal" hidden>
     <div class="modal-card observe-card" role="dialog" aria-modal="true" aria-labelledby="observeProjectTitle">
-      <button id="observeModalCloseBtn" class="close-btn" type="button">×</button>
+      <button id="observeModalCloseBtn" class="close-btn" type="button" aria-label="Закрыть окно наблюдения">×</button>
       <h3 id="observeProjectTitle">Наблюдение проекта</h3>
       <p id="observeProjectMeta"></p>
 
@@ -450,6 +403,7 @@
   </div>
 
   <script src="/dev/static/js/auth-session.js" defer></script>
+  <script src="/dev/static/js/role-sidebar.js" defer></script>
   <script src="/dev/static/js/notifications-popup.js?v=20260307-2" defer></script>
   <script src="/dev/static/js/admin.js" defer></script>
 </body>

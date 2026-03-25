@@ -12,36 +12,12 @@
   <link rel="stylesheet" href="/dev/static/css/dev-theme.css" />
 </head>
 <body class="professor-body">
-  <aside class="prof-sidebar">
-    <div class="prof-brand">
-      <img src="/dev/static/assets/idsai-corp-logo.png" alt="IDSAI Corp. logo" />
-      <div>
-        <strong>IDSAI Corp.</strong>
-        <p>Преподаватель</p>
-      </div>
-    </div>
-
-    <div class="prof-user">
-      <div id="profAvatar" class="avatar">PR</div>
-      <div>
-        <strong id="profName">Профессор</strong>
-        <p id="profEmail">professor@idsai.dev</p>
-      </div>
-    </div>
-
-    <nav class="prof-nav">
-      <a href="/dev/professor">Дашборд</a>
-      <a href="/dev/professor/reviews">Заявки на ревью</a>
-      <a class="active" href="/dev/professor/criteria">Критерии</a>
-      <a href="/dev/professor/grading">Оценивание</a>
-      <a href="/dev/projects">Проекты</a>
-      <a href="/dev/settings">Настройки</a>
-    </nav>
-
-    <footer class="prof-sidebar-foot">
-      <button id="logoutBtn" type="button">Выйти</button>
-    </footer>
-  </aside>
+  <aside
+    data-role-sidebar
+    data-sidebar-role="teacher"
+    data-sidebar-active="criteria"
+    class="prof-sidebar"
+  ></aside>
 
   <main class="prof-main criteria-main">
     <section class="criteria-shell">
@@ -55,11 +31,11 @@
         <div class="criteria-context-grid two">
           <div class="criteria-context-field">
             <label for="projectSelect">Проект</label>
-            <select id="projectSelect"></select>
+            <select id="projectSelect" name="project_id" autocomplete="off"></select>
           </div>
           <div class="criteria-context-field">
             <label for="projectStatusView">Статус</label>
-            <input id="projectStatusView" type="text" readonly value="—" />
+            <input id="projectStatusView" type="text" name="project_status" autocomplete="off" readonly value="—" />
           </div>
         </div>
       </section>
@@ -91,16 +67,16 @@
             <div class="field-grid two">
               <div>
                 <label for="criterionTitleInput">Название</label>
-                <input id="criterionTitleInput" type="text" placeholder="Например: Покрытие тестами > 80%" required />
+                <input id="criterionTitleInput" type="text" name="criterion_title" autocomplete="off" placeholder="Например: Покрытие тестами > 80%" required />
               </div>
               <div>
                 <label for="criterionWeightInput">Вес (1-100)</label>
-                <input id="criterionWeightInput" type="number" min="1" max="100" value="10" required />
+                <input id="criterionWeightInput" type="number" name="criterion_weight" autocomplete="off" min="1" max="100" value="10" required />
               </div>
             </div>
             <div>
               <label for="criterionDescInput">Описание</label>
-              <textarea id="criterionDescInput" placeholder="Что именно проверяет критерий"></textarea>
+              <textarea id="criterionDescInput" name="criterion_description" autocomplete="off" placeholder="Что именно проверяет критерий"></textarea>
             </div>
             <div class="form-actions">
               <button id="cancelComposerBtn" class="ghost-btn" type="button">Отмена</button>
@@ -116,11 +92,12 @@
         </div>
       </section>
 
-      <p id="pageStatus" class="page-status"></p>
+      <p id="pageStatus" class="page-status" aria-live="polite"></p>
     </section>
   </main>
 
   <script src="/dev/static/js/auth-session.js" defer></script>
+  <script src="/dev/static/js/role-sidebar.js" defer></script>
   <script src="/dev/static/js/notifications-popup.js?v=20260307-2" defer></script>
   <script src="/dev/static/js/professor-criteria.js" defer></script>
 </body>
