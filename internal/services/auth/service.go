@@ -12,6 +12,7 @@ import (
 	notifsvc "idsai-core-up/internal/services/notifications"
 	"math/big"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -20,6 +21,8 @@ import (
 )
 
 const dummyPasswordHash = "$2a$10$6zP4Lb6Tx0Jj8N4A7JwK3eVj3ljmd725LLJoPLD114F8CbnMD4Hzy"
+
+var groupCodePattern = regexp.MustCompile(`^[A-Z]{2,8}-[0-9]{1,4}$`)
 
 type User struct {
 	ID              uuid.UUID
@@ -30,6 +33,10 @@ type User struct {
 	Status          string
 	FacultyID       uuid.UUID
 	DepartmentID    uuid.UUID
+	DepartmentCode  string
+	GroupID         *uuid.UUID
+	GroupCode       string
+	GroupNumber     *int
 	FullName        string
 	IsAdmin         bool
 	IsProfessor     bool
@@ -64,10 +71,70 @@ type Session struct {
 	Tokens Tokens
 }
 
+type Department struct {
+	ID        uuid.UUID `json:"id"`
+	FacultyID uuid.UUID `json:"faculty_id"`
+	Code      string    `json:"code"`
+	Name      string    `json:"name"`
+	ShortCode string    `json:"short_code"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type StudentGroup struct {
+	ID           uuid.UUID `json:"id"`
+	DepartmentID uuid.UUID `json:"department_id"`
+	GroupCode    string    `json:"group_code"`
+	GroupNumber  int       `json:"group_number"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+type GroupChangeRequest struct {
+	ID               uuid.UUID  `json:"id"`
+	StudentID        uuid.UUID  `json:"student_id"`
+	StudentName      string     `json:"student_name"`
+	StudentEmail     string     `json:"student_email"`
+	CurrentGroupID   uuid.UUID  `json:"current_group_id"`
+	CurrentGroupCode string     `json:"current_group_code"`
+	RequestedGroupID uuid.UUID  `json:"requested_group_id"`
+	RequestedCode    string     `json:"requested_group_code"`
+	Status           string     `json:"status"`
+	AdminComment     string     `json:"admin_comment,omitempty"`
+	CreatedAt        time.Time  `json:"created_at"`
+	ReviewedAt       *time.Time `json:"reviewed_at,omitempty"`
+	ReviewedBy       *uuid.UUID `json:"reviewed_by,omitempty"`
+	ReviewedByName   string     `json:"reviewed_by_name,omitempty"`
+}
+
+type GroupStudent struct {
+	UserID    uuid.UUID `json:"user_id"`
+	FullName  string    `json:"full_name"`
+	Email     string    `json:"email"`
+	AvatarURL string    `json:"avatar_url,omitempty"`
+	Status    string    `json:"status"`
+	Role      string    `json:"role"`
+}
+
+type GroupNode struct {
+	ID            uuid.UUID      `json:"id"`
+	GroupCode     string         `json:"group_code"`
+	GroupNumber   int            `json:"group_number"`
+	TotalStudents int            `json:"total_students"`
+	Students      []GroupStudent `json:"students"`
+}
+
+type DepartmentGroupsTree struct {
+	ID        uuid.UUID   `json:"id"`
+	Code      string      `json:"code"`
+	Name      string      `json:"name"`
+	ShortCode string      `json:"short_code"`
+	Groups    []GroupNode `json:"groups"`
+}
+
 type Repository interface {
 	FindTenantByCode(ctx context.Context, tenantCode string) (uuid.UUID, error)
 	CreateUser(ctx context.Context, in CreateUserParams) (uuid.UUID, error)
-	CreateProfile(ctx context.Context, tenantID, userID uuid.UUID, fullName string, facultyID, departmentID uuid.UUID) error
+	CreateProfile(ctx context.Context, tenantID, userID uuid.UUID, fullName string, facultyID, departmentID uuid.UUID, groupID *uuid.UUID) error
 	GrantStudentFacultyRole(ctx context.Context, tenantID, userID, facultyID uuid.UUID) error
 	FindUserByEmail(ctx context.Context, tenantID uuid.UUID, email string) (User, error)
 	FindUserByID(ctx context.Context, tenantID, userID uuid.UUID) (User, error)
@@ -83,6 +150,14 @@ type Repository interface {
 	RevokeRefreshToken(ctx context.Context, tokenHash string) error
 	RevokeUserRefreshTokens(ctx context.Context, tenantID, userID uuid.UUID) error
 	FindDepartment(ctx context.Context, tenantID uuid.UUID, departmentCode string) (departmentID uuid.UUID, facultyID uuid.UUID, err error)
+	FindGroupByCodeInDepartment(ctx context.Context, tenantID, departmentID uuid.UUID, groupCode string) (groupID uuid.UUID, err error)
+	ListDepartments(ctx context.Context, tenantID uuid.UUID) ([]Department, error)
+	ListGroupsByDepartmentCode(ctx context.Context, tenantID uuid.UUID, departmentCode string) ([]StudentGroup, error)
+	InsertGroupChangeRequest(ctx context.Context, tenantID, studentID, currentGroupID, requestedGroupID uuid.UUID, createdAt time.Time) (GroupChangeRequest, error)
+	ListOwnGroupChangeRequests(ctx context.Context, tenantID, studentID uuid.UUID, limit int) ([]GroupChangeRequest, error)
+	ListGroupChangeRequests(ctx context.Context, tenantID uuid.UUID, status, search string, limit int) ([]GroupChangeRequest, error)
+	ReviewGroupChangeRequest(ctx context.Context, tenantID, requestID, reviewerID uuid.UUID, decision, comment string, reviewedAt time.Time) (GroupChangeRequest, error)
+	ListDepartmentGroupsTree(ctx context.Context, tenantID uuid.UUID, departmentCode, search string) ([]DepartmentGroupsTree, error)
 	InsertAuthToken(ctx context.Context, tenantID, userID uuid.UUID, purpose, tokenHash string, expiresAt time.Time) error
 	FindAuthToken(ctx context.Context, purpose, tokenHash string) (AuthTokenRecord, error)
 	ConsumeAuthToken(ctx context.Context, tokenID uuid.UUID, consumedAt time.Time) error
@@ -196,7 +271,7 @@ func (s *Service) PasswordResetTTL() time.Duration {
 	return s.passwordResetTTL
 }
 
-func (s *Service) RegisterStudent(ctx context.Context, tenantCode, email, password, fullName, departmentCode string) error {
+func (s *Service) RegisterStudent(ctx context.Context, tenantCode, email, password, fullName, departmentCode, groupCode string) error {
 	tenantCode = normalizeTenantCode(tenantCode)
 	tenantID, err := s.repo.FindTenantByCode(ctx, tenantCode)
 	if err != nil {
@@ -206,14 +281,22 @@ func (s *Service) RegisterStudent(ctx context.Context, tenantCode, email, passwo
 	email = normalizeEmail(email)
 	fullName = strings.TrimSpace(fullName)
 	departmentCode = strings.ToUpper(strings.TrimSpace(departmentCode))
-	if email == "" || departmentCode == "" {
+	groupCode = strings.ToUpper(strings.TrimSpace(groupCode))
+	if email == "" || departmentCode == "" || groupCode == "" {
 		return ErrInvalidInput
+	}
+	if !groupCodePattern.MatchString(groupCode) || !strings.HasPrefix(groupCode, departmentCode+"-") {
+		return ErrGroupMismatch
 	}
 	if err := passwords.Validate(password); err != nil {
 		return err
 	}
 
 	deptID, facultyID, err := s.repo.FindDepartment(ctx, tenantID, departmentCode)
+	if err != nil {
+		return err
+	}
+	groupID, err := s.repo.FindGroupByCodeInDepartment(ctx, tenantID, deptID, groupCode)
 	if err != nil {
 		return err
 	}
@@ -235,7 +318,7 @@ func (s *Service) RegisterStudent(ctx context.Context, tenantCode, email, passwo
 	if err != nil {
 		return err
 	}
-	if err := s.repo.CreateProfile(ctx, tenantID, userID, fullName, facultyID, deptID); err != nil {
+	if err := s.repo.CreateProfile(ctx, tenantID, userID, fullName, facultyID, deptID, &groupID); err != nil {
 		return err
 	}
 	if err := s.repo.GrantStudentFacultyRole(ctx, tenantID, userID, facultyID); err != nil {
@@ -387,6 +470,143 @@ func (s *Service) UpdateProfile(ctx context.Context, tenantID, userID uuid.UUID,
 		return User{}, err
 	}
 	return s.Me(ctx, tenantID, userID)
+}
+
+func (s *Service) ListDepartments(ctx context.Context, tenantCode string) ([]Department, error) {
+	tenantID, err := s.repo.FindTenantByCode(ctx, normalizeTenantCode(tenantCode))
+	if err != nil {
+		return nil, err
+	}
+	return s.repo.ListDepartments(ctx, tenantID)
+}
+
+func (s *Service) ListGroupsByDepartmentCode(ctx context.Context, tenantCode, departmentCode string) ([]StudentGroup, error) {
+	departmentCode = strings.ToUpper(strings.TrimSpace(departmentCode))
+	if departmentCode == "" {
+		return nil, ErrInvalidInput
+	}
+	tenantID, err := s.repo.FindTenantByCode(ctx, normalizeTenantCode(tenantCode))
+	if err != nil {
+		return nil, err
+	}
+	if _, _, err := s.repo.FindDepartment(ctx, tenantID, departmentCode); err != nil {
+		return nil, err
+	}
+	return s.repo.ListGroupsByDepartmentCode(ctx, tenantID, departmentCode)
+}
+
+func (s *Service) SubmitGroupChangeRequest(
+	ctx context.Context,
+	tenantID, userID uuid.UUID,
+	departmentCode, requestedGroupCode string,
+) (GroupChangeRequest, error) {
+	departmentCode = strings.ToUpper(strings.TrimSpace(departmentCode))
+	requestedGroupCode = strings.ToUpper(strings.TrimSpace(requestedGroupCode))
+	if tenantID == uuid.Nil || userID == uuid.Nil || departmentCode == "" || requestedGroupCode == "" {
+		return GroupChangeRequest{}, ErrInvalidInput
+	}
+	if !groupCodePattern.MatchString(requestedGroupCode) || !strings.HasPrefix(requestedGroupCode, departmentCode+"-") {
+		return GroupChangeRequest{}, ErrGroupMismatch
+	}
+
+	u, err := s.repo.FindUserByID(ctx, tenantID, userID)
+	if err != nil {
+		return GroupChangeRequest{}, err
+	}
+	if u.GroupID == nil || *u.GroupID == uuid.Nil {
+		return GroupChangeRequest{}, ErrInvalidInput
+	}
+
+	targetDeptID, _, err := s.repo.FindDepartment(ctx, tenantID, departmentCode)
+	if err != nil {
+		return GroupChangeRequest{}, err
+	}
+	targetGroupID, err := s.repo.FindGroupByCodeInDepartment(ctx, tenantID, targetDeptID, requestedGroupCode)
+	if err != nil {
+		return GroupChangeRequest{}, err
+	}
+	if targetGroupID == *u.GroupID {
+		return GroupChangeRequest{}, ErrGroupUnchanged
+	}
+
+	return s.repo.InsertGroupChangeRequest(
+		ctx,
+		tenantID,
+		userID,
+		*u.GroupID,
+		targetGroupID,
+		time.Now().UTC(),
+	)
+}
+
+func (s *Service) ListOwnGroupChangeRequests(ctx context.Context, tenantID, userID uuid.UUID, limit int) ([]GroupChangeRequest, error) {
+	if tenantID == uuid.Nil || userID == uuid.Nil {
+		return nil, ErrInvalidInput
+	}
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	return s.repo.ListOwnGroupChangeRequests(ctx, tenantID, userID, limit)
+}
+
+func (s *Service) ListGroupChangeRequests(ctx context.Context, tenantID uuid.UUID, status, search string, limit int) ([]GroupChangeRequest, error) {
+	if tenantID == uuid.Nil {
+		return nil, ErrInvalidInput
+	}
+	status = strings.ToUpper(strings.TrimSpace(status))
+	switch status {
+	case "", "PENDING", "APPROVED", "REJECTED":
+	default:
+		return nil, ErrInvalidInput
+	}
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	return s.repo.ListGroupChangeRequests(ctx, tenantID, status, strings.TrimSpace(search), limit)
+}
+
+func (s *Service) ReviewGroupChangeRequest(
+	ctx context.Context,
+	tenantID, reviewerID, requestID uuid.UUID,
+	decision, comment string,
+) (GroupChangeRequest, error) {
+	if tenantID == uuid.Nil || reviewerID == uuid.Nil || requestID == uuid.Nil {
+		return GroupChangeRequest{}, ErrInvalidInput
+	}
+	decision = strings.ToUpper(strings.TrimSpace(decision))
+	switch decision {
+	case "APPROVE":
+		decision = "APPROVED"
+	case "REJECT":
+		decision = "REJECTED"
+	case "APPROVED", "REJECTED":
+	default:
+		return GroupChangeRequest{}, ErrInvalidInput
+	}
+	return s.repo.ReviewGroupChangeRequest(ctx, tenantID, requestID, reviewerID, decision, strings.TrimSpace(comment), time.Now().UTC())
+}
+
+func (s *Service) ListDepartmentGroupsTree(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	departmentCode, search string,
+) ([]DepartmentGroupsTree, error) {
+	if tenantID == uuid.Nil {
+		return nil, ErrInvalidInput
+	}
+	tree, err := s.repo.ListDepartmentGroupsTree(ctx, tenantID, strings.ToUpper(strings.TrimSpace(departmentCode)), strings.TrimSpace(search))
+	if err != nil {
+		return nil, err
+	}
+	for depIdx := range tree {
+		for groupIdx := range tree[depIdx].Groups {
+			for studentIdx := range tree[depIdx].Groups[groupIdx].Students {
+				avatarURL := s.resolveAvatarURL(tree[depIdx].Groups[groupIdx].Students[studentIdx].AvatarURL)
+				tree[depIdx].Groups[groupIdx].Students[studentIdx].AvatarURL = avatarURL
+			}
+		}
+	}
+	return tree, nil
 }
 
 func (s *Service) StartEmailChange(ctx context.Context, actorKey string, tenantID, userID uuid.UUID, nextEmail string) error {

@@ -2,6 +2,7 @@ package httpx
 
 import (
 	"idsai-core-up/internal/http/handlers"
+	"idsai-core-up/internal/http/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -12,6 +13,8 @@ func registerAuthRoutes(v2 *gin.RouterGroup, authMW gin.HandlerFunc, authHandler
 	}
 
 	auth := v2.Group("/auth")
+	auth.GET("/departments", authHandler.ListDepartments)
+	auth.GET("/departments/:department_code/groups", authHandler.ListDepartmentGroups)
 	auth.POST("/register", authHandler.RegisterStudent)
 	auth.POST("/login", authHandler.Login)
 	auth.POST("/logout", authHandler.Logout)
@@ -31,4 +34,9 @@ func registerAuthRoutes(v2 *gin.RouterGroup, authMW gin.HandlerFunc, authHandler
 	auth.POST("/settings/avatar", authMW, authHandler.SettingsUploadAvatar)
 	auth.DELETE("/settings/avatar", authMW, authHandler.SettingsDeleteAvatar)
 	auth.POST("/settings/password", authMW, authHandler.SettingsChangePassword)
+	auth.GET("/settings/group-change-requests", authMW, authHandler.SettingsListGroupChangeRequests)
+	auth.POST("/settings/group-change-requests", authMW, authHandler.SettingsSubmitGroupChangeRequest)
+	auth.GET("/groups/tree", authMW, authHandler.ListDepartmentGroupsTree)
+	auth.GET("/admin/group-change-requests", authMW, middleware.AdminRequired(), authHandler.AdminListGroupChangeRequests)
+	auth.POST("/admin/group-change-requests/:request_id/review", authMW, middleware.AdminRequired(), authHandler.AdminReviewGroupChangeRequest)
 }

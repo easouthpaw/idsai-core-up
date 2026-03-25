@@ -30,7 +30,7 @@ func (f *authHandlerRepo) CreateUser(ctx context.Context, in auth.CreateUserPara
 	return uuid.New(), nil
 }
 
-func (f *authHandlerRepo) CreateProfile(ctx context.Context, tenantID, userID uuid.UUID, fullName string, facultyID, departmentID uuid.UUID) error {
+func (f *authHandlerRepo) CreateProfile(ctx context.Context, tenantID, userID uuid.UUID, fullName string, facultyID, departmentID uuid.UUID, groupID *uuid.UUID) error {
 	return nil
 }
 
@@ -92,6 +92,38 @@ func (f *authHandlerRepo) RevokeUserRefreshTokens(ctx context.Context, tenantID,
 
 func (f *authHandlerRepo) FindDepartment(ctx context.Context, tenantID uuid.UUID, departmentCode string) (uuid.UUID, uuid.UUID, error) {
 	return uuid.New(), uuid.New(), nil
+}
+
+func (f *authHandlerRepo) FindGroupByCodeInDepartment(ctx context.Context, tenantID, departmentID uuid.UUID, groupCode string) (uuid.UUID, error) {
+	return uuid.New(), nil
+}
+
+func (f *authHandlerRepo) ListDepartments(ctx context.Context, tenantID uuid.UUID) ([]auth.Department, error) {
+	return []auth.Department{}, nil
+}
+
+func (f *authHandlerRepo) ListGroupsByDepartmentCode(ctx context.Context, tenantID uuid.UUID, departmentCode string) ([]auth.StudentGroup, error) {
+	return []auth.StudentGroup{}, nil
+}
+
+func (f *authHandlerRepo) InsertGroupChangeRequest(ctx context.Context, tenantID, studentID, currentGroupID, requestedGroupID uuid.UUID, createdAt time.Time) (auth.GroupChangeRequest, error) {
+	return auth.GroupChangeRequest{}, nil
+}
+
+func (f *authHandlerRepo) ListOwnGroupChangeRequests(ctx context.Context, tenantID, studentID uuid.UUID, limit int) ([]auth.GroupChangeRequest, error) {
+	return []auth.GroupChangeRequest{}, nil
+}
+
+func (f *authHandlerRepo) ListGroupChangeRequests(ctx context.Context, tenantID uuid.UUID, status, search string, limit int) ([]auth.GroupChangeRequest, error) {
+	return []auth.GroupChangeRequest{}, nil
+}
+
+func (f *authHandlerRepo) ReviewGroupChangeRequest(ctx context.Context, tenantID, requestID, reviewerID uuid.UUID, decision, comment string, reviewedAt time.Time) (auth.GroupChangeRequest, error) {
+	return auth.GroupChangeRequest{}, nil
+}
+
+func (f *authHandlerRepo) ListDepartmentGroupsTree(ctx context.Context, tenantID uuid.UUID, departmentCode, search string) ([]auth.DepartmentGroupsTree, error) {
+	return []auth.DepartmentGroupsTree{}, nil
 }
 
 func (f *authHandlerRepo) InsertAuthToken(ctx context.Context, tenantID, userID uuid.UUID, purpose, tokenHash string, expiresAt time.Time) error {

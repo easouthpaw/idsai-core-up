@@ -56,3 +56,7 @@ func DevProfessorGradingPage(c *gin.Context) {
 func DevSettingsPage(c *gin.Context) {
 	c.FileFromFS("settings.html", devFrontendFS)
 }
+
+func DevGroupsPage(c *gin.Context) {
+	c.FileFromFS("groups.html", devFrontendFS)
+}

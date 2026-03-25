@@ -390,10 +390,11 @@ ORDER BY p.created_at DESC;
 
 func (r *ProjectsRepo) FindGroupIDByCode(ctx context.Context, facultyID uuid.UUID, code string) (uuid.UUID, error) {
 	const q = `
-SELECT id
-FROM student_groups
-WHERE faculty_id = $1
-  AND code = $2;
+SELECT sg.id
+FROM student_groups sg
+JOIN departments d ON d.id = sg.department_id
+WHERE d.faculty_id = $1
+  AND UPPER(sg.group_code) = UPPER($2);
 `
 	var id uuid.UUID
 	err := r.db.QueryRow(ctx, q, facultyID, code).Scan(&id)
@@ -405,10 +406,11 @@ WHERE faculty_id = $1
 
 func (r *ProjectsRepo) ListGroupsByFaculty(ctx context.Context, facultyID uuid.UUID) ([]projects.Group, error) {
 	const q = `
-SELECT id, code, name
-FROM student_groups
-WHERE faculty_id = $1
-ORDER BY code;
+SELECT sg.id, sg.group_code, COALESCE(sg.group_code, '')
+FROM student_groups sg
+JOIN departments d ON d.id = sg.department_id
+WHERE d.faculty_id = $1
+ORDER BY sg.group_number ASC, sg.group_code ASC;
 `
 	rows, err := r.db.Query(ctx, q, facultyID)
 	if err != nil {

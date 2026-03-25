@@ -120,7 +120,7 @@
     const url = String(avatarURL || "").trim();
     if (url) {
       el.classList.add("has-image");
-      el.innerHTML = `<img src="${escapeHTML(url)}" alt="Avatar" loading="lazy" />`;
+      el.innerHTML = `<img src="${escapeHTML(url)}" alt="Avatar" width="64" height="64" loading="lazy" />`;
       return;
     }
     el.classList.remove("has-image");
@@ -393,11 +393,11 @@
 
       article.innerHTML =
         `<div class="project-cover">` +
-          `<img src="${escapeHTML(projectCoverURL(p))}" data-fallback-cover="${escapeHTML(defaultCoverURL(p))}" alt="Project cover" loading="lazy" />` +
+          `<img src="${escapeHTML(projectCoverURL(p))}" data-fallback-cover="${escapeHTML(defaultCoverURL(p))}" alt="Project cover" width="1600" height="900" loading="lazy" />` +
         `</div>` +
         `<div class="card-head">` +
           `<button class="card-title-link" data-open-id="${pid}" type="button">${escapeHTML(p.title || "-")}</button>` +
-          `<button class="card-menu" type="button" aria-hidden="true">…</button>` +
+          `<span class="card-menu" aria-hidden="true">…</span>` +
         `</div>` +
         `<p class="card-desc">${escapeHTML(p.description || "Без описания")}</p>` +
         `<div class="mine-progress"><span style="width:${progress}%"></span></div>` +
@@ -462,7 +462,7 @@
       const pid = escapeHTML(p.id || "");
       article.innerHTML =
         `<div class="project-cover">` +
-          `<img src="${escapeHTML(projectCoverURL(p))}" data-fallback-cover="${escapeHTML(defaultCoverURL(p))}" alt="Project cover" loading="lazy" />` +
+          `<img src="${escapeHTML(projectCoverURL(p))}" data-fallback-cover="${escapeHTML(defaultCoverURL(p))}" alt="Project cover" width="1600" height="900" loading="lazy" />` +
         `</div>` +
         `<div class="card-head">` +
           `<button class="card-title-link" data-open-id="${pid}" type="button">${escapeHTML(p.title || "-")}</button>` +
@@ -828,6 +828,8 @@
   tabButtons.forEach((btn) => {
     btn.addEventListener("click", async (event) => {
       if (btn.tagName === "A") {
+        const isModifiedClick = event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button === 1;
+        if (isModifiedClick) return;
         event.preventDefault();
       }
       switchTab(btn.dataset.tab || "mine");

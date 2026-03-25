@@ -134,7 +134,7 @@
     const url = String(avatarURL || "").trim();
     if (url) {
       el.classList.add("has-image");
-      el.innerHTML = `<img src="${escapeHTML(url)}" alt="Avatar" loading="lazy" />`;
+      el.innerHTML = `<img src="${escapeHTML(url)}" alt="Avatar" width="64" height="64" loading="lazy" />`;
       return;
     }
     el.classList.remove("has-image");

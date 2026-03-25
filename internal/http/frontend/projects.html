@@ -16,7 +16,7 @@
   <div class="layout">
     <aside class="sidebar">
       <div class="brand">
-        <img class="brand-logo" src="/dev/static/assets/idsai-corp-logo.png" alt="IDSAI Corp. logo" />
+        <img class="brand-logo" src="/dev/static/assets/idsai-corp-logo.png" alt="IDSAI Corp. logo" width="160" height="40" />
         <span class="logo-text">IDSAI Corp.</span>
       </div>
 
@@ -85,7 +85,7 @@
         </div>
         <div class="topbar-actions">
           <label class="search-wrap" for="searchInput">
-            <input id="searchInput" type="search" placeholder="Search projects (Cmd+K)" />
+            <input id="searchInput" name="projects_search" type="search" autocomplete="off" placeholder="Search projects (Cmd+K)" />
           </label>
           <button id="refreshActiveBtn" class="icon-btn" type="button" aria-label="Refresh">↻</button>
         </div>
@@ -111,17 +111,17 @@
             <button class="filter-btn" data-filter="done" type="button">Готово <span id="countDone">0</span></button>
           </div>
           <div class="view-toggle" role="group" aria-label="View mode">
-            <button class="view-btn active" data-view="grid" type="button">▦</button>
-            <button class="view-btn" data-view="list" type="button">☰</button>
+            <button class="view-btn active" data-view="grid" type="button" aria-label="Режим сетки">▦</button>
+            <button class="view-btn" data-view="list" type="button" aria-label="Режим списка">☰</button>
           </div>
         </section>
 
         <section id="toolbarCommunity" class="toolbar community-toolbar" hidden>
           <div class="community-controls">
-            <input id="communitySearchInput" class="community-search" placeholder="Найти проект по названию, стеку..." />
+            <input id="communitySearchInput" class="community-search" name="community_search" type="search" autocomplete="off" aria-label="Поиск проектов сообщества" placeholder="Найти проект по названию, стеку..." />
             <div class="community-select-wrap">
               <span>Фильтры:</span>
-              <select id="communityTechFilter" class="community-select">
+              <select id="communityTechFilter" class="community-select" name="community_tech_filter" autocomplete="off">
                 <option value="ALL">Все технологии</option>
                 <option value="GO">Go</option>
                 <option value="PYTHON">Python</option>
@@ -130,7 +130,7 @@
                 <option value="FLUTTER">Flutter</option>
                 <option value="REACT">React</option>
               </select>
-              <select id="communityDifficultyFilter" class="community-select">
+              <select id="communityDifficultyFilter" class="community-select" name="community_difficulty_filter" autocomplete="off">
                 <option value="ALL">Любая сложность</option>
                 <option value="BEGINNER">Новичок</option>
                 <option value="MEDIUM">Средний</option>
@@ -168,33 +168,33 @@
 
       <div class="modal-grid two">
         <div>
-          <label>Название проекта</label>
-          <input id="title" placeholder="Название проекта" value="Demo Project" />
+          <label for="title">Название проекта</label>
+          <input id="title" name="title" type="text" autocomplete="off" placeholder="Название проекта" value="Demo Project" />
         </div>
         <div>
-          <label>Краткое описание</label>
-          <input id="description" placeholder="Краткое описание" value="Created from projects dashboard" />
-        </div>
-      </div>
-
-      <div class="modal-grid one">
-        <div>
-          <label>README / Полное описание</label>
-          <textarea id="readme" placeholder="Введите подробное описание проекта..."></textarea>
+          <label for="description">Краткое описание</label>
+          <input id="description" name="description" type="text" autocomplete="off" placeholder="Краткое описание" value="Created from projects dashboard" />
         </div>
       </div>
 
       <div class="modal-grid one">
         <div>
-          <label>Ссылка на репозиторий GitHub</label>
-          <input id="repoLink" placeholder="https://github.com/username/repo-name" />
+          <label for="readme">README / Полное описание</label>
+          <textarea id="readme" name="readme" autocomplete="off" placeholder="Введите подробное описание проекта..."></textarea>
         </div>
       </div>
 
       <div class="modal-grid one">
         <div>
-          <label>Технологический стек</label>
-          <input id="stacks" placeholder="Go, React, PostgreSQL" />
+          <label for="repoLink">Ссылка на репозиторий GitHub</label>
+          <input id="repoLink" name="repo_link" type="url" autocomplete="off" spellcheck="false" placeholder="https://github.com/username/repo-name" />
+        </div>
+      </div>
+
+      <div class="modal-grid one">
+        <div>
+          <label for="stacks">Технологический стек</label>
+          <input id="stacks" name="stacks" type="text" autocomplete="off" placeholder="Go, React, PostgreSQL" />
         </div>
       </div>
 
@@ -216,16 +216,16 @@
 
       <div id="privateGroupRow" class="modal-grid two" hidden>
         <div>
-          <label>Кафедра</label>
-          <select id="groupDepartment"></select>
+          <label for="groupDepartment">Кафедра</label>
+          <select id="groupDepartment" name="group_department" autocomplete="off"></select>
         </div>
         <div>
-          <label>Номер группы</label>
-          <select id="groupNumber"></select>
+          <label for="groupNumber">Номер группы</label>
+          <select id="groupNumber" name="group_number" autocomplete="off"></select>
         </div>
       </div>
 
-      <div id="createStatus" class="status"></div>
+      <div id="createStatus" class="status" aria-live="polite"></div>
 
       <div class="modal-actions">
         <button id="createCancelBtn" class="cancel-btn" type="button">Отмена</button>

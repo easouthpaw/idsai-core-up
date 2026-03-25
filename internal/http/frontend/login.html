@@ -21,12 +21,12 @@
           <div class="auth-notice-content">
             <div class="collab-logos">
               <div class="uni-logo-wrap">
-                <img src="/dev/static/assets/enu-logo.jpg" alt="Eurasian National University logo" />
+                <img src="/dev/static/assets/enu-logo.jpg" alt="Eurasian National University logo" width="80" height="80" />
                 <span>ENU</span>
               </div>
               <span class="collab-sign">×</span>
               <div class="project-logo-wrap">
-                <img src="/dev/static/assets/idsai-corp-logo.png" alt="IDSAI Corp. logo" />
+                <img src="/dev/static/assets/idsai-corp-logo.png" alt="IDSAI Corp. logo" width="160" height="40" />
                 <span>IDSAI</span>
               </div>
             </div>
@@ -48,7 +48,7 @@
     <section class="right-pane">
       <div class="auth-card">
         <div class="logo-wrap">
-          <img src="/dev/static/assets/idsai-corp-logo.png" alt="IDSAI Corp. logo" />
+          <img src="/dev/static/assets/idsai-corp-logo.png" alt="IDSAI Corp. logo" width="160" height="40" />
         </div>
         <h2>IDSAI Corp.</h2>
 
@@ -58,14 +58,14 @@
         </div>
 
         <section id="panelLogin" class="panel active">
-          <label>ID студента / Email</label>
-          <input id="loginEmail" placeholder="напр. s1234567@university.edu" />
+          <label for="loginEmail">ID студента / Email</label>
+          <input id="loginEmail" type="email" name="login_email" autocomplete="username" spellcheck="false" placeholder="напр. s1234567@university.edu" />
 
-          <label>Пароль</label>
-          <input id="loginPassword" type="password" placeholder="••••••••" />
+          <label for="loginPassword">Пароль</label>
+          <input id="loginPassword" type="password" name="login_password" autocomplete="current-password" placeholder="••••••••" />
 
           <div class="mini-row">
-            <label class="remember"><input id="rememberMe" type="checkbox" /><span>Запомнить меня</span></label>
+            <label class="remember"><input id="rememberMe" name="remember_me" type="checkbox" /><span>Запомнить меня</span></label>
             <button id="forgotPasswordBtn" class="link-ghost" type="button">Забыли пароль?</button>
           </div>
 
@@ -73,45 +73,42 @@
         </section>
 
         <section id="panelRegister" class="panel">
-          <label>ФИО</label>
-          <input id="regFullName" placeholder="Иванов Иван Иванович" />
+          <label for="regFullName">ФИО</label>
+          <input id="regFullName" type="text" name="full_name" autocomplete="name" placeholder="Иванов Иван Иванович" />
 
           <div class="row2">
             <div>
-              <label>Кафедра</label>
-              <select id="regDepartment">
-                <option value="IS">IS</option>
-                <option value="AI">AI</option>
-                <option value="CPI">CPI</option>
-                <option value="INF">INF</option>
-                <option value="SEC">SEC</option>
-                <option value="SAU">SAU</option>
+              <label for="regDepartment">Кафедра</label>
+              <select id="regDepartment" name="department" autocomplete="off">
+                <option value="">Выберите кафедру</option>
               </select>
             </div>
             <div>
-              <label>Номер группы</label>
-              <input id="regGroupNumber" placeholder="45" />
+              <label for="regGroup">Группа</label>
+              <select id="regGroup" name="group" autocomplete="off" disabled>
+                <option value="">Сначала выберите кафедру</option>
+              </select>
             </div>
           </div>
 
-          <label>Email</label>
-          <input id="regEmail" placeholder="student@example.edu" />
+          <label for="regEmail">Email</label>
+          <input id="regEmail" type="email" name="email" autocomplete="email" spellcheck="false" placeholder="student@example.edu" />
 
           <div class="row2">
             <div>
-              <label>Пароль</label>
-              <input id="regPassword" type="password" placeholder="минимум 10 символов" />
+              <label for="regPassword">Пароль</label>
+              <input id="regPassword" type="password" name="password" autocomplete="new-password" placeholder="минимум 10 символов" />
             </div>
             <div>
-              <label>Повторите пароль</label>
-              <input id="regPassword2" type="password" placeholder="минимум 10 символов" />
+              <label for="regPassword2">Повторите пароль</label>
+              <input id="regPassword2" type="password" name="password_confirm" autocomplete="new-password" placeholder="минимум 10 символов" />
             </div>
           </div>
 
           <button id="registerBtn" class="primary" type="button">Создать аккаунт ☐</button>
         </section>
 
-        <div id="status" class="status"></div>
+        <div id="status" class="status" aria-live="polite"></div>
         <pre id="resp" class="resp"></pre>
 
         <footer class="foot-note">

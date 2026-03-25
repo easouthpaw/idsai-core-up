@@ -7,6 +7,12 @@
   const panelLoginEl = document.getElementById("panelLogin");
   const panelRegisterEl = document.getElementById("panelRegister");
   const forgotPasswordBtn = document.getElementById("forgotPasswordBtn");
+  const regDepartmentEl = document.getElementById("regDepartment");
+  const regGroupEl = document.getElementById("regGroup");
+  const registrationState = {
+    departments: [],
+    groupsByDepartment: new Map(),
+  };
 
   function setStatus(msg, ok) {
     statusEl.textContent = msg;
@@ -41,6 +47,80 @@
       skipAuthRefresh: true,
       skipAuthRedirect: true,
     });
+  }
+
+  function setGroupOptions(items) {
+    const list = Array.isArray(items) ? items : [];
+    regGroupEl.innerHTML = "";
+    const first = document.createElement("option");
+    first.value = "";
+    first.textContent = list.length ? "Выберите группу" : "Нет доступных групп";
+    regGroupEl.appendChild(first);
+
+    list.forEach((item) => {
+      const opt = document.createElement("option");
+      opt.value = String(item.group_code || "").toUpperCase();
+      opt.textContent = String(item.group_code || "").toUpperCase();
+      regGroupEl.appendChild(opt);
+    });
+    regGroupEl.disabled = list.length === 0;
+  }
+
+  function setDepartmentOptions(items) {
+    const list = Array.isArray(items) ? items : [];
+    regDepartmentEl.innerHTML = "";
+    const first = document.createElement("option");
+    first.value = "";
+    first.textContent = "Выберите кафедру";
+    regDepartmentEl.appendChild(first);
+
+    list.forEach((item) => {
+      const code = String(item.code || "").toUpperCase();
+      const name = String(item.name || "").trim();
+      const opt = document.createElement("option");
+      opt.value = code;
+      opt.textContent = name ? `${code} — ${name}` : code;
+      regDepartmentEl.appendChild(opt);
+    });
+  }
+
+  async function loadDepartments() {
+    const { resp, data } = await auth.requestJSON("/v2/auth/departments", {
+      method: "GET",
+      skipAuthRefresh: true,
+      skipAuthRedirect: true,
+    });
+    if (!resp.ok) {
+      throw new Error((data && data.error) || "Не удалось загрузить кафедры");
+    }
+    const items = Array.isArray(data.departments) ? data.departments : [];
+    registrationState.departments = items;
+    setDepartmentOptions(items);
+  }
+
+  async function loadGroupsByDepartment(departmentCode) {
+    const key = String(departmentCode || "").trim().toUpperCase();
+    if (!key) {
+      setGroupOptions([]);
+      return;
+    }
+    if (registrationState.groupsByDepartment.has(key)) {
+      setGroupOptions(registrationState.groupsByDepartment.get(key));
+      return;
+    }
+
+    const { resp, data } = await auth.requestJSON(`/v2/auth/departments/${encodeURIComponent(key)}/groups`, {
+      method: "GET",
+      skipAuthRefresh: true,
+      skipAuthRedirect: true,
+    });
+    if (!resp.ok) {
+      throw new Error((data && data.error) || "Не удалось загрузить группы");
+    }
+
+    const items = Array.isArray(data.groups) ? data.groups : [];
+    registrationState.groupsByDepartment.set(key, items);
+    setGroupOptions(items);
   }
 
   async function resendVerification(email) {
@@ -78,6 +158,10 @@
       tenant_id: out.data.tenant_id,
       faculty_id: out.data.faculty_id,
       department_id: out.data.department_id,
+      department_code: out.data.department_code,
+      group_id: out.data.group_id,
+      group_code: out.data.group_code,
+      group_number: out.data.group_number,
       email: out.data.email,
       pending_email: out.data.pending_email,
       pending_email_status: out.data.pending_email_status,
@@ -95,12 +179,13 @@
 
   async function register() {
     const fullName = document.getElementById("regFullName").value.trim();
-    const department = document.getElementById("regDepartment").value;
+    const department = String(regDepartmentEl.value || "").trim().toUpperCase();
+    const groupCode = String(regGroupEl.value || "").trim().toUpperCase();
     const email = document.getElementById("regEmail").value.trim();
     const password = document.getElementById("regPassword").value;
     const password2 = document.getElementById("regPassword2").value;
 
-    if (!email || !password || !department) {
+    if (!email || !password || !department || !groupCode) {
       setStatus("Заполни обязательные поля регистрации", false);
       return;
     }
@@ -114,6 +199,7 @@
       password,
       full_name: fullName,
       department_code: department,
+      group_code: groupCode,
     });
     if (!out.resp.ok) {
       setStatus("Ошибка регистрации: " + out.resp.status, false);
@@ -281,5 +367,22 @@
   });
 
   handleQueryState();
+  regDepartmentEl?.addEventListener("change", () => {
+    const departmentCode = String(regDepartmentEl.value || "").trim().toUpperCase();
+    loadGroupsByDepartment(departmentCode).catch((e) => {
+      setStatus("Не удалось загрузить группы кафедры", false);
+      showJSON(e.message || String(e));
+    });
+  });
+
+  loadDepartments()
+    .then(() => {
+      setGroupOptions([]);
+    })
+    .catch((e) => {
+      setStatus("Не удалось загрузить кафедры для регистрации", false);
+      showJSON(e.message || String(e));
+    });
+
   restoreExistingSession().catch(() => {});
 })();

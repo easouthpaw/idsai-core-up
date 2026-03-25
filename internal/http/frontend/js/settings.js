@@ -20,6 +20,15 @@
     saveProfileBtn: document.getElementById("saveProfileBtn"),
     fullNameStatus: document.getElementById("fullNameStatus"),
 
+    currentDepartmentInput: document.getElementById("currentDepartmentInput"),
+    currentGroupInput: document.getElementById("currentGroupInput"),
+    groupChangeBox: document.getElementById("groupChangeBox"),
+    requestDepartmentInput: document.getElementById("requestDepartmentInput"),
+    requestGroupInput: document.getElementById("requestGroupInput"),
+    submitGroupChangeBtn: document.getElementById("submitGroupChangeBtn"),
+    groupChangeStatus: document.getElementById("groupChangeStatus"),
+    groupRequestsList: document.getElementById("groupRequestsList"),
+
     currentEmailInput: document.getElementById("currentEmailInput"),
     newEmailInput: document.getElementById("newEmailInput"),
     startEmailChangeBtn: document.getElementById("startEmailChangeBtn"),
@@ -33,6 +42,11 @@
     confirmPasswordInput: document.getElementById("confirmPasswordInput"),
     changePasswordBtn: document.getElementById("changePasswordBtn"),
     passwordStatus: document.getElementById("passwordStatus"),
+  };
+
+  const groupsState = {
+    departments: [],
+    groupsByDepartment: new Map(),
   };
 
   function escapeHTML(value) {
@@ -60,7 +74,7 @@
     const url = String(avatarURL || "").trim();
     if (url) {
       el.classList.add("has-image");
-      el.innerHTML = `<img src="${escapeHTML(url)}" alt="Avatar" loading="lazy" />`;
+      el.innerHTML = `<img src="${escapeHTML(url)}" alt="Avatar" width="64" height="64" loading="lazy" />`;
       return;
     }
     el.classList.remove("has-image");
@@ -91,6 +105,10 @@
       tenant_id: String(data.tenant_id || ""),
       faculty_id: String(data.faculty_id || ""),
       department_id: String(data.department_id || ""),
+      department_code: String(data.department_code || ""),
+      group_id: String(data.group_id || ""),
+      group_code: String(data.group_code || ""),
+      group_number: data.group_number !== undefined && data.group_number !== null ? Number(data.group_number) : null,
       email: String(data.email || ""),
       pending_email: String(data.pending_email || ""),
       pending_email_status: String(data.pending_email_status || ""),
@@ -121,6 +139,12 @@
 
     if (ui.fullNameInput) ui.fullNameInput.value = name;
     if (ui.currentEmailInput) ui.currentEmailInput.value = email;
+    if (ui.currentDepartmentInput) {
+      ui.currentDepartmentInput.value = profile.department_code || "—";
+    }
+    if (ui.currentGroupInput) {
+      ui.currentGroupInput.value = profile.group_code || "—";
+    }
 
     if (ui.newEmailInput && profile.pending_email) {
       ui.newEmailInput.value = profile.pending_email;
@@ -156,6 +180,140 @@
   async function loadSettings() {
     const data = await request("GET", "/v2/auth/settings");
     applyProfile(data);
+  }
+
+  function requestStatusLabel(status) {
+    const value = String(status || "").toUpperCase();
+    if (value === "PENDING") return "Ожидает";
+    if (value === "APPROVED") return "Одобрено";
+    if (value === "REJECTED") return "Отклонено";
+    return value || "—";
+  }
+
+  function formatDateTime(raw) {
+    if (!raw) return "—";
+    const dt = new Date(raw);
+    if (Number.isNaN(dt.getTime())) return "—";
+    return dt.toLocaleString("ru-RU");
+  }
+
+  function renderGroupRequests(items) {
+    if (!ui.groupRequestsList) return;
+    const list = Array.isArray(items) ? items : [];
+    ui.groupRequestsList.innerHTML = "";
+    if (!list.length) {
+      const empty = document.createElement("li");
+      empty.textContent = "Заявок пока нет.";
+      ui.groupRequestsList.appendChild(empty);
+      return;
+    }
+
+    list.forEach((item) => {
+      const li = document.createElement("li");
+      const status = requestStatusLabel(item.status);
+      const from = String(item.current_group_code || "—");
+      const to = String(item.requested_group_code || "—");
+      const createdAt = formatDateTime(item.created_at);
+      const reviewedAt = formatDateTime(item.reviewed_at);
+      const comment = String(item.admin_comment || "").trim();
+      li.innerHTML = `
+        <strong>${escapeHTML(status)}</strong>
+        <div>${escapeHTML(from)} → ${escapeHTML(to)}</div>
+        <div>Создано: ${escapeHTML(createdAt)}</div>
+        <div>Проверено: ${escapeHTML(reviewedAt)}</div>
+        ${comment ? `<div>Комментарий: ${escapeHTML(comment)}</div>` : ""}
+      `;
+      ui.groupRequestsList.appendChild(li);
+    });
+  }
+
+  async function loadGroupRequests() {
+    const data = await request("GET", "/v2/auth/settings/group-change-requests");
+    const requests = Array.isArray(data.requests) ? data.requests : [];
+    renderGroupRequests(requests);
+  }
+
+  function setDepartmentOptions(items) {
+    if (!ui.requestDepartmentInput) return;
+    const list = Array.isArray(items) ? items : [];
+    ui.requestDepartmentInput.innerHTML = "";
+    const first = document.createElement("option");
+    first.value = "";
+    first.textContent = "Выберите кафедру";
+    ui.requestDepartmentInput.appendChild(first);
+    list.forEach((item) => {
+      const code = String(item.code || "").toUpperCase();
+      const name = String(item.name || "");
+      const option = document.createElement("option");
+      option.value = code;
+      option.textContent = name ? `${code} — ${name}` : code;
+      ui.requestDepartmentInput.appendChild(option);
+    });
+  }
+
+  function setGroupOptions(items) {
+    if (!ui.requestGroupInput) return;
+    const list = Array.isArray(items) ? items : [];
+    ui.requestGroupInput.innerHTML = "";
+    const first = document.createElement("option");
+    first.value = "";
+    first.textContent = list.length ? "Выберите группу" : "Нет доступных групп";
+    ui.requestGroupInput.appendChild(first);
+
+    list.forEach((item) => {
+      const option = document.createElement("option");
+      option.value = String(item.group_code || "").toUpperCase();
+      option.textContent = String(item.group_code || "").toUpperCase();
+      ui.requestGroupInput.appendChild(option);
+    });
+    ui.requestGroupInput.disabled = list.length === 0;
+  }
+
+  async function loadDepartments() {
+    const data = await request("GET", "/v2/auth/departments");
+    const departments = Array.isArray(data.departments) ? data.departments : [];
+    groupsState.departments = departments;
+    setDepartmentOptions(departments);
+  }
+
+  async function loadGroupsByDepartment(departmentCode) {
+    const key = String(departmentCode || "").trim().toUpperCase();
+    if (!key) {
+      setGroupOptions([]);
+      return;
+    }
+    if (groupsState.groupsByDepartment.has(key)) {
+      setGroupOptions(groupsState.groupsByDepartment.get(key));
+      return;
+    }
+
+    const data = await request("GET", `/v2/auth/departments/${encodeURIComponent(key)}/groups`);
+    const groups = Array.isArray(data.groups) ? data.groups : [];
+    groupsState.groupsByDepartment.set(key, groups);
+    setGroupOptions(groups);
+  }
+
+  async function submitGroupChangeRequest() {
+    const departmentCode = String(ui.requestDepartmentInput?.value || "").trim().toUpperCase();
+    const groupCode = String(ui.requestGroupInput?.value || "").trim().toUpperCase();
+    if (!departmentCode || !groupCode) {
+      setStatus(ui.groupChangeStatus, "Выберите кафедру и группу.", "err");
+      return;
+    }
+
+    setLoading(ui.submitGroupChangeBtn, true, "Отправляем...");
+    try {
+      await request("POST", "/v2/auth/settings/group-change-requests", {
+        department_code: departmentCode,
+        group_code: groupCode,
+      });
+      setStatus(ui.groupChangeStatus, "Заявка отправлена администратору.", "ok");
+      await Promise.all([loadSettings(), loadGroupRequests()]);
+    } catch (err) {
+      setStatus(ui.groupChangeStatus, err.message || String(err), "err");
+    } finally {
+      setLoading(ui.submitGroupChangeBtn, false, "Отправить заявку на смену группы");
+    }
   }
 
   async function saveProfile() {
@@ -358,17 +516,47 @@
     ui.removeAvatarBtn.addEventListener("click", () => {
       void removeAvatar();
     });
+
+    if (ui.requestDepartmentInput) {
+      ui.requestDepartmentInput.addEventListener("change", () => {
+        const departmentCode = String(ui.requestDepartmentInput.value || "").trim().toUpperCase();
+        void loadGroupsByDepartment(departmentCode).catch((err) => {
+          setStatus(ui.groupChangeStatus, err.message || String(err), "err");
+        });
+      });
+    }
+    if (ui.submitGroupChangeBtn) {
+      ui.submitGroupChangeBtn.addEventListener("click", () => {
+        void submitGroupChangeRequest();
+      });
+    }
   }
 
   async function bootstrap() {
     const profile = await auth.ensureSession();
     if (!profile) return;
 
+    const isStudent = !profile.is_admin && !profile.is_professor;
+    if (!isStudent && ui.groupChangeBox) {
+      ui.groupChangeBox.hidden = true;
+    }
+
     wireEvents();
     applyQueryStatuses();
 
     try {
       await loadSettings();
+      if (isStudent) {
+        await loadDepartments();
+        const currentDepartment = String(auth.getCachedProfile()?.department_code || "").toUpperCase();
+        if (currentDepartment && ui.requestDepartmentInput) {
+          ui.requestDepartmentInput.value = currentDepartment;
+          await loadGroupsByDepartment(currentDepartment);
+        } else {
+          setGroupOptions([]);
+        }
+        await loadGroupRequests();
+      }
     } catch (err) {
       setStatus(ui.fullNameStatus, `Не удалось загрузить настройки: ${err.message || String(err)}`, "err");
     }

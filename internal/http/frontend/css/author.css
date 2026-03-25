@@ -126,7 +126,6 @@ body.author-body .join-btn {
   display: block;
 
   border: none;
-  outline: none;
   box-shadow: none;
   padding: 0;
   background: transparent;
@@ -311,7 +310,6 @@ body.author-body .join-btn {
 .form-container .form-group input,
 .form-container .form-group textarea {
   width: 100%;
-  outline: none;
   padding: 13px 15px;
   border-radius: 10px;
   color: #eef6f1;
@@ -332,8 +330,10 @@ body.author-body .join-btn {
   color: rgba(213, 226, 219, 0.56);
 }
 
-.form-container .form-group input:focus,
-.form-container .form-group textarea:focus {
+.form-container .form-group input:focus-visible,
+.form-container .form-group textarea:focus-visible {
+  outline: 2px solid rgba(28, 255, 116, 0.3);
+  outline-offset: 1px;
   border-color: rgba(28, 255, 116, 0.72);
   box-shadow: 0 0 0 3px rgba(28, 255, 116, 0.12);
   background: rgba(8, 29, 21, 0.96);

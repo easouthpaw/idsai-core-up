@@ -117,3 +117,15 @@ func TestDevProfessorGradingRoute_Available(t *testing.T) {
 	require.Contains(t, w.Header().Get("Content-Type"), "text/html")
 	require.Contains(t, w.Body.String(), "IDSAI Corp. Project Grading")
 }
+
+func TestDevGroupsRoute_Available(t *testing.T) {
+	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/dev/groups", nil)
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Header().Get("Content-Type"), "text/html")
+	require.Contains(t, w.Body.String(), "IDSAI Corp. Groups")
+}

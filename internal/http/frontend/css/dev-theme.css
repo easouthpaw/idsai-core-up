@@ -83,19 +83,20 @@ body.admin-body textarea {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-body.auth-body input:focus,
-body.auth-body select:focus,
-body.auth-body textarea:focus,
-body.projects-body input:focus,
-body.projects-body select:focus,
-body.projects-body textarea:focus,
-body.project-body input:focus,
-body.project-body select:focus,
-body.project-body textarea:focus,
-body.admin-body input:focus,
-body.admin-body select:focus,
-body.admin-body textarea:focus {
-  outline: none;
+body.auth-body input:focus-visible,
+body.auth-body select:focus-visible,
+body.auth-body textarea:focus-visible,
+body.projects-body input:focus-visible,
+body.projects-body select:focus-visible,
+body.projects-body textarea:focus-visible,
+body.project-body input:focus-visible,
+body.project-body select:focus-visible,
+body.project-body textarea:focus-visible,
+body.admin-body input:focus-visible,
+body.admin-body select:focus-visible,
+body.admin-body textarea:focus-visible {
+  outline: 2px solid rgba(9, 105, 218, 0.35);
+  outline-offset: 1px;
   border-color: rgba(9, 105, 218, 0.7);
   box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.14);
 }

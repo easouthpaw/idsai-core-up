@@ -157,11 +157,23 @@ func (r *AdminRepo) CreateUser(ctx context.Context, in svc.CreateUserParams) (sv
 	var departmentID uuid.UUID
 	var facultyID uuid.UUID
 	var tenantID uuid.UUID
+	var groupID *uuid.UUID
 	if err := tx.QueryRow(ctx, `
-SELECT d.id, d.faculty_id, d.tenant_id
+SELECT
+  d.id,
+  d.faculty_id,
+  d.tenant_id,
+  (
+    SELECT sg.id
+    FROM student_groups sg
+    WHERE sg.department_id = d.id
+      AND sg.tenant_id = d.tenant_id
+    ORDER BY sg.group_number ASC, sg.created_at ASC
+    LIMIT 1
+  ) AS group_id
 FROM departments d
 WHERE UPPER(d.code) = UPPER($1);
-`, in.DepartmentCode).Scan(&departmentID, &facultyID, &tenantID); err != nil {
+`, in.DepartmentCode).Scan(&departmentID, &facultyID, &tenantID, &groupID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return svc.User{}, svc.ErrDepartmentNotFound
 		}
@@ -182,9 +194,9 @@ RETURNING id;
 	}
 
 	if _, err := tx.Exec(ctx, `
-INSERT INTO user_profiles(tenant_id, user_id, full_name, faculty_id, department_id)
-VALUES ($1, $2, $3, $4, $5);
-`, tenantID, userID, in.FullName, facultyID, departmentID); err != nil {
+INSERT INTO user_profiles(tenant_id, user_id, full_name, faculty_id, department_id, group_id)
+VALUES ($1, $2, $3, $4, $5, $6);
+`, tenantID, userID, in.FullName, facultyID, departmentID, groupID); err != nil {
 		return svc.User{}, err
 	}
 

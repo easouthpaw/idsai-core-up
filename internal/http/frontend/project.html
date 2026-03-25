@@ -16,7 +16,7 @@
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand">
-        <img class="brand-logo" src="/dev/static/assets/idsai-corp-logo.png" alt="IDSAI Corp. logo" />
+        <img class="brand-logo" src="/dev/static/assets/idsai-corp-logo.png" alt="IDSAI Corp. logo" width="160" height="40" />
         <span class="logo-text">IDSAI Corp.</span>
       </div>
 
@@ -86,9 +86,9 @@
 
         <div class="topbar-actions">
           <label class="search-wrap" for="globalSearchInput">
-            <input id="globalSearchInput" type="search" placeholder="Поиск в проекте (Cmd+K)" />
+            <input id="globalSearchInput" name="global_search" type="search" autocomplete="off" placeholder="Поиск в проекте (Cmd+K)" />
           </label>
-          <button id="refreshBtn" class="icon-btn" type="button" title="Обновить">↻</button>
+          <button id="refreshBtn" class="icon-btn" type="button" title="Обновить" aria-label="Обновить проект">↻</button>
         </div>
       </header>
 
@@ -105,7 +105,7 @@
           </div>
 
           <div class="hero-cover-wrap">
-            <img id="heroCoverImage" class="hero-cover-image" src="/dev/static/assets/code-screen.jpg" alt="Project cover" />
+            <img id="heroCoverImage" class="hero-cover-image" src="/dev/static/assets/code-screen.jpg" alt="Project cover" width="1600" height="900" />
           </div>
 
           <div class="hero-actions">
@@ -156,7 +156,7 @@
                 <div class="card-body">
                   <p id="applyHint" class="muted-text">Оставьте короткий комментарий и отправьте заявку в проект.</p>
                   <label for="applyCommentInput">Комментарий к заявке</label>
-                  <textarea id="applyCommentInput" rows="5" placeholder="Например: хочу взять backend-роль, есть опыт с Go/PostgreSQL"></textarea>
+                  <textarea id="applyCommentInput" name="apply_comment" rows="5" autocomplete="off" placeholder="Например: хочу взять backend-роль, есть опыт с Go/PostgreSQL"></textarea>
                   <div class="task-toolbar">
                     <button id="applyProjectBtn" class="primary-btn" type="button">Подать заявку</button>
                   </div>
@@ -196,7 +196,7 @@
                 <div class="card-body pipeline-body">
                   <div class="professor-assign">
                     <div class="split-row">
-                      <input id="professorSearchInput" type="text" placeholder="Поиск преподавателя по имени или email" />
+                      <input id="professorSearchInput" type="text" name="professor_search" autocomplete="off" aria-label="Поиск преподавателя" placeholder="Поиск преподавателя по имени или email" />
                       <button id="assignProfessorBtn" class="ghost-btn" type="button" disabled>Пригласить</button>
                     </div>
                     <div id="professorSearchResults" class="search-results" hidden></div>
@@ -222,9 +222,9 @@
               </div>
               <div class="team-head-actions">
                 <form id="positionForm" class="position-form">
-                  <input id="positionNameInput" type="text" placeholder="Название роли" required />
-                  <input id="positionCodeInput" type="text" placeholder="Код роли" />
-                  <input id="positionCapacityInput" type="number" min="1" value="1" required />
+                  <input id="positionNameInput" type="text" name="position_name" autocomplete="off" aria-label="Название роли" placeholder="Название роли" required />
+                  <input id="positionCodeInput" type="text" name="position_code" autocomplete="off" aria-label="Код роли" placeholder="Код роли" />
+                  <input id="positionCapacityInput" type="number" name="position_capacity" autocomplete="off" aria-label="Количество мест" min="1" value="1" required />
                   <button class="ghost-btn" type="submit">Добавить роль</button>
                 </form>
               </div>
@@ -264,7 +264,7 @@
               </div>
               <div class="team-head-actions">
                 <div class="split-row invite-search-row">
-                  <input id="inviteSearchInput" type="search" placeholder="Поиск по имени или email" />
+                  <input id="inviteSearchInput" type="search" name="invite_search" autocomplete="off" placeholder="Поиск по имени или email" />
                   <button id="inviteRefreshBtn" class="ghost-btn" type="button">Обновить</button>
                 </div>
                 <button class="ghost-btn" type="button" data-switch-view="team">Назад к команде</button>
@@ -410,13 +410,13 @@
           <article class="edit-card">
             <header class="edit-head">
               <h2>Редактирование проекта</h2>
-              <button id="closeEditViewBtn" class="icon-btn" type="button">×</button>
+              <button id="closeEditViewBtn" class="icon-btn" type="button" aria-label="Закрыть режим редактирования">×</button>
             </header>
 
             <div class="edit-body">
               <div class="cover-slot">
-                <img id="editCoverPreview" class="cover-placeholder" src="/dev/static/assets/code-screen.jpg" alt="Project cover" />
-                <input id="editCoverInput" type="file" accept="image/jpeg,image/jpg,image/png,image/webp" hidden />
+                <img id="editCoverPreview" class="cover-placeholder" src="/dev/static/assets/code-screen.jpg" alt="Project cover" width="1600" height="900" />
+                <input id="editCoverInput" type="file" name="edit_cover" accept="image/jpeg,image/jpg,image/png,image/webp" hidden />
                 <div class="cover-actions">
                   <button id="uploadCoverBtn" class="ghost-btn" type="button">Загрузить</button>
                   <button id="removeCoverBtn" class="ghost-btn danger-btn" type="button">Удалить</button>
@@ -426,21 +426,21 @@
 
               <div class="edit-fields">
                 <label for="editTitleInput">Название проекта</label>
-                <input id="editTitleInput" type="text" placeholder="Название проекта" />
+                <input id="editTitleInput" type="text" name="edit_title" autocomplete="off" placeholder="Название проекта" />
 
                 <label for="editShortDescriptionInput">Краткое описание</label>
-                <input id="editShortDescriptionInput" type="text" placeholder="Краткое описание" />
+                <input id="editShortDescriptionInput" type="text" name="edit_short_description" autocomplete="off" placeholder="Краткое описание" />
 
                 <label for="editReadmeInput">README / Полное описание</label>
-                <textarea id="editReadmeInput" rows="10" placeholder="Введите подробное описание проекта..."></textarea>
+                <textarea id="editReadmeInput" name="edit_readme" rows="10" autocomplete="off" placeholder="Введите подробное описание проекта..."></textarea>
 
                 <label for="editRepoInput">GitHub репозиторий</label>
-                <input id="editRepoInput" type="text" placeholder="https://github.com/username/repo" />
+                <input id="editRepoInput" type="url" name="edit_repo" autocomplete="off" spellcheck="false" placeholder="https://github.com/username/repo" />
 
                 <div class="edit-inline">
                   <div>
                     <label for="editStacksInput">Стек технологий</label>
-                    <input id="editStacksInput" type="text" placeholder="React, Node.js, PostgreSQL" />
+                    <input id="editStacksInput" type="text" name="edit_stacks" autocomplete="off" placeholder="React, Node.js, PostgreSQL" />
                   </div>
 
                   <div>
@@ -477,24 +477,24 @@
     <div class="modal-card">
       <header class="modal-head">
         <h3>Добавление новой задачи</h3>
-        <button class="icon-btn" type="button" data-close-modal="taskModal">×</button>
+        <button class="icon-btn" type="button" data-close-modal="taskModal" aria-label="Закрыть окно задачи">×</button>
       </header>
 
       <div class="modal-body">
         <label for="taskModalTitleInput">Название задачи</label>
-        <input id="taskModalTitleInput" type="text" placeholder="Например: Разработать дизайн-систему" />
+        <input id="taskModalTitleInput" type="text" name="task_title" autocomplete="off" placeholder="Например: Разработать дизайн-систему" />
 
         <div class="modal-grid two">
           <div>
             <label for="taskModalStatusSelect">Статус</label>
-            <select id="taskModalStatusSelect">
+            <select id="taskModalStatusSelect" name="task_status" autocomplete="off">
               <option value="OPEN">Backlog</option>
               <option value="IN_PROGRESS">В работе</option>
             </select>
           </div>
           <div>
             <label for="taskModalPrioritySelect">Приоритет</label>
-            <select id="taskModalPrioritySelect">
+            <select id="taskModalPrioritySelect" name="task_priority" autocomplete="off">
               <option value="MEDIUM">Средний</option>
               <option value="HIGH">Высокий</option>
               <option value="LOW">Низкий</option>
@@ -505,22 +505,22 @@
         <div class="modal-grid two">
           <div>
             <label for="taskModalPositionSelect">Роль</label>
-            <select id="taskModalPositionSelect"></select>
+            <select id="taskModalPositionSelect" name="task_position" autocomplete="off"></select>
           </div>
           <div>
             <label for="taskModalAssigneeSelect">Исполнитель</label>
-            <select id="taskModalAssigneeSelect"></select>
+            <select id="taskModalAssigneeSelect" name="task_assignee" autocomplete="off"></select>
           </div>
         </div>
 
         <label for="taskModalTagsInput">Теги</label>
-        <input id="taskModalTagsInput" type="text" placeholder="Design, Frontend" />
+        <input id="taskModalTagsInput" type="text" name="task_tags" autocomplete="off" placeholder="Design, Frontend" />
 
         <label for="taskModalDescriptionInput">Описание</label>
-        <textarea id="taskModalDescriptionInput" rows="6" placeholder="Добавьте подробности..."></textarea>
+        <textarea id="taskModalDescriptionInput" name="task_description" rows="6" autocomplete="off" placeholder="Добавьте подробности..."></textarea>
 
         <label for="taskModalDueAtInput">Срок</label>
-        <input id="taskModalDueAtInput" type="datetime-local" />
+        <input id="taskModalDueAtInput" type="datetime-local" name="task_due_at" autocomplete="off" />
       </div>
 
       <footer class="modal-foot">
@@ -534,17 +534,17 @@
     <div class="modal-card">
       <header class="modal-head">
         <h3>Фиксация результата задачи</h3>
-        <button class="icon-btn" type="button" data-close-modal="taskResultModal">×</button>
+        <button class="icon-btn" type="button" data-close-modal="taskResultModal" aria-label="Закрыть окно результата задачи">×</button>
       </header>
 
       <div class="modal-body">
         <p id="taskResultTarget" class="muted-text">Задача</p>
 
         <label for="taskResultCommentInput">Комментарий к результату</label>
-        <textarea id="taskResultCommentInput" rows="6" placeholder="Что сделано, какие проверки пройдены, что важно знать команде..."></textarea>
+        <textarea id="taskResultCommentInput" name="task_result_comment" rows="6" autocomplete="off" placeholder="Что сделано, какие проверки пройдены, что важно знать команде..."></textarea>
 
         <label for="taskResultAttachmentsInput">Вложения (фото / видео / ссылка)</label>
-        <textarea id="taskResultAttachmentsInput" rows="5" placeholder="https://...\nhttps://...\n(каждая ссылка с новой строки)"></textarea>
+        <textarea id="taskResultAttachmentsInput" name="task_result_attachments" rows="5" autocomplete="off" placeholder="https://...\nhttps://...\n(каждая ссылка с новой строки)"></textarea>
       </div>
 
       <footer class="modal-foot">
@@ -558,12 +558,12 @@
     <div class="modal-card permissions-card">
       <header class="modal-head">
         <h3>Настройка прав доступа: <span id="permMemberName">Участник</span></h3>
-        <button class="icon-btn" type="button" data-close-modal="permissionsModal">×</button>
+        <button class="icon-btn" type="button" data-close-modal="permissionsModal" aria-label="Закрыть окно прав доступа">×</button>
       </header>
 
       <div class="modal-body">
         <label for="permRoleSelect">Глобальная роль в проекте</label>
-        <select id="permRoleSelect">
+        <select id="permRoleSelect" name="perm_role" autocomplete="off">
           <option value="TEAM_LEAD">Team Lead</option>
           <option value="DEVELOPER">Developer</option>
           <option value="FRONTEND">Frontend</option>

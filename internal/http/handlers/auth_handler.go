@@ -26,6 +26,7 @@ type registerReq struct {
 	Password       string `json:"password" binding:"required"`
 	FullName       string `json:"full_name"`
 	DepartmentCode string `json:"department_code" binding:"required"`
+	GroupCode      string `json:"group_code" binding:"required"`
 }
 
 type loginReq struct {
@@ -67,18 +68,22 @@ type accessResp struct {
 }
 
 type meResp struct {
-	UserID        string `json:"user_id"`
-	TenantID      string `json:"tenant_id"`
-	FacultyID     string `json:"faculty_id"`
-	DepartmentID  string `json:"department_id"`
-	Email         string `json:"email"`
-	PendingEmail  string `json:"pending_email,omitempty"`
-	PendingStatus string `json:"pending_email_status,omitempty"`
-	FullName      string `json:"full_name"`
-	AvatarURL     string `json:"avatar_url,omitempty"`
-	IsAdmin       bool   `json:"is_admin"`
-	IsProfessor   bool   `json:"is_professor"`
-	EmailVerified bool   `json:"email_verified"`
+	UserID         string `json:"user_id"`
+	TenantID       string `json:"tenant_id"`
+	FacultyID      string `json:"faculty_id"`
+	DepartmentID   string `json:"department_id"`
+	DepartmentCode string `json:"department_code"`
+	GroupID        string `json:"group_id,omitempty"`
+	GroupCode      string `json:"group_code,omitempty"`
+	GroupNumber    *int   `json:"group_number,omitempty"`
+	Email          string `json:"email"`
+	PendingEmail   string `json:"pending_email,omitempty"`
+	PendingStatus  string `json:"pending_email_status,omitempty"`
+	FullName       string `json:"full_name"`
+	AvatarURL      string `json:"avatar_url,omitempty"`
+	IsAdmin        bool   `json:"is_admin"`
+	IsProfessor    bool   `json:"is_professor"`
+	EmailVerified  bool   `json:"email_verified"`
 }
 
 func tenantCodeFromHeader(c *gin.Context) string {
@@ -122,6 +127,22 @@ func writeAuthError(c *gin.Context, err error) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	case errors.Is(err, auth.ErrNotFound):
 		c.JSON(http.StatusBadRequest, gin.H{"error": "resource not found"})
+	case errors.Is(err, auth.ErrDepartmentNotFound):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "department not found"})
+	case errors.Is(err, auth.ErrGroupNotFound):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "group not found"})
+	case errors.Is(err, auth.ErrGroupMismatch):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "selected group does not belong to selected department"})
+	case errors.Is(err, auth.ErrGroupUnchanged):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "requested group matches current group"})
+	case errors.Is(err, auth.ErrPendingGroupRequestExists):
+		c.JSON(http.StatusConflict, gin.H{"error": "pending group change request already exists"})
+	case errors.Is(err, auth.ErrGroupRequestNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": "group change request not found"})
+	case errors.Is(err, auth.ErrGroupRequestReviewed):
+		c.JSON(http.StatusConflict, gin.H{"error": "group change request already reviewed"})
+	case errors.Is(err, auth.ErrForbidden):
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 	case errors.Is(err, auth.ErrUserExists):
 		c.JSON(http.StatusConflict, gin.H{"error": "user already exists"})
 	case errors.Is(err, auth.ErrEmailInUse):
@@ -144,19 +165,27 @@ func writeAuthError(c *gin.Context, err error) {
 }
 
 func buildMeResp(u auth.User) meResp {
+	groupID := ""
+	if u.GroupID != nil {
+		groupID = u.GroupID.String()
+	}
 	return meResp{
-		UserID:        u.ID.String(),
-		TenantID:      u.TenantID.String(),
-		FacultyID:     u.FacultyID.String(),
-		DepartmentID:  u.DepartmentID.String(),
-		Email:         u.Email,
-		PendingEmail:  strings.TrimSpace(u.PendingEmail),
-		PendingStatus: pendingEmailStatus(u),
-		FullName:      u.FullName,
-		AvatarURL:     strings.TrimSpace(u.AvatarURL),
-		IsAdmin:       u.IsAdmin,
-		IsProfessor:   u.IsProfessor,
-		EmailVerified: u.EmailVerifiedAt != nil,
+		UserID:         u.ID.String(),
+		TenantID:       u.TenantID.String(),
+		FacultyID:      u.FacultyID.String(),
+		DepartmentID:   u.DepartmentID.String(),
+		DepartmentCode: strings.TrimSpace(u.DepartmentCode),
+		GroupID:        groupID,
+		GroupCode:      strings.TrimSpace(u.GroupCode),
+		GroupNumber:    u.GroupNumber,
+		Email:          u.Email,
+		PendingEmail:   strings.TrimSpace(u.PendingEmail),
+		PendingStatus:  pendingEmailStatus(u),
+		FullName:       u.FullName,
+		AvatarURL:      strings.TrimSpace(u.AvatarURL),
+		IsAdmin:        u.IsAdmin,
+		IsProfessor:    u.IsProfessor,
+		EmailVerified:  u.EmailVerifiedAt != nil,
 	}
 }
 
@@ -180,7 +209,15 @@ func (h *AuthHandler) RegisterStudent(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.RegisterStudent(c.Request.Context(), tenantCodeFromHeader(c), req.Email, req.Password, req.FullName, req.DepartmentCode); err != nil {
+	if err := h.svc.RegisterStudent(
+		c.Request.Context(),
+		tenantCodeFromHeader(c),
+		req.Email,
+		req.Password,
+		req.FullName,
+		req.DepartmentCode,
+		req.GroupCode,
+	); err != nil {
 		writeAuthError(c, err)
 		return
 	}

@@ -30,7 +30,7 @@ func (f *fakeRepo) CreateUser(ctx context.Context, in CreateUserParams) (uuid.UU
 	return uuid.New(), nil
 }
 
-func (f *fakeRepo) CreateProfile(ctx context.Context, tenantID, userID uuid.UUID, fullName string, facultyID, departmentID uuid.UUID) error {
+func (f *fakeRepo) CreateProfile(ctx context.Context, tenantID, userID uuid.UUID, fullName string, facultyID, departmentID uuid.UUID, groupID *uuid.UUID) error {
 	return nil
 }
 
@@ -98,6 +98,38 @@ func (f *fakeRepo) RevokeUserRefreshTokens(ctx context.Context, tenantID, userID
 
 func (f *fakeRepo) FindDepartment(ctx context.Context, tenantID uuid.UUID, departmentCode string) (uuid.UUID, uuid.UUID, error) {
 	return uuid.New(), uuid.New(), nil
+}
+
+func (f *fakeRepo) FindGroupByCodeInDepartment(ctx context.Context, tenantID, departmentID uuid.UUID, groupCode string) (uuid.UUID, error) {
+	return uuid.New(), nil
+}
+
+func (f *fakeRepo) ListDepartments(ctx context.Context, tenantID uuid.UUID) ([]Department, error) {
+	return []Department{}, nil
+}
+
+func (f *fakeRepo) ListGroupsByDepartmentCode(ctx context.Context, tenantID uuid.UUID, departmentCode string) ([]StudentGroup, error) {
+	return []StudentGroup{}, nil
+}
+
+func (f *fakeRepo) InsertGroupChangeRequest(ctx context.Context, tenantID, studentID, currentGroupID, requestedGroupID uuid.UUID, createdAt time.Time) (GroupChangeRequest, error) {
+	return GroupChangeRequest{}, nil
+}
+
+func (f *fakeRepo) ListOwnGroupChangeRequests(ctx context.Context, tenantID, studentID uuid.UUID, limit int) ([]GroupChangeRequest, error) {
+	return []GroupChangeRequest{}, nil
+}
+
+func (f *fakeRepo) ListGroupChangeRequests(ctx context.Context, tenantID uuid.UUID, status, search string, limit int) ([]GroupChangeRequest, error) {
+	return []GroupChangeRequest{}, nil
+}
+
+func (f *fakeRepo) ReviewGroupChangeRequest(ctx context.Context, tenantID, requestID, reviewerID uuid.UUID, decision, comment string, reviewedAt time.Time) (GroupChangeRequest, error) {
+	return GroupChangeRequest{}, nil
+}
+
+func (f *fakeRepo) ListDepartmentGroupsTree(ctx context.Context, tenantID uuid.UUID, departmentCode, search string) ([]DepartmentGroupsTree, error) {
+	return []DepartmentGroupsTree{}, nil
 }
 
 func (f *fakeRepo) InsertAuthToken(ctx context.Context, tenantID, userID uuid.UUID, purpose, tokenHash string, expiresAt time.Time) error {

@@ -17,7 +17,7 @@
   <div class="layout">
     <aside class="sidebar">
       <div class="brand">
-        <img class="brand-logo" src="/dev/static/assets/idsai-corp-logo.png" alt="IDSAI Corp. logo" />
+        <img class="brand-logo" src="/dev/static/assets/idsai-corp-logo.png" alt="IDSAI Corp. logo" width="160" height="40" />
         <span class="logo-text">IDSAI Corp.</span>
       </div>
 
@@ -92,7 +92,7 @@
             <div class="avatar-grid">
               <div class="avatar-preview-wrap">
                 <div id="settingsAvatarPreview" class="settings-avatar">ST</div>
-                <input id="avatarInput" type="file" accept="image/jpeg,image/jpg,image/png,image/webp" hidden />
+                <input id="avatarInput" type="file" name="avatar_file" accept="image/jpeg,image/jpg,image/png,image/webp" hidden />
               </div>
               <div class="avatar-actions">
                 <p>Рекомендуется квадратное изображение, минимум 400x400 px.</p>
@@ -100,30 +100,71 @@
                   <button id="uploadAvatarBtn" class="ghost-btn" type="button">Загрузить новое</button>
                   <button id="removeAvatarBtn" class="ghost-btn danger-btn" type="button">Удалить</button>
                 </div>
-                <p id="avatarStatus" class="inline-status"></p>
+                <p id="avatarStatus" class="inline-status" aria-live="polite"></p>
               </div>
             </div>
 
             <div class="field-grid">
               <label for="fullNameInput">ФИО</label>
-              <input id="fullNameInput" type="text" maxlength="120" placeholder="Ваше полное имя" />
+              <input id="fullNameInput" type="text" name="full_name" autocomplete="name" maxlength="120" placeholder="Ваше полное имя" />
               <p class="field-hint">Имя будет показано в карточках проектов и комментариях.</p>
-              <p id="fullNameStatus" class="inline-status"></p>
+              <p id="fullNameStatus" class="inline-status" aria-live="polite"></p>
               <div class="row-actions">
                 <button id="saveProfileBtn" class="primary-btn" type="button">Сохранить профиль</button>
               </div>
             </div>
 
+            <div id="groupChangeBox" class="group-change-box">
+              <h3>Учебная группа</h3>
+              <p>Смена группы выполняется только после подтверждения администратора.</p>
+
+              <div class="field-grid two">
+                <div>
+                  <label for="currentDepartmentInput">Текущая кафедра</label>
+                  <input id="currentDepartmentInput" type="text" name="current_department" readonly />
+                </div>
+                <div>
+                  <label for="currentGroupInput">Текущая группа</label>
+                  <input id="currentGroupInput" type="text" name="current_group" readonly />
+                </div>
+              </div>
+
+              <div class="field-grid two group-change-row">
+                <div>
+                  <label for="requestDepartmentInput">Новая кафедра</label>
+                  <select id="requestDepartmentInput" name="request_department" autocomplete="off">
+                    <option value="">Выберите кафедру</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="requestGroupInput">Новая группа</label>
+                  <select id="requestGroupInput" name="request_group" autocomplete="off" disabled>
+                    <option value="">Сначала выберите кафедру</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="row-actions">
+                <button id="submitGroupChangeBtn" class="ghost-btn" type="button">Отправить заявку на смену группы</button>
+              </div>
+              <p id="groupChangeStatus" class="inline-status" aria-live="polite"></p>
+
+              <div class="group-requests">
+                <h4>История заявок</h4>
+                <ul id="groupRequestsList" class="group-requests-list"></ul>
+              </div>
+            </div>
+
             <div class="field-grid">
               <label for="currentEmailInput">Текущий email</label>
-              <input id="currentEmailInput" type="email" readonly />
+              <input id="currentEmailInput" type="email" name="current_email" autocomplete="email" readonly />
               <p class="field-hint">Текущий email остается активным до подтверждения нового адреса.</p>
             </div>
 
             <div class="field-grid two">
               <div>
                 <label for="newEmailInput">Новый email</label>
-                <input id="newEmailInput" type="email" placeholder="name@example.edu" />
+                <input id="newEmailInput" type="email" name="new_email" autocomplete="email" spellcheck="false" placeholder="name@example.edu" />
               </div>
               <div class="email-actions">
                 <button id="startEmailChangeBtn" class="primary-btn" type="button">Отправить подтверждение</button>
@@ -133,11 +174,11 @@
 
             <div class="field-grid">
               <label for="emailTokenInput">Код подтверждения</label>
-              <input id="emailTokenInput" type="text" placeholder="Введите 6-значный код из письма" />
+              <input id="emailTokenInput" type="text" name="email_token" autocomplete="one-time-code" inputmode="numeric" placeholder="Введите 6-значный код из письма" />
               <div class="row-actions">
                 <button id="confirmEmailChangeBtn" class="ghost-btn" type="button">Подтвердить email</button>
               </div>
-              <p id="emailStatus" class="inline-status"></p>
+              <p id="emailStatus" class="inline-status" aria-live="polite"></p>
             </div>
           </div>
         </section>
@@ -151,17 +192,17 @@
           <div class="settings-card-body">
             <div class="field-grid">
               <label for="currentPasswordInput">Текущий пароль</label>
-              <input id="currentPasswordInput" type="password" autocomplete="current-password" />
+              <input id="currentPasswordInput" type="password" name="current_password" autocomplete="current-password" />
             </div>
 
             <div class="field-grid two">
               <div>
                 <label for="newPasswordInput">Новый пароль</label>
-                <input id="newPasswordInput" type="password" autocomplete="new-password" />
+                <input id="newPasswordInput" type="password" name="new_password" autocomplete="new-password" />
               </div>
               <div>
                 <label for="confirmPasswordInput">Подтверждение пароля</label>
-                <input id="confirmPasswordInput" type="password" autocomplete="new-password" />
+                <input id="confirmPasswordInput" type="password" name="confirm_password" autocomplete="new-password" />
               </div>
             </div>
 
@@ -174,7 +215,7 @@
             <div class="row-actions">
               <button id="changePasswordBtn" class="primary-btn" type="button">Обновить пароль</button>
             </div>
-            <p id="passwordStatus" class="inline-status"></p>
+            <p id="passwordStatus" class="inline-status" aria-live="polite"></p>
           </div>
         </section>
       </main>
