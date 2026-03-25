@@ -345,11 +345,11 @@
 
     wireEvents();
 
-    await loadDepartments();
-    await loadTree();
+    const tasks = [loadDepartments(), loadTree()];
     if (state.isAdmin) {
-      await loadAdminRequests();
+      tasks.push(loadAdminRequests());
     }
+    await Promise.all(tasks);
   }
 
   bootstrap().catch((err) => {

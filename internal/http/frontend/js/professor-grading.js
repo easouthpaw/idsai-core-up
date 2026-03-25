@@ -41,6 +41,7 @@
     canEdit: false,
     canPublish: false,
     isComplete: false,
+    gradingRestricted: false,
   };
 
   function escapeHTML(value) {
@@ -172,7 +173,8 @@
     if (hasQuery) {
       state.projectID = queryProjectID;
     } else if (!state.projectID && state.projects.length > 0) {
-      state.projectID = String(state.projects[0].id || "");
+      const preferred = state.projects.find((p) => EDITABLE_STATUSES.has(String(p.status || "").toUpperCase()));
+      state.projectID = String((preferred || state.projects[0]).id || "");
     }
   }
 
@@ -190,6 +192,8 @@
     if (s === "REVIEW") return "review";
     if (s === "ACTIVE") return "active";
     if (s === "RECRUITMENT") return "recruitment";
+    if (s === "GRADING") return "active";
+    if (s === "ARCHIVE") return "default";
     return "default";
   }
 
@@ -271,8 +275,28 @@
   function renderGradingList() {
     if (!ui.gradingList) return;
 
+    if (state.gradingRestricted) {
+      ui.gradingList.innerHTML = `
+        <article class="grading-empty">
+          <h3>Оценивание пока недоступно</h3>
+          <p>Для этого проекта текущий статус не позволяет открыть форму оценивания. Переведите проект в REVIEW или GRADING.</p>
+          <p>Если критерии еще не настроены, откройте страницу критериев и заполните чек-лист.</p>
+        </article>
+      `;
+      ui.saveGradingBtn.disabled = true;
+      if (ui.publishGradingBtn) ui.publishGradingBtn.disabled = true;
+      state.isComplete = false;
+      renderSummary();
+      return;
+    }
+
     if (!state.criteria.length) {
-      ui.gradingList.innerHTML = '<div class="empty-state">Критерии пока не настроены.</div>';
+      ui.gradingList.innerHTML = `
+        <article class="grading-empty">
+          <h3>Критерии пока не настроены</h3>
+          <p>Добавьте критерии оценки на странице “Критерии”, затем вернитесь к оцениванию.</p>
+        </article>
+      `;
       ui.saveGradingBtn.disabled = true;
       state.isComplete = false;
       if (ui.publishGradingBtn) ui.publishGradingBtn.disabled = true;
@@ -340,20 +364,32 @@
       return;
     }
 
-    const [project, criteria, gradingResp] = await Promise.all([
+    const [project, criteria] = await Promise.all([
       request("GET", `/v2/projects/${state.projectID}`),
       request("GET", `/v2/projects/${state.projectID}/criteria`),
-      request("GET", `/v2/projects/${state.projectID}/grading`),
     ]);
 
     state.project = project;
     state.criteria = Array.isArray(criteria) ? criteria : [];
-    applyGradingPayload(gradingResp && Array.isArray(gradingResp.items) ? gradingResp.items : []);
+    state.gradingRestricted = false;
+
+    try {
+      const gradingResp = await request("GET", `/v2/projects/${state.projectID}/grading`);
+      applyGradingPayload(gradingResp && Array.isArray(gradingResp.items) ? gradingResp.items : []);
+    } catch (err) {
+      const msg = String(err && err.message ? err.message : "").toLowerCase();
+      if (msg.includes("403") || msg.includes("forbidden")) {
+        state.gradingRestricted = true;
+        applyGradingPayload([]);
+      } else {
+        throw err;
+      }
+    }
 
     renderProjectHeader();
     renderGradingList();
 
-    if (!state.canEdit) {
+    if (state.gradingRestricted || !state.canEdit) {
       const status = String(state.project?.status || "DRAFT").toUpperCase();
       if (status === "ARCHIVE") {
         setStatus("Оценивание завершено. Проект находится в статусе ARCHIVE.", false);
