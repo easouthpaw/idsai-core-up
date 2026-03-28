@@ -191,12 +191,15 @@
     permRoleSelect: document.getElementById("permRoleSelect"),
     permChecklist: document.getElementById("permChecklist"),
     savePermissionsBtn: document.getElementById("savePermissionsBtn"),
+    teamHelperCard: document.querySelector("#view-team .helper-card"),
+    professorAssignWrap: document.querySelector(".professor-assign"),
 
     refreshBtn: document.getElementById("refreshBtn"),
     logoutBtn: document.getElementById("logoutBtn"),
   };
 
   const state = {
+    profile: null,
     projectID: "",
     project: null,
     stacks: [],
@@ -415,11 +418,12 @@
     return headers;
   }
 
-  async function request(method, url, body) {
+  async function request(method, url, body, extra = {}) {
     const { resp, data } = await auth.requestJSON(url, {
       method,
       headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      ...extra,
     });
 
     if (!resp.ok) {
@@ -456,7 +460,7 @@
 
   async function loadOptional(name, method, url, fallback) {
     try {
-      return await request(method, url);
+      return await request(method, url, undefined, { skipAccessAlert: true });
     } catch (err) {
       console.warn(`[project-ui] ${name} failed`, err);
       return fallback;
@@ -563,6 +567,7 @@
     }
     return {
       can_view_workspace: false,
+      can_view_project_details: false,
       can_apply: false,
       can_view_final_grade: false,
     };
@@ -570,6 +575,10 @@
 
   function canViewWorkspace() {
     return Boolean(viewerAccess().can_view_workspace);
+  }
+
+  function canViewProjectDetails() {
+    return canViewWorkspace() || Boolean(viewerAccess().can_view_project_details);
   }
 
   function canApplyToProject() {
@@ -583,6 +592,9 @@
   function allowedViews() {
     if (canViewWorkspace()) {
       return ["overview", "team", "invite", "tasks", "criteria", "review", "edit"];
+    }
+    if (canViewProjectDetails()) {
+      return ["overview", "team", "tasks", "criteria", "review"];
     }
     if (canViewFinalGrade()) {
       return ["overview", "review"];
@@ -661,7 +673,7 @@
   }
 
   function allMembers() {
-    if (!canViewWorkspace()) {
+    if (!canViewProjectDetails()) {
       return [];
     }
     const members = Array.isArray(state.members) ? [...state.members] : [];
@@ -1140,7 +1152,35 @@
   }
 
   function bindProfile(profile) {
-    syncStudentSidebar(profile || auth.getCachedProfile());
+    const current = profile || auth.getCachedProfile();
+    state.profile = current || null;
+
+    const host = document.querySelector("[data-role-sidebar]");
+    if (current?.is_professor && host && roleSidebar && typeof roleSidebar.renderSidebar === "function") {
+      host.dataset.sidebarRole = "teacher";
+      host.dataset.sidebarActive = "projects";
+      roleSidebar.renderSidebar(host, {
+        role: "teacher",
+        active: "projects",
+        profile: current,
+        scope: typeof auth.getDefaultScope === "function" ? auth.getDefaultScope() : null,
+      });
+
+      const logoutBtn = document.getElementById("logoutBtn");
+      if (logoutBtn) {
+        logoutBtn.onclick = () => {
+          auth.logout();
+        };
+      }
+
+      if (ui.crumbSectionLink) {
+        ui.crumbSectionLink.textContent = "Проекты";
+        ui.crumbSectionLink.href = "/dev/professor#projects";
+      }
+      return;
+    }
+
+    syncStudentSidebar(current);
   }
 
   function bindProjectMetaToUI() {
@@ -1176,7 +1216,7 @@
     ui.repoLink.textContent = repo.replace(/^https?:\/\//, "");
 
     const applyMode = canApplyToProject();
-    const canEdit = isCurrentUserActiveMember() && !applyMode;
+    const canEdit = canViewWorkspace() && isCurrentUserActiveMember() && !applyMode;
 
     ui.favoriteBtn.textContent = state.favorite ? "★ В избранном" : "★ В избранное";
     ui.favoriteBtn.hidden = applyMode;
@@ -1316,7 +1356,8 @@
     ui.readinessList.innerHTML = "";
 
     const statusCode = projectStatusCode();
-    const canOpenRecruitment = isCurrentUserLead() && (statusCode === "DRAFT" || statusCode === "REVIEW");
+    const canManagePipeline = canViewWorkspace() && isCurrentUserLead();
+    const canOpenRecruitment = canManagePipeline && (statusCode === "DRAFT" || statusCode === "REVIEW");
     if (ui.openRecruitmentBtn) {
       ui.openRecruitmentBtn.hidden = !canOpenRecruitment;
       ui.openRecruitmentBtn.disabled = !canOpenRecruitment;
@@ -1324,7 +1365,7 @@
 
     if (!state.readiness) {
       ui.readinessList.innerHTML = '<div class="empty-state">Данные о готовности не загружены.</div>';
-      ui.approveProjectBtn.hidden = false;
+      ui.approveProjectBtn.hidden = !canManagePipeline;
       ui.approveProjectBtn.disabled = true;
       if (ui.completeProjectBtn) {
         ui.completeProjectBtn.hidden = true;
@@ -1376,7 +1417,7 @@
       ui.readinessList.appendChild(row);
     });
 
-    const canShowApprove = statusCode !== "ACTIVE" && statusCode !== "GRADING" && statusCode !== "COMPLETED" && statusCode !== "ARCHIVE";
+    const canShowApprove = canManagePipeline && statusCode !== "ACTIVE" && statusCode !== "GRADING" && statusCode !== "COMPLETED" && statusCode !== "ARCHIVE";
     ui.approveProjectBtn.hidden = !canShowApprove;
     ui.approveProjectBtn.disabled = !state.readiness.can_activate;
 
@@ -1481,7 +1522,7 @@
     }
 
     const currentUser = String(localStorage.getItem(LS_USER) || "");
-    const canManageTeam = isCurrentUserLead();
+    const canManageTeam = canViewWorkspace() && isCurrentUserLead();
 
     filtered.forEach((m) => {
       const status = String(m.status || "").toUpperCase();
@@ -1492,7 +1533,7 @@
       const roleOptions = isLeadRow
         ? `<option value="">Тимлид</option>${projectPositionOptions("").replace('<option value="">Выберите роль</option>', "")}`
         : projectPositionOptions(m.position_id || "");
-      const roleSelectDisabled = isLeadRow || status !== "ACTIVE";
+      const roleSelectDisabled = !canManageTeam || isLeadRow || status !== "ACTIVE";
       const canApprove = canManageTeam && status === "APPLIED";
       const canRejectApplication = canManageTeam && status === "APPLIED";
       const canSetPosition = canManageTeam && status === "ACTIVE" && !isLeadRow && state.positions.length > 0;
@@ -1552,6 +1593,11 @@
 
   function renderProfessorSearchResults() {
     if (!ui.professorSearchResults) return;
+    if (!canViewWorkspace()) {
+      ui.professorSearchResults.hidden = true;
+      ui.professorSearchResults.innerHTML = "";
+      return;
+    }
     ui.professorSearchResults.innerHTML = "";
     const raw = String(ui.professorSearchInput ? ui.professorSearchInput.value : "").trim();
     const canAssignByRawID = /^[0-9a-f-]{36}$/i.test(raw);
@@ -1576,6 +1622,7 @@
 
   function renderProgress() {
     const isActive = isProjectActive();
+    const canCreateTasks = canViewWorkspace() && isCurrentUserLead() && isActive;
     const doneCount = state.tasks.filter((t) => String(t.status || "").toUpperCase() === "DONE").length;
     const total = state.tasks.length;
     const percent = total > 0 ? Math.round((doneCount * 100) / total) : 0;
@@ -1589,8 +1636,12 @@
       ui.progressFill.style.width = `${percent}%`;
     }
 
-    ui.openTaskModalBtn.disabled = !isActive;
-    ui.openTaskModalBtn.title = isActive ? "" : "Создание задач доступно только после ACTIVE";
+    ui.openTaskModalBtn.disabled = !canCreateTasks;
+    if (!canViewWorkspace() || !isCurrentUserLead()) {
+      ui.openTaskModalBtn.title = "Создание задач доступно только участникам проекта с правом управления";
+    } else {
+      ui.openTaskModalBtn.title = isActive ? "" : "Создание задач доступно только после ACTIVE";
+    }
   }
 
   function renderTasksTeam() {
@@ -1881,22 +1932,35 @@
   function renderAccessMode() {
     const applyMode = canApplyToProject();
     const workspaceMode = canViewWorkspace();
+    const detailsMode = canViewProjectDetails();
     const visibleViews = new Set(allowedViews());
 
     if (ui.applyCard) {
       ui.applyCard.hidden = !applyMode;
     }
     if (ui.stackCard) {
-      ui.stackCard.hidden = !workspaceMode;
+      ui.stackCard.hidden = !detailsMode;
     }
     if (ui.activityCard) {
-      ui.activityCard.hidden = !workspaceMode;
+      ui.activityCard.hidden = !detailsMode;
     }
     if (ui.teamMiniCard) {
-      ui.teamMiniCard.hidden = !workspaceMode;
+      ui.teamMiniCard.hidden = !detailsMode;
     }
     if (ui.pipelineCard) {
-      ui.pipelineCard.hidden = !workspaceMode;
+      ui.pipelineCard.hidden = !detailsMode;
+    }
+    if (ui.teamHelperCard) {
+      ui.teamHelperCard.hidden = !workspaceMode;
+    }
+    if (ui.professorAssignWrap) {
+      ui.professorAssignWrap.hidden = !workspaceMode;
+    }
+    if (ui.positionForm) {
+      ui.positionForm.hidden = !workspaceMode || !isCurrentUserLead();
+    }
+    if (ui.openTaskModalBtn) {
+      ui.openTaskModalBtn.hidden = !workspaceMode || !isCurrentUserLead();
     }
 
     if (ui.applyHint) {
@@ -2590,7 +2654,7 @@
     rememberUser(localStorage.getItem(LS_USER), localStorage.getItem(LS_STUDENT_NAME), localStorage.getItem(LS_STUDENT_EMAIL));
     rememberUser(state.project?.created_by, state.project?.created_by_name, state.project?.created_by_email);
 
-    if (!canViewWorkspace()) {
+    if (!canViewProjectDetails()) {
       state.stacks = [];
       state.positions = [];
       state.members = [];
@@ -2965,14 +3029,18 @@
   }
 
   async function bootstrap() {
-    const claims = await auth.ensureSession("student");
+    const claims = await auth.ensureSession();
     if (!claims) return;
+    if (claims.is_admin) {
+      window.location.href = "/dev/admin";
+      return;
+    }
 
     bindProfile(claims);
 
     state.projectID = projectIDFromPath();
     if (!state.projectID) {
-      window.location.href = "/dev/projects";
+      window.location.href = claims.is_professor ? "/dev/professor" : "/dev/projects";
       return;
     }
 

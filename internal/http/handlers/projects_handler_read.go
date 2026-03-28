@@ -96,6 +96,35 @@ func (h *ProjectsHandler) ListMine(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
+// ListFacultyProjects
+// @Summary List all projects in current faculty
+// @Tags Projects
+// @Produce json
+// @Success 200 {array} projectResponse
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /projects/faculty [get]
+func (h *ProjectsHandler) ListFaculty(c *gin.Context) {
+	facultyID, ok := middleware.FacultyIDFromCtx(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	items, err := h.svc.ListProjectsByFaculty(c.Request.Context(), facultyID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	resp := make([]projectResponse, 0, len(items))
+	for _, p := range items {
+		resp = append(resp, projectToResponse(p))
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
 // ListPublicProjects
 // @Summary List all public projects
 // @Tags Projects

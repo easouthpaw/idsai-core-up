@@ -46,9 +46,10 @@ type projectResponse struct {
 }
 
 type projectViewerAccessResponse struct {
-	CanViewWorkspace  bool `json:"can_view_workspace"`
-	CanApply          bool `json:"can_apply"`
-	CanViewFinalGrade bool `json:"can_view_final_grade"`
+	CanViewWorkspace      bool `json:"can_view_workspace"`
+	CanViewProjectDetails bool `json:"can_view_project_details"`
+	CanApply              bool `json:"can_apply"`
+	CanViewFinalGrade     bool `json:"can_view_final_grade"`
 }
 
 type projectReviewSummaryResponse struct {
@@ -126,9 +127,10 @@ func projectToResponse(p domain.Project) projectResponse {
 func projectViewToResponse(view projects.ProjectView) projectResponse {
 	resp := projectToResponse(view.Project)
 	resp.ViewerAccess = &projectViewerAccessResponse{
-		CanViewWorkspace:  view.Access.CanViewWorkspace,
-		CanApply:          view.Access.CanApply,
-		CanViewFinalGrade: view.Access.CanViewFinalGrade,
+		CanViewWorkspace:      view.Access.CanViewWorkspace,
+		CanViewProjectDetails: view.Access.CanViewProjectDetails,
+		CanApply:              view.Access.CanApply,
+		CanViewFinalGrade:     view.Access.CanViewFinalGrade,
 	}
 	if view.ReviewSummary != nil {
 		resp.ReviewSummary = &projectReviewSummaryResponse{

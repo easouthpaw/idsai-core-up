@@ -7,9 +7,10 @@ import (
 )
 
 type ViewerAccess struct {
-	CanViewWorkspace  bool
-	CanApply          bool
-	CanViewFinalGrade bool
+	CanViewWorkspace      bool
+	CanViewProjectDetails bool
+	CanApply              bool
+	CanViewFinalGrade     bool
 }
 
 type ReviewSummary struct {

@@ -245,3 +245,107 @@ WHERE user_id = $1
 	require.Equal(t, 1, count)
 	require.True(t, expiresAt.Equal(secondExpiry))
 }
+
+func TestRBACRepo_Integration_ProjectRolesHaveProjectView(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	require.NotEmpty(t, dsn)
+
+	ctx := context.Background()
+	pool, err := db.NewPool(ctx, dsn)
+	require.NoError(t, err)
+	defer pool.Close()
+
+	repo := postgres.NewRBACRepo(pool)
+
+	projectID := uuid.New()
+	now := time.Now()
+
+	cases := []struct {
+		name     string
+		roleCode string
+	}{
+		{name: "team lead", roleCode: "TEAM_LEAD"},
+		{name: "member", roleCode: "MEMBER"},
+		{name: "project professor", roleCode: "PROJECT_PROFESSOR"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			userID := uuid.New()
+			_, err = pool.Exec(ctx, `
+INSERT INTO users(id, email, password_hash, status)
+VALUES ($1, $2, 'integration-hash', 'ACTIVE');
+`, userID, "rbac-project-view-"+tc.roleCode+"-"+userID.String()+"@example.local")
+			require.NoError(t, err)
+
+			scope := rbac.Scope{Type: rbac.ScopeProject, ID: &projectID}
+			require.NoError(t, repo.GrantRoleByCode(ctx, userID, tc.roleCode, scope, nil))
+
+			ok, err := repo.HasPermission(ctx, userID, "project.view", scope, now)
+			require.NoError(t, err)
+			require.True(t, ok)
+		})
+	}
+}
+
+func TestRBACRepo_Integration_ProfessorFacultyScopeCanReadProjectDetails(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	require.NotEmpty(t, dsn)
+
+	ctx := context.Background()
+	pool, err := db.NewPool(ctx, dsn)
+	require.NoError(t, err)
+	defer pool.Close()
+
+	repo := postgres.NewRBACRepo(pool)
+
+	tenantID := uuid.New()
+	facultyID := uuid.New()
+	professorID := uuid.New()
+	projectID := uuid.New()
+
+	_, err = pool.Exec(ctx, `
+INSERT INTO tenants(id, code, name, status)
+VALUES ($1, $2, $3, 'ACTIVE');
+`, tenantID, "RBAC_PF_T_"+tenantID.String()[:8], "Professor Faculty Tenant")
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `
+INSERT INTO faculties(id, tenant_id, code, name)
+VALUES ($1, $2, $3, $4);
+`, facultyID, tenantID, "RBAC_PF_F_"+facultyID.String()[:8], "Professor Faculty")
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `
+INSERT INTO users(id, tenant_id, email, password_hash, status)
+VALUES ($1, $2, $3, 'integration-hash', 'ACTIVE');
+`, professorID, tenantID, "rbac-prof-faculty-"+professorID.String()+"@example.local")
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `
+INSERT INTO projects(id, tenant_id, title, description, status, is_public, created_by, faculty_id, visibility)
+VALUES ($1, $2, 'Professor Faculty Project', 'demo', 'ACTIVE', FALSE, $3, $4, 'FACULTY');
+`, projectID, tenantID, professorID, facultyID)
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `
+INSERT INTO role_assignments(tenant_id, user_id, role_id, scope_type, scope_id)
+VALUES (
+  $1,
+  $2,
+  (SELECT id FROM roles WHERE code='PROFESSOR'),
+  'FACULTY',
+  $3
+);
+`, tenantID, professorID, facultyID)
+	require.NoError(t, err)
+
+	for _, permission := range []string{"project.view", "task.view", "grading.view"} {
+		ok, err := repo.HasPermission(ctx, professorID, permission, rbac.Scope{
+			Type: rbac.ScopeProject,
+			ID:   &projectID,
+		}, time.Now())
+		require.NoError(t, err, permission)
+		require.True(t, ok, permission)
+	}
+}

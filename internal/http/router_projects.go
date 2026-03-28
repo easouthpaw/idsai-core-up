@@ -23,6 +23,10 @@ func registerProjectsRoutes(
 	p := v2.Group("/projects")
 	p.Use(authMW)
 	p.GET("/my", projectsH.ListMine)
+	p.GET("/faculty",
+		middleware.RequirePermissionIf(enforceProjects && rbacSvc != nil, rbacSvc, "project.view", middleware.FacultyScopeFromCtx()),
+		projectsH.ListFaculty,
+	)
 	p.GET("/public", projectsH.ListPublic)
 	p.GET("/groups", projectsH.ListGroups)
 
@@ -32,7 +36,6 @@ func registerProjectsRoutes(
 	)
 
 	p.GET("/:project_id",
-		middleware.RequirePermissionIf(enforceProjects && rbacSvc != nil, rbacSvc, "project.view", middleware.ProjectScopeFromParam("project_id")),
 		projectsH.Get,
 	)
 	p.POST("/:project_id/image",

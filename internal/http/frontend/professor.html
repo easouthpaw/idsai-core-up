@@ -28,17 +28,17 @@
         <h1 id="profGreeting">Привет!</h1>
         <p id="profHeroTitle" class="prof-hero__title">Контур преподавателя</p>
         <p id="profHeroSubtitle" class="head-sub">
-          Только те проекты, где вам нужно принять решение, настроить критерии или завершить ревью.
-          Без лишних кнопок и статусов, которые не помогают работать.
+          Здесь собраны все проекты вашего faculty-контура.
+          Приглашения и ревью-поток подсвечиваются отдельно, но открыть и посмотреть можно любой проект.
         </p>
       </div>
       <div class="prof-hero__panel">
         <a class="ghost-btn" href="/dev/professor/reviews">Заявки на ревью</a>
-        <a class="primary-btn" href="/dev/projects?tab=community">Каталог проектов</a>
+        <a class="primary-btn" href="#projects">Все проекты</a>
         <div class="prof-hero__note">
           <span class="material-symbols-outlined" aria-hidden="true">admin_panel_settings</span>
-          Назначение преподавателя, старт и набор команды остаются в контуре проекта.
-          На этом экране только преподавательские решения.
+          Преподаватель видит весь каталог проектов своей faculty-зоны, а write-действия остаются только там,
+          где у него есть назначение или проектная роль.
         </div>
       </div>
     </header>
@@ -46,9 +46,9 @@
     <section class="stats-grid stats-grid--dashboard">
       <article class="stat-card stat-card--accent">
         <span class="stat-card__icon material-symbols-outlined" aria-hidden="true">topic</span>
-        <p>Под наблюдением</p>
+        <p>Всего проектов</p>
         <strong id="statTotal">0</strong>
-        <small>Проекты, которые реально требуют вашего внимания.</small>
+        <small>Все проекты в вашем faculty-контуре.</small>
       </article>
       <article class="stat-card">
         <span class="stat-card__icon material-symbols-outlined" aria-hidden="true">mark_email_unread</span>
@@ -122,8 +122,8 @@
     <section id="projects" class="prof-panel prof-projects-panel">
       <div class="prof-panel__head">
         <div>
-          <h2>Проекты под вашим контуром</h2>
-          <p>Карточки показывают только релевантные действия для текущего состояния проекта.</p>
+          <h2>Все проекты факультета</h2>
+          <p>Можно открыть любой проект и посмотреть детали. Приоритетные преподавательские действия все равно подсвечиваются отдельно.</p>
         </div>
         <button id="refreshBtn" class="ghost-btn" type="button">Обновить</button>
       </div>
@@ -131,7 +131,7 @@
         <article class="prof-project-card prof-project-card--loading">
           <div class="prof-project-card__meta">
             <strong>Загрузка проектов...</strong>
-            <p>Проверяю приглашения, статусы и доступные преподавателю действия.</p>
+            <p>Собираю полный faculty-каталог, приглашения и доступные преподавателю действия.</p>
           </div>
         </article>
       </div>

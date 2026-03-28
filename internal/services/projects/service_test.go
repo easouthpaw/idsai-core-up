@@ -20,11 +20,14 @@ type fakeProjectsRepo struct {
 	getErr                error
 	hasProjectPermission  bool
 	hasProjectPermissionE error
+	resolvedPermissions   map[string]bool
 	permissions           map[string]bool
 	reviewSummary         *projects.ReviewSummary
 	reviewSummaryErr      error
 	list                  []domain.Project
 	listErr               error
+	listFaculty           []domain.Project
+	listFacultyErr        error
 	listPublic            []domain.Project
 	listPublicErr         error
 	groupID               uuid.UUID
@@ -50,6 +53,16 @@ func (f fakeProjectsRepo) HasProjectPermission(ctx context.Context, userID, proj
 	return f.hasProjectPermission, f.hasProjectPermissionE
 }
 
+func (f fakeProjectsRepo) HasResolvedProjectPermission(ctx context.Context, userID, projectID uuid.UUID, permissionCode string) (bool, error) {
+	if f.resolvedPermissions != nil {
+		return f.resolvedPermissions[permissionCode], f.hasProjectPermissionE
+	}
+	if f.permissions != nil {
+		return f.permissions[permissionCode], f.hasProjectPermissionE
+	}
+	return f.hasProjectPermission, f.hasProjectPermissionE
+}
+
 func (f fakeProjectsRepo) GetProjectReviewSummary(ctx context.Context, projectID uuid.UUID) (*projects.ReviewSummary, error) {
 	return f.reviewSummary, f.reviewSummaryErr
 }
@@ -63,6 +76,13 @@ func (f fakeProjectsRepo) ClearProjectImage(ctx context.Context, projectID uuid.
 }
 
 func (f fakeProjectsRepo) ListByCreator(ctx context.Context, createdBy uuid.UUID) ([]domain.Project, error) {
+	return f.list, f.listErr
+}
+
+func (f fakeProjectsRepo) ListByFaculty(ctx context.Context, facultyID uuid.UUID) ([]domain.Project, error) {
+	if f.listFaculty != nil || f.listFacultyErr != nil {
+		return f.listFaculty, f.listFacultyErr
+	}
 	return f.list, f.listErr
 }
 
@@ -162,6 +182,7 @@ func TestService_GetProjectViewForViewer_HidesWorkspaceForPublicOutsider(t *test
 	view, err := svc.GetProjectViewForViewer(context.Background(), pid, viewerID, viewerFacultyID)
 	require.NoError(t, err)
 	require.False(t, view.Access.CanViewWorkspace)
+	require.False(t, view.Access.CanViewProjectDetails)
 	require.False(t, view.Access.CanApply)
 	require.False(t, view.Access.CanViewFinalGrade)
 	require.Nil(t, view.ReviewSummary)
@@ -259,6 +280,7 @@ func TestService_GetProjectViewForViewer_AllowsRecruitmentApplyForSameFaculty(t 
 	view, err := svc.GetProjectViewForViewer(context.Background(), pid, viewerID, facultyID)
 	require.NoError(t, err)
 	require.False(t, view.Access.CanViewWorkspace)
+	require.False(t, view.Access.CanViewProjectDetails)
 	require.True(t, view.Access.CanApply)
 	require.False(t, view.Access.CanViewFinalGrade)
 }
@@ -289,6 +311,7 @@ func TestService_GetProjectViewForViewer_InvitedViewerCannotSeeWorkspaceOrApply(
 	require.NoError(t, err)
 	require.False(t, view.Access.CanViewWorkspace)
 	require.False(t, view.Access.CanApply)
+	require.True(t, view.Access.CanViewProjectDetails)
 }
 
 func TestService_GetProjectViewForViewer_PublicCompletedExposesFinalGradeOnly(t *testing.T) {
@@ -324,10 +347,42 @@ func TestService_GetProjectViewForViewer_PublicCompletedExposesFinalGradeOnly(t 
 	view, err := svc.GetProjectViewForViewer(context.Background(), pid, viewerID, viewerFacultyID)
 	require.NoError(t, err)
 	require.False(t, view.Access.CanViewWorkspace)
+	require.False(t, view.Access.CanViewProjectDetails)
 	require.False(t, view.Access.CanApply)
 	require.True(t, view.Access.CanViewFinalGrade)
 	require.NotNil(t, view.ReviewSummary)
 	require.Equal(t, "4.5", view.ReviewSummary.Score)
+}
+
+func TestService_GetProjectViewForViewer_AllowsFacultyReadOnlyDetails(t *testing.T) {
+	pid := uuid.New()
+	viewerID := uuid.New()
+	ownerID := uuid.New()
+	facultyID := uuid.New()
+
+	repo := fakeProjectsRepo{
+		project: domain.Project{
+			ID:        pid,
+			Title:     "Faculty Visible Project",
+			Status:    domain.ProjectActive,
+			IsPublic:  false,
+			CreatedBy: ownerID,
+			FacultyID: facultyID,
+		},
+		permissions: map[string]bool{
+			"grading.view": false,
+		},
+		resolvedPermissions: map[string]bool{
+			"project.view": true,
+		},
+	}
+	svc := projects.NewService(repo, &fakeGrantor{})
+
+	view, err := svc.GetProjectViewForViewer(context.Background(), pid, viewerID, facultyID)
+	require.NoError(t, err)
+	require.False(t, view.Access.CanViewWorkspace)
+	require.True(t, view.Access.CanViewProjectDetails)
+	require.False(t, view.Access.CanApply)
 }
 
 func (g *fakeGrantor) GrantRoleByCode(ctx context.Context, userID uuid.UUID, roleCode string, scope rbac.Scope, expiresAt *time.Time) error {
@@ -379,4 +434,23 @@ func TestService_ListPublicProjects_ReturnsItems(t *testing.T) {
 	require.Len(t, got, 1)
 	require.Equal(t, "Public One", got[0].Title)
 	require.True(t, got[0].IsPublic)
+}
+
+func TestService_ListProjectsByFaculty_ReturnsItems(t *testing.T) {
+	facultyID := uuid.New()
+	items := []domain.Project{
+		{
+			ID:        uuid.New(),
+			Title:     "Faculty One",
+			FacultyID: facultyID,
+		},
+	}
+
+	repo := fakeProjectsRepo{listFaculty: items}
+	svc := projects.NewService(repo, &fakeGrantor{})
+
+	got, err := svc.ListProjectsByFaculty(context.Background(), facultyID)
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	require.Equal(t, "Faculty One", got[0].Title)
 }

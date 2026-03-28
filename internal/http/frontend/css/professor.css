@@ -974,10 +974,91 @@ td .muted {
   color: #0f7d45;
 }
 
+/* ── Hover Motion ────────────────────────────────────────── */
+.stats-grid--dashboard .stat-card:not(.stat-card--accent),
+.focus-item,
+.prof-flow__item,
+.prof-project-card {
+  backdrop-filter: blur(6px);
+  transition:
+    transform 0.5s ease,
+    border-color 0.5s ease,
+    box-shadow 0.5s ease,
+    background 0.5s ease;
+  transform-origin: center;
+}
+
+.stats-grid--dashboard .stat-card:not(.stat-card--accent):hover,
+.focus-item:hover,
+.prof-flow__item:hover,
+.prof-project-card:hover {
+  border-color: rgba(17, 24, 39, 0.78);
+  transform: translateY(-4px) scale(1.018);
+  box-shadow: 12px 17px 51px rgba(0, 0, 0, 0.14);
+}
+
+.stats-grid--dashboard .stat-card:not(.stat-card--accent):active,
+.focus-item:active,
+.prof-flow__item:active,
+.prof-project-card:active {
+  transform: scale(0.992) rotateZ(0.35deg);
+}
+
+.stat-card--accent {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  --card-reveal-fill: #0d6b50;
+  transition: all 0.64s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.stat-card--accent::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-color: var(--card-reveal-fill);
+  opacity: 0;
+  transform: skew(-24deg);
+  clip-path: circle(0% at 50% 50%);
+  transition: all 0.64s cubic-bezier(0.23, 1, 0.32, 1);
+  z-index: 1;
+}
+
+.stat-card--accent > * {
+  position: relative;
+  z-index: 2;
+  transition: all 0.64s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.stat-card--accent:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
+  border-color: transparent;
+}
+
+.stat-card--accent:hover::before {
+  opacity: 1;
+  transform: skew(0deg);
+  clip-path: circle(140.9% at 0 0);
+}
+
+.stat-card--accent:hover p,
+.stat-card--accent:hover strong,
+.stat-card--accent:hover small {
+  color: #ffffff;
+}
+
+.stat-card--accent:hover .stat-card__icon {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
 .prof-overview-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
   gap: 16px;
+  align-items: start;
 }
 
 .prof-panel {
@@ -1085,6 +1166,7 @@ td .muted {
 }
 
 .prof-flow__item .material-symbols-outlined {
+  grid-row: 1 / span 2;
   width: 44px;
   height: 44px;
   border-radius: 14px;
@@ -1096,12 +1178,14 @@ td .muted {
 }
 
 .prof-flow__item strong {
+  grid-column: 2;
   display: block;
   font-size: 15px;
   color: #172440;
 }
 
 .prof-flow__item p {
+  grid-column: 2;
   margin: 6px 0 0;
   color: #667792;
   font-size: 13px;

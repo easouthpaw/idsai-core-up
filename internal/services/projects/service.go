@@ -91,21 +91,22 @@ func (s *Service) GetProjectViewForViewer(ctx context.Context, projectID, viewer
 
 	hasProjectView := access.CanViewWorkspace || p.CreatedBy == viewerID
 	if !hasProjectView {
-		hasProjectView, err = s.repo.HasProjectPermission(ctx, viewerID, projectID, "project.view")
+		hasProjectView, err = s.repo.HasResolvedProjectPermission(ctx, viewerID, projectID, "project.view")
 		if err != nil {
 			return ProjectView{}, err
 		}
 	}
+	access.CanViewProjectDetails = hasProjectView
 
 	sameFacultyRecruitment := p.Status == domain.ProjectRecruitment && p.FacultyID == viewerFacultyID
 	access.CanApply = sameFacultyRecruitment && !hasProjectView && p.CreatedBy != viewerID
 
-	if !(p.IsPublic || hasProjectView || sameFacultyRecruitment) {
+	if !(p.IsPublic || access.CanViewProjectDetails || sameFacultyRecruitment) {
 		return ProjectView{}, domain.ErrForbidden
 	}
 
 	var summary *ReviewSummary
-	access.CanViewFinalGrade = (p.Status == domain.ProjectCompleted || p.Status == domain.ProjectArchive) && (p.IsPublic || access.CanViewWorkspace)
+	access.CanViewFinalGrade = (p.Status == domain.ProjectCompleted || p.Status == domain.ProjectArchive) && (p.IsPublic || access.CanViewProjectDetails)
 	if access.CanViewFinalGrade {
 		summary, err = s.repo.GetProjectReviewSummary(ctx, projectID)
 		if err != nil {
@@ -122,6 +123,14 @@ func (s *Service) GetProjectViewForViewer(ctx context.Context, projectID, viewer
 
 func (s *Service) ListProjectsByCreator(ctx context.Context, createdBy uuid.UUID) ([]domain.Project, error) {
 	items, err := s.repo.ListByCreator(ctx, createdBy)
+	if err != nil {
+		return nil, err
+	}
+	return s.decorateProjectsMedia(items), nil
+}
+
+func (s *Service) ListProjectsByFaculty(ctx context.Context, facultyID uuid.UUID) ([]domain.Project, error) {
+	items, err := s.repo.ListByFaculty(ctx, facultyID)
 	if err != nil {
 		return nil, err
 	}

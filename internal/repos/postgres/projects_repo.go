@@ -165,6 +165,32 @@ SELECT EXISTS (
 	return ok, err
 }
 
+func (r *ProjectsRepo) HasResolvedProjectPermission(ctx context.Context, userID, projectID uuid.UUID, permissionCode string) (bool, error) {
+	const q = resolvedScopesCTE + `
+SELECT EXISTS (
+  SELECT 1
+  FROM role_assignments ra
+  JOIN users u ON u.id = ra.user_id
+  JOIN resolved_scopes rs
+    ON rs.scope_type = ra.scope_type
+   AND rs.tenant_id = ra.tenant_id
+   AND (
+     (rs.scope_id IS NULL AND ra.scope_id IS NULL)
+     OR (rs.scope_id = ra.scope_id)
+   )
+  JOIN role_permissions rp ON rp.role_id = ra.role_id
+  JOIN permissions p ON p.id = rp.permission_id
+  WHERE ra.user_id = $1
+    AND u.tenant_id = ra.tenant_id
+    AND (ra.expires_at IS NULL OR ra.expires_at > now())
+    AND p.code = $4
+) AS ok;
+`
+	var ok bool
+	err := r.db.QueryRow(ctx, q, userID, "PROJECT", projectID, permissionCode).Scan(&ok)
+	return ok, err
+}
+
 func (r *ProjectsRepo) GetProjectReviewSummary(ctx context.Context, projectID uuid.UUID) (*projects.ReviewSummary, error) {
 	tenantID, err := tenantIDFromContext(ctx)
 	if err != nil {
@@ -347,6 +373,88 @@ ORDER BY p.created_at DESC;
 	}
 
 	return projects, nil
+}
+
+func (r *ProjectsRepo) ListByFaculty(ctx context.Context, facultyID uuid.UUID) ([]domain.Project, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	const q = `
+SELECT
+  p.id,
+  p.title,
+  p.description,
+  p.status,
+  p.is_public,
+  p.created_by,
+  COALESCE(NULLIF(TRIM(up.full_name), ''), split_part(COALESCE(u.email, ''), '@', 1), p.created_by::text) AS created_by_name,
+  COALESCE(u.email, '') AS created_by_email,
+  p.professor_id,
+  COALESCE(p.professor_review_status, 'NONE') AS professor_review_status,
+  p.faculty_id,
+  p.visibility,
+  p.group_id,
+  COALESCE(p.image_key, '') AS image_key,
+  p.default_cover_variant,
+  p.image_updated_at,
+  p.created_at,
+  p.updated_at
+FROM projects p
+LEFT JOIN users u ON u.id = p.created_by
+LEFT JOIN user_profiles up ON up.user_id = p.created_by
+WHERE p.tenant_id = $1
+  AND p.faculty_id = $2
+ORDER BY p.updated_at DESC, p.created_at DESC;
+`
+	rows, err := r.db.Query(ctx, q, tenantID, facultyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]domain.Project, 0, 16)
+	for rows.Next() {
+		var p domain.Project
+		var professorID *uuid.UUID
+		var groupID *uuid.UUID
+		var imageUpdatedAt *time.Time
+
+		if err := rows.Scan(
+			&p.ID,
+			&p.Title,
+			&p.Description,
+			&p.Status,
+			&p.IsPublic,
+			&p.CreatedBy,
+			&p.CreatedByName,
+			&p.CreatedByEmail,
+			&professorID,
+			&p.ProfessorReviewStatus,
+			&p.FacultyID,
+			&p.Visibility,
+			&groupID,
+			&p.ImageKey,
+			&p.DefaultCoverVariant,
+			&imageUpdatedAt,
+			&p.CreatedAt,
+			&p.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+
+		p.ProfessorID = professorID
+		p.GroupID = groupID
+		p.ImageUpdatedAt = imageUpdatedAt
+		items = append(items, p)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return items, nil
 }
 
 func (r *ProjectsRepo) ListPublic(ctx context.Context) ([]domain.Project, error) {

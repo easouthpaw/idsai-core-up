@@ -185,6 +185,77 @@ body.groups-body.role-teacher .groups-layout {
   color: var(--grp-accent);
 }
 
+/* ── Hover Motion ────────────────────────────────────────── */
+.groups-metric:not(.groups-metric--accent),
+.dep-node,
+.group-node,
+.request-item {
+  backdrop-filter: blur(6px);
+  transition:
+    transform 0.5s ease,
+    border-color 0.5s ease,
+    box-shadow 0.5s ease,
+    background 0.5s ease;
+  transform-origin: center;
+}
+
+.groups-metric:not(.groups-metric--accent):hover,
+.dep-node:hover,
+.group-node:hover,
+.request-item:hover {
+  border-color: rgba(17, 24, 39, 0.72);
+  transform: translateY(-4px) scale(1.016);
+  box-shadow: 12px 17px 51px rgba(0, 0, 0, 0.12);
+}
+
+.groups-metric:not(.groups-metric--accent):active,
+.request-item:active {
+  transform: scale(0.992) rotateZ(0.35deg);
+}
+
+.groups-metric--accent {
+  isolation: isolate;
+  --card-reveal-fill: #0d6b50;
+  transition: all 0.64s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.groups-metric--accent::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-color: var(--card-reveal-fill);
+  opacity: 0;
+  transform: skew(-24deg);
+  clip-path: circle(0% at 50% 50%);
+  transition: all 0.64s cubic-bezier(0.23, 1, 0.32, 1);
+  z-index: 1;
+}
+
+.groups-metric--accent > * {
+  position: relative;
+  z-index: 2;
+  transition: all 0.64s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.groups-metric--accent:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.16);
+  border-color: transparent;
+}
+
+.groups-metric--accent:hover::before {
+  opacity: 1;
+  transform: skew(0deg);
+  clip-path: circle(140.9% at 0 0);
+}
+
+.groups-metric--accent:hover small,
+.groups-metric--accent:hover strong,
+.groups-metric--accent:hover span {
+  color: #ffffff;
+}
+
 /* ── Filters ─────────────────────────────────────────────── */
 .groups-card {
   border: 1px solid var(--grp-border);

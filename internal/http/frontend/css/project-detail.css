@@ -457,28 +457,52 @@ body.project-body {
 }
 
 .project-tabs {
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  display: flex;
+  position: relative;
+  display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
+  width: fit-content;
+  max-width: 100%;
+  border-radius: 16px;
+  background: #eef1f5;
+  box-sizing: border-box;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08);
+  overflow-x: auto;
   gap: 6px;
-  padding: 6px 0;
+  padding: 4px;
+  scrollbar-width: none;
+}
+
+.project-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .tab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 12px;
   background: transparent;
-  color: #4b5563;
-  padding: 7px 10px;
+  color: rgba(51, 65, 85, 1);
+  padding: 8px 14px;
   font: 700 13px "Manrope", sans-serif;
   cursor: pointer;
+  transition: all 0.18s ease-in-out;
+  white-space: nowrap;
+}
+
+.tab-btn:hover {
+  background: rgba(255, 255, 255, 0.58);
+  color: #162441;
 }
 
 .tab-btn.active {
-  color: #0f1728;
-  border-color: #d1fae5;
-  background: #ecfdf3;
+  color: #162441;
+  border-color: #d3dcea;
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(27, 44, 72, 0.08);
 }
 
 .notice {

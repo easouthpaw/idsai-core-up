@@ -237,8 +237,7 @@
 
   function relevantProjects() {
     const base = state.projects.filter((project) => statusCode(project) !== "ARCHIVE");
-    const relevant = base.filter(isRelevantProject);
-    return relevant.length ? relevant : base.slice(0, 8);
+    return base.filter(isRelevantProject);
   }
 
   function sortProjects(items) {
@@ -253,16 +252,15 @@
   }
 
   async function loadProjects() {
-    const [mine, pub, invites] = await Promise.all([
-      request("GET", "/v2/projects/my"),
-      request("GET", "/v2/projects/public"),
+    const [faculty, invites] = await Promise.all([
+      request("GET", "/v2/projects/faculty"),
       request("GET", "/v2/professor/review-invites?limit=100"),
     ]);
 
     state.reviewInvites = Array.isArray(invites) ? invites : [];
 
     const merged = new Map();
-    [mine, pub, state.reviewInvites].forEach((list) => {
+    [faculty, state.reviewInvites].forEach((list) => {
       (Array.isArray(list) ? list : []).forEach((item) => {
         if (!item || !item.id) return;
         merged.set(item.id, item);
@@ -274,7 +272,7 @@
 
   async function loadReadiness() {
     state.readiness.clear();
-    const projects = relevantProjects().filter((project) => isAssignedToMe(project) || isCreatedByMe(project));
+    const projects = state.projects.filter((project) => isAssignedToMe(project) || isCreatedByMe(project));
     await Promise.all(projects.map(async (project) => {
       try {
         const readiness = await request("GET", `/v2/projects/${project.id}/readiness`, undefined, { skipAccessAlert: true });
@@ -380,7 +378,7 @@
         <article class="prof-project-card prof-project-card--empty">
           <div class="prof-project-card__meta">
             <strong>Проекты пока не найдены</strong>
-            <p>Когда появятся назначенные проекты или приглашения на ревью, они отобразятся здесь.</p>
+            <p>Когда в faculty-контуре появятся проекты, они отобразятся здесь автоматически.</p>
           </div>
         </article>
       `;
@@ -492,14 +490,11 @@
       await loadProjects();
       await loadReadiness();
 
-      const projects = relevantProjects();
-      updateStats(projects);
-      renderFocus(projects);
-      renderProjects(projects);
-
-      const publicFallback = state.projects.length > projects.length;
-      const suffix = publicFallback ? " Публичный каталог вынесен в отдельный экран." : "";
-      setStatus(`Под контролем: ${projects.length}.${suffix}`, false);
+      const focusProjects = relevantProjects();
+      updateStats(state.projects);
+      renderFocus(focusProjects);
+      renderProjects(state.projects);
+      setStatus(`Вижу проектов в faculty-контуре: ${state.projects.length}.`, false);
     } catch (err) {
       setStatus(err.message || String(err), true);
     }

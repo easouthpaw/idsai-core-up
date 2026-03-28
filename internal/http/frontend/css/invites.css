@@ -33,45 +33,65 @@ body.invites-body .main-nav .nav-link.active .icon-box {
 }
 
 .invite-tabs {
+  position: relative;
   display: inline-flex;
+  flex-wrap: wrap;
   width: fit-content;
-  border: 1px solid #dce5f3;
-  border-radius: 12px;
-  background: #eef3fb;
+  max-width: 100%;
+  border-radius: 16px;
+  background: #eef1f5;
+  box-sizing: border-box;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08);
   padding: 4px;
   gap: 4px;
 }
 
 .invite-tab {
-  border: 1px solid transparent;
-  border-radius: 10px;
-  background: transparent;
-  color: #3a4761;
-  font: 700 13px "Inter", sans-serif;
-  padding: 10px 14px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  flex: 1 1 auto;
+  min-height: 42px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: rgba(51, 65, 85, 1);
+  font: 700 14px "Inter", sans-serif;
+  padding: 10px 16px;
   gap: 8px;
   cursor: pointer;
+  transition: all 0.18s ease-in-out;
+  white-space: nowrap;
+}
+
+.invite-tab:hover {
+  background: rgba(255, 255, 255, 0.58);
+  color: #162441;
 }
 
 .invite-tab.active {
   background: #fff;
-  border-color: #cfdaeb;
+  border-color: #d3dcea;
   color: #162441;
-  box-shadow: 0 4px 10px rgba(27, 44, 72, 0.08);
+  font-weight: 800;
+  box-shadow: 0 8px 18px rgba(27, 44, 72, 0.08);
 }
 
 .tab-count {
   min-width: 24px;
   height: 20px;
   border-radius: 999px;
-  background: #e6edf8;
+  background: #dde5f0;
   color: #263959;
   font: 700 11px "JetBrains Mono", monospace;
   display: inline-grid;
   place-items: center;
   padding: 0 6px;
+  transition: all 0.18s ease-in-out;
+}
+
+.invite-tab:hover .tab-count {
+  background: #fff;
 }
 
 .invite-tab.active .tab-count {
