@@ -251,7 +251,7 @@ func (s *Service) PublishGrading(ctx context.Context, userID, projectID uuid.UUI
 		return domain.Project{}, fmt.Errorf("%w: grading is incomplete (%d/%d)", ErrInvalidInput, gradedTotal, criteriaTotal)
 	}
 
-	if err := s.lifecycleRepo.MoveProjectToArchive(ctx, projectID); err != nil {
+	if err := s.lifecycleRepo.MoveProjectToCompleted(ctx, projectID); err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return domain.Project{}, ErrInvalidInput
 		}

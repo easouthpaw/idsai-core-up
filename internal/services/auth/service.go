@@ -24,27 +24,68 @@ const dummyPasswordHash = "$2a$10$6zP4Lb6Tx0Jj8N4A7JwK3eVj3ljmd725LLJoPLD114F8Cb
 
 var groupCodePattern = regexp.MustCompile(`^[A-Z]{2,8}-[0-9]{1,4}$`)
 
+const (
+	maxProfileNameLen         = 120
+	maxProfileHeadlineLen     = 96
+	maxProfileAboutLen        = 1200
+	maxProfileRoleLen         = 80
+	maxProfileSemesterLen     = 40
+	maxProfileAvailabilityLen = 80
+	maxProfileGoalsLen        = 600
+	maxProfileLinkLen         = 240
+	maxProfileStacks          = 12
+	maxProfileInterests       = 16
+	maxProfileTagLen          = 40
+)
+
 type User struct {
-	ID              uuid.UUID
-	TenantID        uuid.UUID
-	Email           string
-	PendingEmail    string
-	PasswordHash    string
-	Status          string
-	FacultyID       uuid.UUID
-	DepartmentID    uuid.UUID
-	DepartmentCode  string
-	GroupID         *uuid.UUID
-	GroupCode       string
-	GroupNumber     *int
-	FullName        string
-	IsAdmin         bool
-	IsProfessor     bool
-	EmailVerifiedAt *time.Time
-	AvatarKey       string
-	PendingEmailAt  *time.Time
-	AvatarUpdatedAt *time.Time
-	AvatarURL       string
+	ID               uuid.UUID
+	TenantID         uuid.UUID
+	Email            string
+	PendingEmail     string
+	PasswordHash     string
+	Status           string
+	FacultyID        uuid.UUID
+	DepartmentID     uuid.UUID
+	DepartmentCode   string
+	GroupID          *uuid.UUID
+	GroupCode        string
+	GroupNumber      *int
+	FullName         string
+	Headline         string
+	About            string
+	PreferredRole    string
+	Semester         string
+	Availability     string
+	Goals            string
+	GithubURL        string
+	Telegram         string
+	PortfolioURL     string
+	Stacks           []string
+	Interests        []string
+	ProfileUpdatedAt time.Time
+	IsAdmin          bool
+	IsProfessor      bool
+	EmailVerifiedAt  *time.Time
+	AvatarKey        string
+	PendingEmailAt   *time.Time
+	AvatarUpdatedAt  *time.Time
+	AvatarURL        string
+}
+
+type ProfileUpdate struct {
+	FullName      string
+	Headline      string
+	About         string
+	PreferredRole string
+	Semester      string
+	Availability  string
+	Goals         string
+	GithubURL     string
+	Telegram      string
+	PortfolioURL  string
+	Stacks        []string
+	Interests     []string
 }
 
 type CreateUserParams struct {
@@ -138,7 +179,7 @@ type Repository interface {
 	GrantStudentFacultyRole(ctx context.Context, tenantID, userID, facultyID uuid.UUID) error
 	FindUserByEmail(ctx context.Context, tenantID uuid.UUID, email string) (User, error)
 	FindUserByID(ctx context.Context, tenantID, userID uuid.UUID) (User, error)
-	UpdateUserProfileFullName(ctx context.Context, tenantID, userID uuid.UUID, fullName string) error
+	UpdateUserProfile(ctx context.Context, tenantID, userID uuid.UUID, in ProfileUpdate, updatedAt time.Time) error
 	UpdateUserPasswordHash(ctx context.Context, tenantID, userID uuid.UUID, passwordHash string, changedAt time.Time) error
 	MarkUserEmailVerified(ctx context.Context, tenantID, userID uuid.UUID, verifiedAt time.Time) error
 	IsEmailInUse(ctx context.Context, tenantID, excludeUserID uuid.UUID, email string) (bool, error)
@@ -461,15 +502,85 @@ func (s *Service) Me(ctx context.Context, tenantID, userID uuid.UUID) (User, err
 	return u, nil
 }
 
-func (s *Service) UpdateProfile(ctx context.Context, tenantID, userID uuid.UUID, fullName string) (User, error) {
-	fullName = strings.TrimSpace(fullName)
-	if tenantID == uuid.Nil || userID == uuid.Nil || len(fullName) < 2 || len(fullName) > 120 {
+func (s *Service) UpdateProfile(ctx context.Context, tenantID, userID uuid.UUID, in ProfileUpdate) (User, error) {
+	payload, err := normalizeProfileUpdate(in)
+	if err != nil {
+		return User{}, err
+	}
+	if tenantID == uuid.Nil || userID == uuid.Nil {
 		return User{}, ErrInvalidInput
 	}
-	if err := s.repo.UpdateUserProfileFullName(ctx, tenantID, userID, fullName); err != nil {
+	if err := s.repo.UpdateUserProfile(ctx, tenantID, userID, payload, time.Now().UTC()); err != nil {
 		return User{}, err
 	}
 	return s.Me(ctx, tenantID, userID)
+}
+
+func normalizeProfileUpdate(in ProfileUpdate) (ProfileUpdate, error) {
+	out := ProfileUpdate{
+		FullName:      strings.TrimSpace(in.FullName),
+		Headline:      strings.TrimSpace(in.Headline),
+		About:         strings.TrimSpace(in.About),
+		PreferredRole: strings.TrimSpace(in.PreferredRole),
+		Semester:      strings.TrimSpace(in.Semester),
+		Availability:  strings.TrimSpace(in.Availability),
+		Goals:         strings.TrimSpace(in.Goals),
+		GithubURL:     strings.TrimSpace(in.GithubURL),
+		Telegram:      strings.TrimSpace(in.Telegram),
+		PortfolioURL:  strings.TrimSpace(in.PortfolioURL),
+		Stacks:        normalizeProfileTags(in.Stacks, maxProfileStacks),
+		Interests:     normalizeProfileTags(in.Interests, maxProfileInterests),
+	}
+
+	switch {
+	case len(out.FullName) < 2 || len(out.FullName) > maxProfileNameLen:
+		return ProfileUpdate{}, ErrInvalidInput
+	case len(out.Headline) > maxProfileHeadlineLen:
+		return ProfileUpdate{}, ErrInvalidInput
+	case len(out.About) > maxProfileAboutLen:
+		return ProfileUpdate{}, ErrInvalidInput
+	case len(out.PreferredRole) > maxProfileRoleLen:
+		return ProfileUpdate{}, ErrInvalidInput
+	case len(out.Semester) > maxProfileSemesterLen:
+		return ProfileUpdate{}, ErrInvalidInput
+	case len(out.Availability) > maxProfileAvailabilityLen:
+		return ProfileUpdate{}, ErrInvalidInput
+	case len(out.Goals) > maxProfileGoalsLen:
+		return ProfileUpdate{}, ErrInvalidInput
+	case len(out.GithubURL) > maxProfileLinkLen:
+		return ProfileUpdate{}, ErrInvalidInput
+	case len(out.Telegram) > maxProfileLinkLen:
+		return ProfileUpdate{}, ErrInvalidInput
+	case len(out.PortfolioURL) > maxProfileLinkLen:
+		return ProfileUpdate{}, ErrInvalidInput
+	}
+
+	return out, nil
+}
+
+func normalizeProfileTags(items []string, limit int) []string {
+	if len(items) == 0 {
+		return []string{}
+	}
+
+	seen := make(map[string]struct{}, len(items))
+	out := make([]string, 0, min(limit, len(items)))
+	for _, item := range items {
+		value := strings.TrimSpace(item)
+		if value == "" || len(value) > maxProfileTagLen {
+			continue
+		}
+		key := strings.ToLower(value)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, value)
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out
 }
 
 func (s *Service) ListDepartments(ctx context.Context, tenantCode string) ([]Department, error) {

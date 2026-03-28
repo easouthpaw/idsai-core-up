@@ -8,13 +8,25 @@ import (
 
 	"idsai-core-up/internal/http/middleware"
 	"idsai-core-up/internal/infra/images"
+	"idsai-core-up/internal/services/auth"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
 type updateProfileReq struct {
-	FullName string `json:"full_name" binding:"required"`
+	FullName      string   `json:"full_name"`
+	Headline      string   `json:"headline"`
+	About         string   `json:"about"`
+	PreferredRole string   `json:"preferred_role"`
+	Semester      string   `json:"semester"`
+	Availability  string   `json:"availability"`
+	Goals         string   `json:"goals"`
+	GithubURL     string   `json:"github_url"`
+	Telegram      string   `json:"telegram"`
+	PortfolioURL  string   `json:"portfolio_url"`
+	Stacks        []string `json:"stacks"`
+	Interests     []string `json:"interests"`
 }
 
 type startEmailChangeReq struct {
@@ -47,6 +59,26 @@ func (h *AuthHandler) SettingsGet(c *gin.Context) {
 	c.JSON(http.StatusOK, buildMeResp(user))
 }
 
+func (h *AuthHandler) GetProfile(c *gin.Context) {
+	authResponseNoStore(c)
+
+	tenantID, _, ok := settingsActorIDs(c)
+	if !ok {
+		return
+	}
+	targetUserID, ok := parseUserIDParam(c, "user_id")
+	if !ok {
+		return
+	}
+
+	user, err := h.svc.Me(c.Request.Context(), tenantID, targetUserID)
+	if err != nil {
+		writeAuthError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, buildPublicProfileResp(user))
+}
+
 func (h *AuthHandler) SettingsUpdateProfile(c *gin.Context) {
 	authResponseNoStore(c)
 
@@ -61,7 +93,20 @@ func (h *AuthHandler) SettingsUpdateProfile(c *gin.Context) {
 		return
 	}
 
-	user, err := h.svc.UpdateProfile(c.Request.Context(), tenantID, userID, req.FullName)
+	user, err := h.svc.UpdateProfile(c.Request.Context(), tenantID, userID, auth.ProfileUpdate{
+		FullName:      req.FullName,
+		Headline:      req.Headline,
+		About:         req.About,
+		PreferredRole: req.PreferredRole,
+		Semester:      req.Semester,
+		Availability:  req.Availability,
+		Goals:         req.Goals,
+		GithubURL:     req.GithubURL,
+		Telegram:      req.Telegram,
+		PortfolioURL:  req.PortfolioURL,
+		Stacks:        req.Stacks,
+		Interests:     req.Interests,
+	})
 	if err != nil {
 		writeAuthError(c, err)
 		return

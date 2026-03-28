@@ -291,7 +291,7 @@ func TestService_GetProjectViewForViewer_InvitedViewerCannotSeeWorkspaceOrApply(
 	require.False(t, view.Access.CanApply)
 }
 
-func TestService_GetProjectViewForViewer_PublicArchiveExposesFinalGradeOnly(t *testing.T) {
+func TestService_GetProjectViewForViewer_PublicCompletedExposesFinalGradeOnly(t *testing.T) {
 	pid := uuid.New()
 	viewerID := uuid.New()
 	ownerID := uuid.New()
@@ -301,8 +301,8 @@ func TestService_GetProjectViewForViewer_PublicArchiveExposesFinalGradeOnly(t *t
 	repo := fakeProjectsRepo{
 		project: domain.Project{
 			ID:        pid,
-			Title:     "Archived Project",
-			Status:    domain.ProjectArchive,
+			Title:     "Completed Project",
+			Status:    domain.ProjectCompleted,
 			IsPublic:  true,
 			CreatedBy: ownerID,
 		},

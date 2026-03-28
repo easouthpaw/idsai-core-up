@@ -196,6 +196,18 @@ SELECT
   COALESCE(sg.group_code, ''),
   sg.group_number,
   p.full_name,
+  COALESCE(p.headline, ''),
+  COALESCE(p.about, ''),
+  COALESCE(p.preferred_role, ''),
+  COALESCE(p.semester, ''),
+  COALESCE(p.availability, ''),
+  COALESCE(p.goals, ''),
+  COALESCE(p.github_url, ''),
+  COALESCE(p.telegram_username, ''),
+  COALESCE(p.portfolio_url, ''),
+  COALESCE(p.stacks, ARRAY[]::TEXT[]),
+  COALESCE(p.interests, ARRAY[]::TEXT[]),
+  p.updated_at,
   EXISTS (
     SELECT 1
     FROM role_assignments ra
@@ -246,6 +258,18 @@ SELECT
   COALESCE(sg.group_code, ''),
   sg.group_number,
   p.full_name,
+  COALESCE(p.headline, ''),
+  COALESCE(p.about, ''),
+  COALESCE(p.preferred_role, ''),
+  COALESCE(p.semester, ''),
+  COALESCE(p.availability, ''),
+  COALESCE(p.goals, ''),
+  COALESCE(p.github_url, ''),
+  COALESCE(p.telegram_username, ''),
+  COALESCE(p.portfolio_url, ''),
+  COALESCE(p.stacks, ARRAY[]::TEXT[]),
+  COALESCE(p.interests, ARRAY[]::TEXT[]),
+  p.updated_at,
   EXISTS (
     SELECT 1
     FROM role_assignments ra
@@ -297,13 +321,25 @@ WHERE tenant_id = $1
 	return nil
 }
 
-func (r *AuthRepo) UpdateUserProfileFullName(ctx context.Context, tenantID, userID uuid.UUID, fullName string) error {
+func (r *AuthRepo) UpdateUserProfile(ctx context.Context, tenantID, userID uuid.UUID, in svc.ProfileUpdate, updatedAt time.Time) error {
 	tag, err := r.db.Exec(ctx, `
 UPDATE user_profiles
-SET full_name = $3
+SET full_name = $3,
+    headline = $4,
+    about = $5,
+    preferred_role = $6,
+    semester = $7,
+    availability = $8,
+    goals = $9,
+    github_url = $10,
+    telegram_username = $11,
+    portfolio_url = $12,
+    stacks = $13,
+    interests = $14,
+    updated_at = $15
 WHERE tenant_id = $1
   AND user_id = $2;
-`, tenantID, userID, fullName)
+`, tenantID, userID, in.FullName, in.Headline, in.About, in.PreferredRole, in.Semester, in.Availability, in.Goals, in.GithubURL, in.Telegram, in.PortfolioURL, in.Stacks, in.Interests, updatedAt)
 	if err != nil {
 		return err
 	}
@@ -992,6 +1028,18 @@ func (r *AuthRepo) scanUser(ctx context.Context, q string, args ...any) (svc.Use
 		&out.GroupCode,
 		&out.GroupNumber,
 		&out.FullName,
+		&out.Headline,
+		&out.About,
+		&out.PreferredRole,
+		&out.Semester,
+		&out.Availability,
+		&out.Goals,
+		&out.GithubURL,
+		&out.Telegram,
+		&out.PortfolioURL,
+		&out.Stacks,
+		&out.Interests,
+		&out.ProfileUpdatedAt,
 		&out.IsAdmin,
 		&out.IsProfessor,
 		&out.EmailVerifiedAt,

@@ -49,7 +49,7 @@ func (f *fakeRepo) FindUserByID(ctx context.Context, tenantID, userID uuid.UUID)
 	return f.user, nil
 }
 
-func (f *fakeRepo) UpdateUserProfileFullName(ctx context.Context, tenantID, userID uuid.UUID, fullName string) error {
+func (f *fakeRepo) UpdateUserProfile(ctx context.Context, tenantID, userID uuid.UUID, in ProfileUpdate, updatedAt time.Time) error {
 	return nil
 }
 

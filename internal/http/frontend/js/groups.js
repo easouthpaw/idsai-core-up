@@ -106,6 +106,11 @@
     return code || "—";
   }
 
+  function profileURL(userID) {
+    const id = String(userID || "").trim();
+    return id ? `/dev/profile?user_id=${encodeURIComponent(id)}` : "/dev/profile";
+  }
+
   function renderTree(items) {
     const departments = Array.isArray(items) ? items : [];
     ui.treeRoot.innerHTML = "";
@@ -168,7 +173,7 @@
           li.innerHTML = `
             <div class="student-avatar">${avatar}</div>
             <div class="student-meta">
-              <strong>${escapeHTML(student.full_name || "—")}</strong>
+              <strong><a href="${escapeHTML(profileURL(student.user_id))}">${escapeHTML(student.full_name || "—")}</a></strong>
               <p>${escapeHTML(student.email || "—")}</p>
             </div>
             <div>${escapeHTML(roleLabel(student.role || student.role_code))}</div>

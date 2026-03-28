@@ -56,6 +56,10 @@ func (h *AdminHandler) SetProjectStatus(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+		if errors.Is(err, admin.ErrInvalidInput) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		if errors.Is(err, admin.ErrProjectNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "project not found"})
 			return
@@ -85,7 +89,7 @@ func (h *AdminHandler) SetProjectStatus(c *gin.Context) {
 		if project.CreatedBy != adminUserID {
 			body := "Статус вашего проекта был обновлён администратором."
 			if status == "ARCHIVE" {
-				body = "Ваш проект был закрыт (ARCHIVE) администратором."
+				body = "Ваш завершённый проект был помещён в архив администратором."
 			}
 			notifyBestEffort(h.notifier, c.Request.Context(), notifCreateInput(
 				tenantID,

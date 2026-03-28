@@ -71,7 +71,7 @@ type LifecycleRepository interface {
 	ActivateProject(ctx context.Context, projectID uuid.UUID) error
 	CountProjectTasksSummary(ctx context.Context, projectID uuid.UUID) (total, done int, err error)
 	MoveProjectToGrading(ctx context.Context, projectID uuid.UUID) error
-	MoveProjectToArchive(ctx context.Context, projectID uuid.UUID) error
+	MoveProjectToCompleted(ctx context.Context, projectID uuid.UUID) error
 	DeleteOwnedProject(ctx context.Context, projectID, ownerID uuid.UUID) error
 }
 

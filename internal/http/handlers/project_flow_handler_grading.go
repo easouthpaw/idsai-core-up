@@ -250,7 +250,7 @@ func (h *ProjectFlowHandler) PublishProjectGrading(c *gin.Context) {
 		uid,
 		"project.grading.published",
 		"Итоговая оценка опубликована",
-		"Оценивание завершено, проект переведен в статус ARCHIVE.",
+		"Оценивание завершено, проект переведен в статус COMPLETED.",
 		map[string]any{
 			"project_id": pid.String(),
 			"title":      p.Title,
@@ -265,7 +265,7 @@ func (h *ProjectFlowHandler) PublishProjectGrading(c *gin.Context) {
 			p.CreatedBy,
 			"project.finished",
 			"Проект завершен",
-			"Преподаватель завершил оценивание проекта. Проект находится в статусе ARCHIVE.",
+			"Преподаватель завершил оценивание проекта. Проект находится в статусе COMPLETED.",
 			map[string]any{
 				"project_id": pid.String(),
 				"title":      p.Title,

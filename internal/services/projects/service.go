@@ -105,7 +105,7 @@ func (s *Service) GetProjectViewForViewer(ctx context.Context, projectID, viewer
 	}
 
 	var summary *ReviewSummary
-	access.CanViewFinalGrade = p.Status == domain.ProjectArchive && (p.IsPublic || access.CanViewWorkspace)
+	access.CanViewFinalGrade = (p.Status == domain.ProjectCompleted || p.Status == domain.ProjectArchive) && (p.IsPublic || access.CanViewWorkspace)
 	if access.CanViewFinalGrade {
 		summary, err = s.repo.GetProjectReviewSummary(ctx, projectID)
 		if err != nil {

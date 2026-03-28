@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"fmt"
 	"idsai-core-up/internal/security/passwords"
 	"strings"
 	"time"
@@ -22,7 +23,7 @@ const (
 var (
 	ErrInvalidRole          = errors.New("role must be STUDENT or PROFESSOR")
 	ErrInvalidStatus        = errors.New("status must be ACTIVE, PENDING or DISABLED")
-	ErrInvalidProjectStatus = errors.New("project status must be DRAFT, REVIEW, RECRUITMENT, ACTIVE, GRADING or ARCHIVE")
+	ErrInvalidProjectStatus = errors.New("project status must be DRAFT, REVIEW, RECRUITMENT, ACTIVE, GRADING, COMPLETED or ARCHIVE")
 	ErrInvalidInput         = errors.New("invalid input")
 	ErrUserNotFound         = errors.New("user not found")
 	ErrProjectNotFound      = errors.New("project not found")
@@ -240,6 +241,13 @@ func (s *Service) SetProjectStatus(ctx context.Context, projectID uuid.UUID, sta
 	if err != nil {
 		return Project{}, err
 	}
+	current, err := s.repo.GetProjectByID(ctx, projectID)
+	if err != nil {
+		return Project{}, err
+	}
+	if err := validateAdminProjectStatusChange(current.Status, normalized); err != nil {
+		return Project{}, err
+	}
 	if err := s.repo.UpdateProjectStatus(ctx, projectID, normalized); err != nil {
 		return Project{}, err
 	}
@@ -305,10 +313,32 @@ func normalizeProjectStatus(status string) (string, error) {
 		return "ACTIVE", nil
 	case "GRADING":
 		return "GRADING", nil
+	case "COMPLETED":
+		return "COMPLETED", nil
 	case "ARCHIVE":
 		return "ARCHIVE", nil
 	default:
 		return "", ErrInvalidProjectStatus
+	}
+}
+
+func validateAdminProjectStatusChange(current, next string) error {
+	current = strings.ToUpper(strings.TrimSpace(current))
+	next = strings.ToUpper(strings.TrimSpace(next))
+
+	switch next {
+	case "ACTIVE":
+		if current == "ACTIVE" || current == "REVIEW" || current == "RECRUITMENT" {
+			return nil
+		}
+		return fmt.Errorf("%w: project can be activated only from REVIEW or RECRUITMENT", ErrInvalidInput)
+	case "ARCHIVE":
+		if current == "ARCHIVE" || current == "COMPLETED" {
+			return nil
+		}
+		return fmt.Errorf("%w: project can be archived only from COMPLETED", ErrInvalidInput)
+	default:
+		return fmt.Errorf("%w: admin can change project status only to ACTIVE or ARCHIVE", ErrInvalidInput)
 	}
 }
 

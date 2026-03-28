@@ -16,6 +16,10 @@ type fakeAdminRepo struct {
 	deleteUserErr    error
 	deleteProjectID  uuid.UUID
 	deleteProjectErr error
+	projectByID      admin.Project
+	projectByIDErr   error
+	projectStatusID  uuid.UUID
+	projectStatus    string
 	roleUserID       uuid.UUID
 	roleCode         string
 	passwordUserID   uuid.UUID
@@ -67,6 +71,8 @@ func (f *fakeAdminRepo) RevokeUserSessions(ctx context.Context, userID uuid.UUID
 }
 
 func (f *fakeAdminRepo) UpdateProjectStatus(ctx context.Context, projectID uuid.UUID, status string) error {
+	f.projectStatusID = projectID
+	f.projectStatus = status
 	return nil
 }
 
@@ -81,7 +87,7 @@ func (f *fakeAdminRepo) DeleteProject(ctx context.Context, projectID uuid.UUID) 
 }
 
 func (f *fakeAdminRepo) GetProjectByID(ctx context.Context, projectID uuid.UUID) (admin.Project, error) {
-	return admin.Project{}, nil
+	return f.projectByID, f.projectByIDErr
 }
 
 func TestService_DeleteUser_CallsRepo(t *testing.T) {
@@ -111,6 +117,31 @@ func TestService_DeleteProject_CallsRepo(t *testing.T) {
 	err := svc.DeleteProject(context.Background(), projectID)
 	require.NoError(t, err)
 	require.Equal(t, projectID, repo.deleteProjectID)
+}
+
+func TestService_SetProjectStatus_ArchivesCompletedProject(t *testing.T) {
+	projectID := uuid.New()
+	repo := &fakeAdminRepo{
+		projectByID: admin.Project{ID: projectID, Status: "COMPLETED"},
+	}
+	svc := admin.NewService(repo)
+
+	_, err := svc.SetProjectStatus(context.Background(), projectID, "archive")
+	require.NoError(t, err)
+	require.Equal(t, projectID, repo.projectStatusID)
+	require.Equal(t, "ARCHIVE", repo.projectStatus)
+}
+
+func TestService_SetProjectStatus_RejectsArchiveForActiveProject(t *testing.T) {
+	projectID := uuid.New()
+	repo := &fakeAdminRepo{
+		projectByID: admin.Project{ID: projectID, Status: "ACTIVE"},
+	}
+	svc := admin.NewService(repo)
+
+	_, err := svc.SetProjectStatus(context.Background(), projectID, "archive")
+	require.ErrorIs(t, err, admin.ErrInvalidInput)
+	require.Equal(t, uuid.Nil, repo.projectStatusID)
 }
 
 func TestService_SetUserRole_UpdatesAndReturnsUser(t *testing.T) {

@@ -106,6 +106,7 @@
     if (s === "REVIEW") return "review";
     if (s === "ACTIVE") return "active";
     if (s === "RECRUITMENT") return "recruitment";
+    if (s === "COMPLETED") return "active";
     return "default";
   }
 
@@ -175,6 +176,8 @@
     projectsBody.innerHTML = items.map((p) => {
       const s = String(p.status || "").toUpperCase();
       const hasProfessor = Boolean(p.professor_id);
+      const canOpenRecruitment = s === "DRAFT" || s === "REVIEW" || s === "RECRUITMENT";
+      const canStart = s === "REVIEW" || s === "RECRUITMENT";
       return `
         <tr>
           <td>
@@ -186,11 +189,11 @@
           <td>
             <div class="actions">
               <button class="action-btn" data-act="open" data-id="${escapeHTML(p.id)}">Открыть</button>
-              <button class="action-btn" data-act="recruitment" data-id="${escapeHTML(p.id)}">Набор</button>
-              <button class="action-btn" data-act="attach" data-id="${escapeHTML(p.id)}" ${hasProfessor ? "disabled" : ""}>Я преподаватель</button>
+              <button class="action-btn" data-act="recruitment" data-id="${escapeHTML(p.id)}" ${canOpenRecruitment ? "" : "disabled"}>Набор</button>
+              <button class="action-btn" data-act="attach" data-id="${escapeHTML(p.id)}" ${hasProfessor || s === "COMPLETED" || s === "ARCHIVE" ? "disabled" : ""}>Я преподаватель</button>
               <button class="action-btn" data-act="criteria" data-id="${escapeHTML(p.id)}">Критерии</button>
               <button class="action-btn" data-act="grade" data-id="${escapeHTML(p.id)}">Оценивание</button>
-              <button class="action-btn primary" data-act="start" data-id="${escapeHTML(p.id)}" ${s === "ACTIVE" ? "disabled" : ""}>Старт</button>
+              <button class="action-btn primary" data-act="start" data-id="${escapeHTML(p.id)}" ${canStart ? "" : "disabled"}>Старт</button>
             </div>
           </td>
         </tr>

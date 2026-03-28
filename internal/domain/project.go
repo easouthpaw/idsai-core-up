@@ -14,6 +14,7 @@ const (
 	ProjectRecruitment ProjectStatus = "RECRUITMENT"
 	ProjectActive      ProjectStatus = "ACTIVE"
 	ProjectGrading     ProjectStatus = "GRADING"
+	ProjectCompleted   ProjectStatus = "COMPLETED"
 	ProjectArchive     ProjectStatus = "ARCHIVE"
 )
 

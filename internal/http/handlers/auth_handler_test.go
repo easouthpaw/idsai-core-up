@@ -46,7 +46,7 @@ func (f *authHandlerRepo) FindUserByID(ctx context.Context, tenantID, userID uui
 	return f.user, nil
 }
 
-func (f *authHandlerRepo) UpdateUserProfileFullName(ctx context.Context, tenantID, userID uuid.UUID, fullName string) error {
+func (f *authHandlerRepo) UpdateUserProfile(ctx context.Context, tenantID, userID uuid.UUID, in auth.ProfileUpdate, updatedAt time.Time) error {
 	return nil
 }
 

@@ -193,6 +193,7 @@
     if (s === "ACTIVE") return "active";
     if (s === "RECRUITMENT") return "recruitment";
     if (s === "GRADING") return "active";
+    if (s === "COMPLETED") return "active";
     if (s === "ARCHIVE") return "default";
     return "default";
   }
@@ -391,8 +392,10 @@
 
     if (state.gradingRestricted || !state.canEdit) {
       const status = String(state.project?.status || "DRAFT").toUpperCase();
-      if (status === "ARCHIVE") {
-        setStatus("Оценивание завершено. Проект находится в статусе ARCHIVE.", false);
+      if (status === "COMPLETED") {
+        setStatus("Оценивание завершено. Проект находится в статусе COMPLETED.", false);
+      } else if (status === "ARCHIVE") {
+        setStatus("Оценивание завершено. Проект был помещен в архив.", false);
       } else {
         setStatus(`Оценивание недоступно в статусе ${status}. Ожидается статус REVIEW/GRADING.`, true);
       }
@@ -458,14 +461,14 @@
       setStatus("Завершение оценивания недоступно для текущего статуса проекта.", true);
       return;
     }
-    const confirmed = window.confirm("Завершить оценивание и перевести проект в ARCHIVE?");
+    const confirmed = window.confirm("Завершить оценивание и перевести проект в COMPLETED?");
     if (!confirmed) return;
 
     if (ui.publishGradingBtn) ui.publishGradingBtn.disabled = true;
     try {
       await request("POST", `/v2/projects/${state.projectID}/grading/publish`, {});
       await loadPageData();
-      setStatus("Оценивание завершено. Проект переведен в ARCHIVE.", false);
+      setStatus("Оценивание завершено. Проект переведен в COMPLETED.", false);
     } catch (err) {
       setStatus(err.message || String(err), true);
     } finally {

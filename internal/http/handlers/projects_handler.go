@@ -23,8 +23,8 @@ func (h *ProjectsHandler) SetNotifier(pub NotificationPublisher) {
 
 type projectResponse struct {
 	ID                    string                        `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	Title                 string                        `json:"title" example:"Swagger Demo"`
-	Description           string                        `json:"description" example:"created from swagger"`
+	Title                 string                        `json:"title" example:"Project Demo"`
+	Description           string                        `json:"description" example:"created from platform"`
 	Status                string                        `json:"status" example:"DRAFT"`
 	IsPublic              bool                          `json:"is_public" example:"false"`
 	CreatedBy             string                        `json:"created_by" example:"550e8400-e29b-41d4-a716-446655440000"`
