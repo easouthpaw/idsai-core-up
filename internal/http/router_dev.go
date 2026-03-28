@@ -35,6 +35,8 @@ func registerDevAndDocsRoutes(r *gin.Engine, pool *pgxpool.Pool) {
 	r.GET("/dev/settings", handlers.DevSettingsPage)
 	r.GET("/dev/profile", handlers.DevProfilePage)
 	r.GET("/dev/groups", handlers.DevGroupsPage)
+	r.GET("/dev/kb", handlers.DevKBPage)
+	r.GET("/dev/kb/article", handlers.DevKBArticlePage)
 	r.GET("/dev/404", handlers.DevNotFoundPage)
 	r.GET("/dev/tester", handlers.DevLoginPage)
 

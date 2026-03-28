@@ -52,6 +52,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		modules.adminHandler,
 		modules.notificationsHandler,
 		publicContactHandler,
+		modules.kbHandler,
 		modules.notificationsSvc,
 		cfg.JWTSecret,
 	)

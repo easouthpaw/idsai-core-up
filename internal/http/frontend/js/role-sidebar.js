@@ -176,6 +176,7 @@
         { key: "projects", label: "Проекты", icon: "folder_data", href: "/dev/admin?view=projects", permission: "admin.manage_rbac" },
         { key: "users", label: "Пользователи", icon: "group", href: "/dev/admin?view=users", permission: "admin.manage_rbac" },
         { key: "groups", label: "Группы", icon: "account_tree", href: "/dev/groups", inline: false, permission: "admin.manage_rbac" },
+        { key: "kb", label: "База знаний", icon: "menu_book", href: "/dev/kb", inline: false },
       ],
       inlineViews,
       scope
@@ -195,6 +196,7 @@
         { key: "grading", label: "Оценивание", icon: "grading", href: "/dev/professor/grading" },
         { key: "groups", label: "Группы", icon: "account_tree", href: "/dev/groups" },
         { key: "projects", label: "Проекты", icon: "folder_open", href: "/dev/professor#projects" },
+        { key: "kb", label: "База знаний", icon: "menu_book", href: "/dev/kb" },
       ],
       false,
       scope
@@ -211,6 +213,7 @@
         { key: "mine", label: "Мои проекты", icon: "folder", href: "/dev/projects?tab=mine" },
         { key: "community", label: "Сообщество", icon: "public", href: "/dev/projects?tab=community" },
         { key: "invites", label: "Заявки", icon: "mark_email_unread", href: "/dev/invites" },
+        { key: "kb", label: "База знаний", icon: "menu_book", href: "/dev/kb" },
       ],
       false,
       scope

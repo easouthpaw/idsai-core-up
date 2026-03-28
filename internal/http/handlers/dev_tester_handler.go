@@ -77,3 +77,11 @@ func DevGroupsPage(c *gin.Context) {
 func DevNotFoundPage(c *gin.Context) {
 	serveFrontendHTML(c, http.StatusNotFound, "404.html")
 }
+
+func DevKBPage(c *gin.Context) {
+	c.FileFromFS("kb.html", devFrontendFS)
+}
+
+func DevKBArticlePage(c *gin.Context) {
+	c.FileFromFS("kb-article.html", devFrontendFS)
+}

@@ -11,7 +11,7 @@ import (
 )
 
 func TestDevTesterRoute_Available(t *testing.T) {
-	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
+	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/dev/login", nil)
@@ -23,7 +23,7 @@ func TestDevTesterRoute_Available(t *testing.T) {
 }
 
 func TestDevProjectsRoute_Available(t *testing.T) {
-	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
+	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/dev/projects", nil)
@@ -35,7 +35,7 @@ func TestDevProjectsRoute_Available(t *testing.T) {
 }
 
 func TestDevProjectRoute_Available(t *testing.T) {
-	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
+	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/dev/projects/00000000-0000-0000-0000-000000000001", nil)
@@ -47,7 +47,7 @@ func TestDevProjectRoute_Available(t *testing.T) {
 }
 
 func TestDevAdminRoute_Available(t *testing.T) {
-	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
+	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/dev/admin", nil)
@@ -59,7 +59,7 @@ func TestDevAdminRoute_Available(t *testing.T) {
 }
 
 func TestAuthorRoute_Available(t *testing.T) {
-	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
+	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/author", nil)
@@ -71,7 +71,7 @@ func TestAuthorRoute_Available(t *testing.T) {
 }
 
 func TestDevProfessorRoute_Available(t *testing.T) {
-	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
+	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/dev/professor", nil)
@@ -83,7 +83,7 @@ func TestDevProfessorRoute_Available(t *testing.T) {
 }
 
 func TestDevProfessorReviewsRoute_Available(t *testing.T) {
-	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
+	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/dev/professor/reviews", nil)
@@ -95,7 +95,7 @@ func TestDevProfessorReviewsRoute_Available(t *testing.T) {
 }
 
 func TestDevProfessorCriteriaRoute_Available(t *testing.T) {
-	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
+	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/dev/professor/criteria", nil)
@@ -107,7 +107,7 @@ func TestDevProfessorCriteriaRoute_Available(t *testing.T) {
 }
 
 func TestDevProfessorGradingRoute_Available(t *testing.T) {
-	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
+	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/dev/professor/grading", nil)
@@ -119,7 +119,7 @@ func TestDevProfessorGradingRoute_Available(t *testing.T) {
 }
 
 func TestDevGroupsRoute_Available(t *testing.T) {
-	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
+	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/dev/groups", nil)

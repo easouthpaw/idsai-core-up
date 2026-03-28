@@ -6,6 +6,7 @@ import (
 	"idsai-core-up/internal/infra/storage"
 	adminmodule "idsai-core-up/internal/modules/admin"
 	authmodule "idsai-core-up/internal/modules/auth"
+	kbmodule "idsai-core-up/internal/modules/kb"
 	notificationsmodule "idsai-core-up/internal/modules/notifications"
 	projectflowmodule "idsai-core-up/internal/modules/projectflow"
 	projectsmodule "idsai-core-up/internal/modules/projects"
@@ -27,6 +28,7 @@ type wiredModules struct {
 	notificationsSvc     *notifications.Service
 	notificationsHandler *handlers.NotificationsHandler
 	notificationsRepo    *postgres.NotificationsRepo
+	kbHandler            *handlers.KBHandler
 }
 
 func wireModules(pool *pgxpool.Pool, cfg config.Config) wiredModules {
@@ -38,6 +40,7 @@ func wireModules(pool *pgxpool.Pool, cfg config.Config) wiredModules {
 	projectsModule := projectsmodule.New(pool, rbacModule.Repo)
 	projectFlowModule := projectflowmodule.New(pool, rbacModule.Service, rbacModule.Repo)
 	notificationsModule := notificationsmodule.New(pool)
+	kbModule := kbmodule.New(pool)
 
 	authModule.Service.SetNotifier(notificationsModule.Service)
 	authModule.Service.SetStorage(objectStorage)
@@ -55,5 +58,6 @@ func wireModules(pool *pgxpool.Pool, cfg config.Config) wiredModules {
 		notificationsSvc:     notificationsModule.Service,
 		notificationsHandler: notificationsModule.Handler,
 		notificationsRepo:    notificationsModule.Repo,
+		kbHandler:            kbModule.Handler,
 	}
 }

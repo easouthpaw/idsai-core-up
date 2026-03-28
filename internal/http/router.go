@@ -21,6 +21,7 @@ func NewRouter(
 	adminHandler *handlers.AdminHandler,
 	notificationsH *handlers.NotificationsHandler,
 	publicContactH *handlers.PublicContactHandler,
+	kbHandler *handlers.KBHandler,
 	notifier handlers.NotificationPublisher,
 	jwtSecret string,
 ) *gin.Engine {
@@ -44,6 +45,7 @@ func NewRouter(
 	registerProjectsRoutes(v2, authMW, rbacSvc, projectsSvc, notifier)
 	registerNotificationRoutes(v2, authMW, notificationsH)
 	registerProjectFlowRoutes(v2, authMW, rbacSvc, projectFlowH)
+	registerKBRoutes(v2, authMW, kbHandler)
 	registerDevAndDocsRoutes(r, pool)
 
 	return r
