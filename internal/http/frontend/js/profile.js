@@ -18,6 +18,26 @@
   };
 
   const MAX_STACKS = 12;
+  const STACK_META = [
+    { match: /^(go|golang)$/i, tone: "go", kind: "mono", value: "Go" },
+    { match: /^python$/i, tone: "python", kind: "mono", value: "Py" },
+    { match: /^fastapi$/i, tone: "fastapi", kind: "symbol", value: "bolt" },
+    { match: /^(react|reactjs|react\.js)$/i, tone: "react", kind: "symbol", value: "autorenew" },
+    { match: /^(typescript|ts)$/i, tone: "typescript", kind: "mono", value: "TS" },
+    { match: /^(javascript|js)$/i, tone: "javascript", kind: "mono", value: "JS" },
+    { match: /^(postgresql|postgres|psql)$/i, tone: "postgresql", kind: "symbol", value: "database" },
+    { match: /^docker$/i, tone: "docker", kind: "symbol", value: "inventory_2" },
+    { match: /^(node|node\.js)$/i, tone: "node", kind: "symbol", value: "hub" },
+    { match: /^redis$/i, tone: "redis", kind: "symbol", value: "memory" },
+    { match: /^(mongodb|mongo|mongodb)$/i, tone: "mongodb", kind: "symbol", value: "storage" },
+    { match: /^(kubernetes|k8s)$/i, tone: "kubernetes", kind: "symbol", value: "widgets" },
+    { match: /^(machine learning|ml|ai|artificial intelligence)$/i, tone: "ml", kind: "symbol", value: "neurology" },
+    { match: /^(ui ?\/ ?ux|ux|ui|figma|design)$/i, tone: "design", kind: "symbol", value: "palette" },
+    { match: /^(backend|api)$/i, tone: "backend", kind: "symbol", value: "dns" },
+    { match: /^frontend$/i, tone: "frontend", kind: "symbol", value: "web" },
+    { match: /^devops$/i, tone: "devops", kind: "symbol", value: "settings_ethernet" },
+    { match: /^(aws|azure|gcp|cloud)$/i, tone: "cloud", kind: "symbol", value: "cloud" },
+  ];
 
   const ui = {
     sidebarHost: document.querySelector("[data-role-sidebar]"),
@@ -183,6 +203,59 @@
     return out.slice(0, limit);
   }
 
+  function stackMeta(rawValue) {
+    const value = String(rawValue || "").trim();
+    const meta = STACK_META.find((entry) => entry.match.test(value));
+    return meta || { tone: "generic", kind: "symbol", value: "terminal" };
+  }
+
+  function createStackMark(meta) {
+    const mark = document.createElement("span");
+    mark.className = "stack-chip__mark";
+    mark.setAttribute("aria-hidden", "true");
+
+    if (meta.kind === "mono") {
+      mark.textContent = meta.value;
+      return mark;
+    }
+
+    mark.classList.add("is-symbol");
+    const icon = document.createElement("span");
+    icon.className = "material-symbols-outlined";
+    icon.setAttribute("aria-hidden", "true");
+    icon.textContent = meta.value;
+    mark.appendChild(icon);
+    return mark;
+  }
+
+  function createStackChip(stack, options = {}) {
+    const preview = Boolean(options.preview);
+    const removable = Boolean(options.removable);
+    const meta = stackMeta(stack);
+    const chip = document.createElement("span");
+    const label = document.createElement("span");
+
+    chip.className = preview ? "hero-stack-chip" : "stack-chip";
+    chip.classList.add(`stack-tone-${meta.tone}`);
+
+    label.className = preview ? "hero-stack-chip__label" : "stack-chip__label";
+    label.textContent = stack;
+
+    chip.appendChild(createStackMark(meta));
+    chip.appendChild(label);
+
+    if (removable) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.setAttribute("aria-label", `Удалить ${stack}`);
+      button.dataset.removeStack = stack;
+      button.textContent = "×";
+      chip.appendChild(button);
+    }
+
+    return chip;
+  }
+
   function normalizeExtendedProfile(data) {
     const source = data && typeof data === "object" ? data : {};
     return {
@@ -324,24 +397,18 @@
   function renderStacks(stacks) {
     ui.stackList.innerHTML = "";
     stacks.forEach((stack) => {
-      const chip = document.createElement("span");
-      chip.className = "stack-chip";
-      if (state.isOwnProfile && state.isEditMode) {
-        chip.innerHTML = `${escapeHTML(stack)}<button type="button" aria-label="Удалить ${escapeHTML(stack)}" data-remove-stack="${escapeHTML(stack)}">×</button>`;
-      } else {
-        chip.textContent = stack;
-      }
-      ui.stackList.appendChild(chip);
+      ui.stackList.appendChild(
+        createStackChip(stack, {
+          removable: state.isOwnProfile && state.isEditMode,
+        }),
+      );
     });
   }
 
   function renderStackPreview(stacks) {
     ui.heroStackPreview.innerHTML = "";
     stacks.slice(0, 6).forEach((stack) => {
-      const chip = document.createElement("span");
-      chip.className = "hero-stack-chip";
-      chip.textContent = stack;
-      ui.heroStackPreview.appendChild(chip);
+      ui.heroStackPreview.appendChild(createStackChip(stack, { preview: true }));
     });
   }
 
@@ -382,7 +449,7 @@
     setHidden(ui.heroHeadline, isViewMode && !ext.headline);
     setHidden(ui.heroDepartment, isViewMode && !profile.department_code);
     setHidden(ui.heroGroup, isViewMode && !profile.group_code);
-    setHidden(ui.heroStackPreview, isViewMode && !hasStacks);
+    setHidden(ui.heroStackPreview, !hasStacks);
 
     setFieldHidden(ui.headlineInput, isViewMode && !ext.headline);
     setFieldHidden(ui.aboutInput, isViewMode && !ext.about);
