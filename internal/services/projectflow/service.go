@@ -11,14 +11,16 @@ import (
 )
 
 var (
-	ErrInvalidInput     = errors.New("invalid input")
-	ErrRecruitmentOpen  = errors.New("recruitment is not open")
-	ErrProjectNotReady  = errors.New("project is not ready for activation")
-	ErrProjectNotActive = errors.New("project is not active")
-	ErrPositionFull     = errors.New("position capacity reached")
-	ErrInviteNotFound   = errors.New("invite not found")
-	ErrNotFound         = errors.New("not found")
-	ErrSchemaMissing    = errors.New("schema relation is missing")
+	ErrInvalidInput        = errors.New("invalid input")
+	ErrRecruitmentOpen     = errors.New("recruitment is not open")
+	ErrProjectNotReady     = errors.New("project is not ready for activation")
+	ErrProjectNotActive    = errors.New("project is not active")
+	ErrPositionFull        = errors.New("position capacity reached")
+	ErrInviteNotFound      = errors.New("invite not found")
+	ErrNotFound            = errors.New("not found")
+	ErrSchemaMissing       = errors.New("schema relation is missing")
+	ErrSystemManagedAccess = errors.New("cannot modify system-managed access")
+	ErrUnknownRoleCode     = errors.New("unknown managed role code")
 )
 
 type RoleGrantor interface {
@@ -36,6 +38,7 @@ type Service struct {
 	criteriaRepo   CriteriaRepository
 	lifecycleRepo  LifecycleRepository
 	tasksRepo      TasksRepository
+	accessRepo     AccessRepository
 	now            func() time.Time
 }
 
@@ -50,6 +53,7 @@ func NewService(
 	criteriaRepo CriteriaRepository,
 	lifecycleRepo LifecycleRepository,
 	tasksRepo TasksRepository,
+	accessRepo AccessRepository,
 ) *Service {
 	if projectsRepo == nil {
 		panic("projectflow.NewService: projectsRepo is nil")
@@ -75,6 +79,9 @@ func NewService(
 	if tasksRepo == nil {
 		panic("projectflow.NewService: tasksRepo is nil")
 	}
+	if accessRepo == nil {
+		panic("projectflow.NewService: accessRepo is nil")
+	}
 
 	return &Service{
 		authz:          authz,
@@ -87,6 +94,7 @@ func NewService(
 		criteriaRepo:   criteriaRepo,
 		lifecycleRepo:  lifecycleRepo,
 		tasksRepo:      tasksRepo,
+		accessRepo:     accessRepo,
 		now:            time.Now,
 	}
 }

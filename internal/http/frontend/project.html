@@ -508,17 +508,25 @@
       </header>
 
       <div class="modal-body">
-        <label for="permRoleSelect">Глобальная роль в проекте</label>
-        <select id="permRoleSelect" name="perm_role" autocomplete="off">
-          <option value="TEAM_LEAD">Team Lead</option>
-          <option value="DEVELOPER">Developer</option>
-          <option value="FRONTEND">Frontend</option>
-          <option value="BACKEND">Backend</option>
-          <option value="QA">QA</option>
-          <option value="DESIGNER">Designer</option>
-        </select>
+        <div id="permLoading" class="empty-state">Загрузка данных…</div>
 
-        <div id="permChecklist" class="permissions-grid"></div>
+        <div id="permContent" hidden>
+          <div class="perm-section">
+            <h4>Системные роли</h4>
+            <div id="permSystemRoles" class="chips"></div>
+          </div>
+
+          <div class="perm-section">
+            <h4>Делегируемые роли</h4>
+            <p class="muted-text">Выберите роли, которые вы хотите назначить участнику.</p>
+            <div id="permAssignableRoles" class="perm-options"></div>
+          </div>
+
+          <details class="perm-section">
+            <summary><h4 style="display:inline">Итоговые разрешения</h4></summary>
+            <div id="permEffectivePermissions" class="chips perm-effective"></div>
+          </details>
+        </div>
       </div>
 
       <footer class="modal-foot">

@@ -62,6 +62,10 @@ func registerProjectFlowRoutes(
 	projectFlow.PATCH("/tasks/:task_id/assignee", requireProject("task.assign"), projectFlowH.AssignTask)
 	projectFlow.POST("/tasks/:task_id/claim", requireProject("task.claim"), projectFlowH.ClaimTask)
 	projectFlow.POST("/tasks/:task_id/complete", requireProject("task.update"), projectFlowH.CompleteTask)
+	projectFlow.GET("/access/catalog", requireProject("member.access.manage"), projectFlowH.GetAccessCatalog)
+	projectFlow.GET("/members/:user_id/access", requireProject("member.access.manage"), projectFlowH.GetMemberAccess)
+	projectFlow.PUT("/members/:user_id/access", requireProject("member.access.manage"), projectFlowH.ReplaceMemberAccess)
+	projectFlow.GET("/my-permissions", requireProject("project.view"), projectFlowH.MyPermissions)
 
 	invites := v2.Group("/invites")
 	invites.Use(authMW)

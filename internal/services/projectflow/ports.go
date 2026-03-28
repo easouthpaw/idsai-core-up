@@ -90,3 +90,12 @@ type TasksRepository interface {
 	ClaimTask(ctx context.Context, projectID, taskID, userID uuid.UUID) error
 	InsertTaskActivity(ctx context.Context, projectID, taskID uuid.UUID, actorUserID *uuid.UUID, eventType, fromStatus, toStatus, title, comment string, attachments []string) error
 }
+
+type AccessRepository interface {
+	// ListProjectRoleCodes returns all PROJECT-scope role codes for a user in a project.
+	ListProjectRoleCodes(ctx context.Context, userID, projectID uuid.UUID) ([]string, error)
+	// ReplaceAssignableRoles atomically removes all assignable role codes and adds the wanted ones.
+	ReplaceAssignableRoles(ctx context.Context, userID, projectID uuid.UUID, assignableCodes []string, wantCodes []string) error
+	// GetMemberStatusAndCreator returns the member status and the project creator ID.
+	GetMemberStatusAndCreator(ctx context.Context, userID, projectID uuid.UUID) (status string, creatorID uuid.UUID, err error)
+}

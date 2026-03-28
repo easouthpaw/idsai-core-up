@@ -28,6 +28,7 @@ func New(pool *pgxpool.Pool, authorizer *rbac.Service, grantor projectflow.RoleG
 		repo,
 		repo,
 		repo,
+		repo,
 	)
 	h := handlers.NewProjectFlowHandler(svc)
 	return Output{

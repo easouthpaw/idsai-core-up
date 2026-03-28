@@ -2059,39 +2059,313 @@ textarea:focus {
   gap: 8px;
 }
 
-.permissions-grid {
-  margin-top: 8px;
-  display: grid;
+.permissions-card {
+  width: min(620px, 94vw);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+/* ── Header ── */
+.perm-head {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border-bottom: 1px solid #334155;
+  padding: 14px 16px;
+}
+
+.perm-head-info {
+  display: flex;
+  align-items: center;
   gap: 10px;
 }
 
-.perm-group {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-  padding: 8px;
+.perm-head-icon {
+  font-size: 22px;
+  line-height: 1;
 }
 
-.perm-group h4 {
-  margin: 0 0 6px;
-  color: #334155;
-  font-size: 12px;
+.perm-head h3 {
+  color: #f1f5f9;
+  font-size: 15px;
+  margin: 0;
 }
 
-.perm-options {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 8px;
+.perm-head-sub {
+  color: #94a3b8;
+  font: 500 12px "Manrope", sans-serif;
+  margin: 2px 0 0;
 }
 
-.perm-options label {
+.perm-head .icon-btn {
+  color: #94a3b8;
+  border-color: #475569;
+  background: transparent;
+}
+
+.perm-head .icon-btn:hover {
+  background: rgba(255,255,255,.08);
+  color: #f1f5f9;
+}
+
+/* ── Body ── */
+.perm-body {
+  padding: 16px;
+  max-height: 62vh;
+  overflow-y: auto;
+}
+
+/* ── Loading ── */
+.perm-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 0;
+  color: #64748b;
+  font: 500 13px "Manrope", sans-serif;
+}
+
+.perm-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #16a34a;
+  border-radius: 50%;
+  animation: perm-spin 0.7s linear infinite;
+}
+
+@keyframes perm-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Section structure ── */
+.perm-section {
+  margin-bottom: 0;
+}
+
+.perm-section-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.perm-section-icon {
+  font-size: 18px;
+  line-height: 1.3;
+  flex-shrink: 0;
+}
+
+.perm-section-head h4 {
+  margin: 0;
+  color: #0f172a;
+  font: 600 13px "Manrope", sans-serif;
   text-transform: none;
   letter-spacing: 0;
-  font: 500 12px "IBM Plex Mono", ui-monospace, monospace;
-  color: #334155;
+}
+
+.perm-section-head p {
+  margin: 2px 0 0;
+  color: #64748b;
+  font: 400 12px "Manrope", sans-serif;
+}
+
+.perm-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #e2e8f0 20%, #e2e8f0 80%, transparent);
+  margin: 14px 0;
+}
+
+/* ── System role chips ── */
+.perm-system-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.perm-system-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  font: 600 11px "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: 0.02em;
+}
+
+/* ── Assignable role cards ── */
+.perm-roles-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.perm-role-card {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  align-items: start;
+  gap: 10px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  padding: 12px;
+  cursor: pointer;
+  transition: border-color 200ms ease, background 200ms ease, box-shadow 200ms ease;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.perm-role-card:hover {
+  border-color: #86efac;
+  background: #f0fdf4;
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.08);
+}
+
+.perm-role-card.active {
+  border-color: #22c55e;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf3 100%);
+  box-shadow: 0 2px 12px rgba(22, 163, 74, 0.12);
+}
+
+.perm-role-card input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  accent-color: #16a34a;
+  cursor: pointer;
+}
+
+.perm-role-card-body {
+  display: grid;
+  gap: 8px;
+}
+
+.perm-role-card-top {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.perm-role-icon {
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.perm-role-card-top > div {
+  display: grid;
+  gap: 2px;
+}
+
+.perm-role-card strong {
+  font: 600 13px "Manrope", sans-serif;
+  color: #0f172a;
+}
+
+.perm-role-desc {
+  font: 400 12px "Manrope", sans-serif;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.perm-role-perms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.perm-tag {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  font: 500 9px "IBM Plex Mono", ui-monospace, monospace;
+}
+
+.perm-role-card.active .perm-tag {
+  background: #dcfce7;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+/* ── Details / effective permissions ── */
+.perm-details {
+  margin: 0;
+}
+
+.perm-details-toggle {
   display: flex;
   align-items: center;
   gap: 6px;
+  cursor: pointer;
+  list-style: none;
+  padding: 6px 0;
+}
+
+.perm-details-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.perm-details-toggle h4 {
+  display: inline;
+  margin: 0;
+  color: #334155;
+  font: 600 12px "Manrope", sans-serif;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.perm-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #475569;
+  font: 700 10px "IBM Plex Mono", ui-monospace, monospace;
+  margin-left: auto;
+}
+
+.perm-details[open] .perm-count-badge {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.perm-effective-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 10px 0 4px 26px;
+}
+
+.perm-eff-chip {
+  display: inline-block;
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  font: 500 10px "IBM Plex Mono", ui-monospace, monospace;
+}
+
+.perm-empty {
+  color: #94a3b8;
+  font: 400 12px "Manrope", sans-serif;
+  padding: 4px 0;
+}
+
+/* ── Footer ── */
+.perm-foot {
+  border-top: 1px solid #e2e8f0;
+  padding: 12px 16px;
+  background: #f8fafc;
 }
 
 .empty-state {

@@ -15,35 +15,9 @@
 
   const LS_PROJECT_META_PREFIX = "idsai_project_meta:";
   const LS_TASK_META_PREFIX = "idsai_task_meta:";
-  const LS_MEMBER_PERMS_PREFIX = "idsai_member_perms:";
 
-  const PERMISSION_GROUPS = [
-    {
-      title: "Команда",
-      items: ["team.view", "team.kick", "team.invite", "team.role.assign"],
-    },
-    {
-      title: "Задачи",
-      items: ["task.create", "task.update.own", "task.status.change", "task.assign", "task.update.any"],
-    },
-    {
-      title: "Сдачи",
-      items: ["submission.create", "submission.edit.own", "submission.review", "submission.approve"],
-    },
-    {
-      title: "Комментарии",
-      items: ["comment.create", "comment.edit.own", "comment.delete.own"],
-    },
-  ];
-
-  const ROLE_PRESETS = {
-    TEAM_LEAD: new Set(PERMISSION_GROUPS.flatMap((g) => g.items)),
-    DEVELOPER: new Set(["team.view", "task.create", "task.update.own", "task.status.change", "submission.create", "comment.create", "comment.edit.own"]),
-    FRONTEND: new Set(["team.view", "task.create", "task.update.own", "task.status.change", "submission.create", "comment.create"]),
-    BACKEND: new Set(["team.view", "task.create", "task.update.own", "task.status.change", "submission.create", "comment.create"]),
-    QA: new Set(["team.view", "task.update.own", "task.status.change", "submission.review", "comment.create"]),
-    DESIGNER: new Set(["team.view", "task.create", "task.update.own", "submission.create", "comment.create"]),
-  };
+  const ASSIGNABLE_LIFECYCLE_ROLES = new Set(["CO_LEAD", "RECRUITER", "TASK_MANAGER"]);
+  const SYSTEM_LIFECYCLE_ROLES = new Set(["TEAM_LEAD", "MEMBER", "INVITED_MEMBER", "PROJECT_PROFESSOR"]);
   const PRIMARY_LIFECYCLE_FLOW = ["DRAFT", "RECRUITMENT", "ACTIVE", "GRADING", "COMPLETED"];
   const DEFAULT_PROJECT_COVERS = [
     "https://images.pexels.com/photos/16129724/pexels-photo-16129724.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600",
@@ -188,8 +162,11 @@
 
     permissionsModal: document.getElementById("permissionsModal"),
     permMemberName: document.getElementById("permMemberName"),
-    permRoleSelect: document.getElementById("permRoleSelect"),
-    permChecklist: document.getElementById("permChecklist"),
+    permLoading: document.getElementById("permLoading"),
+    permContent: document.getElementById("permContent"),
+    permSystemRoles: document.getElementById("permSystemRoles"),
+    permAssignableRoles: document.getElementById("permAssignableRoles"),
+    permEffectivePermissions: document.getElementById("permEffectivePermissions"),
     savePermissionsBtn: document.getElementById("savePermissionsBtn"),
     teamHelperCard: document.querySelector("#view-team .helper-card"),
     professorAssignWrap: document.querySelector(".professor-assign"),
@@ -214,8 +191,9 @@
     searchQuery: "",
     projectMeta: {},
     taskMeta: {},
-    memberPerms: {},
+    myPermissions: [],
     currentPermUserID: "",
+    accessCatalog: [],
     noticeTimer: null,
     favorite: false,
     studentCandidates: [],
@@ -382,8 +360,8 @@
     return `${LS_TASK_META_PREFIX}${state.projectID}`;
   }
 
-  function memberPermsKey() {
-    return `${LS_MEMBER_PERMS_PREFIX}${state.projectID}`;
+  function canManageAccess() {
+    return Array.isArray(state.myPermissions) && state.myPermissions.includes("member.access.manage");
   }
 
   function decodePayload(token) {
@@ -1126,30 +1104,7 @@
     );
   }
 
-  function permissionPresetForRole(roleCode) {
-    const preset = ROLE_PRESETS[roleCode];
-    if (!preset) return new Set();
-    return new Set(preset);
-  }
-
-  function defaultPermissionState(member) {
-    const role = String(member?.status || "").toUpperCase() === "ACTIVE" ? "DEVELOPER" : "QA";
-    return {
-      role,
-      permissions: Array.from(permissionPresetForRole(role)),
-    };
-  }
-
-  function ensureMemberPermissionState(userID, member) {
-    const existing = state.memberPerms[userID];
-    if (existing && Array.isArray(existing.permissions)) {
-      return existing;
-    }
-
-    const def = defaultPermissionState(member);
-    state.memberPerms[userID] = def;
-    return def;
-  }
+  // permissionPresetForRole, defaultPermissionState, ensureMemberPermissionState — removed in v1 (backend-driven).
 
   function bindProfile(profile) {
     const current = profile || auth.getCachedProfile();
@@ -1538,7 +1493,7 @@
       const canRejectApplication = canManageTeam && status === "APPLIED";
       const canSetPosition = canManageTeam && status === "ACTIVE" && !isLeadRow && state.positions.length > 0;
       const canRespondInvite = status === "INVITED" && String(m.user_id) === currentUser;
-      const canManagePerms = status === "ACTIVE" && !isLeadRow;
+      const canManagePerms = status === "ACTIVE" && !isLeadRow && canManageAccess();
 
       const row = document.createElement("tr");
       row.setAttribute("data-user-id", m.user_id || "");
@@ -2286,55 +2241,88 @@
     await refreshData();
   }
 
-  function openPermissionsModal(userID) {
+  async function openPermissionsModal(userID) {
     const member = allMembers().find((m) => String(m.user_id) === String(userID));
     if (!member) return;
 
     state.currentPermUserID = userID;
-    const st = ensureMemberPermissionState(userID, member);
-
     ui.permMemberName.textContent = getDisplayName(userID);
-    ui.permRoleSelect.value = st.role;
-
-    renderPermissionChecklist(new Set(st.permissions));
+    ui.permLoading.hidden = false;
+    ui.permContent.hidden = true;
     openModal(ui.permissionsModal);
+
+    try {
+      const [catalogResp, accessResp] = await Promise.all([
+        request("GET", `/v2/projects/${state.projectID}/access/catalog`),
+        request("GET", `/v2/projects/${state.projectID}/members/${userID}/access`),
+      ]);
+
+      state.accessCatalog = Array.isArray(catalogResp?.items) ? catalogResp.items : [];
+      renderPermissionsModalContent(accessResp);
+    } catch (err) {
+      ui.permLoading.textContent = `Ошибка загрузки: ${err.message || String(err)}`;
+    }
   }
 
-  function renderPermissionChecklist(selected) {
-    ui.permChecklist.innerHTML = "";
+  function renderPermissionsModalContent(access) {
+    ui.permLoading.hidden = true;
+    ui.permContent.hidden = false;
 
-    PERMISSION_GROUPS.forEach((group) => {
-      const wrap = document.createElement("section");
-      wrap.className = "perm-group";
-      wrap.innerHTML = `<h4>${escapeHTML(group.title)}</h4>`;
+    const SYSTEM_ROLE_NAMES = {
+      TEAM_LEAD: "Тимлид",
+      MEMBER: "Участник",
+      INVITED_MEMBER: "Приглашён",
+      PROJECT_PROFESSOR: "Преподаватель",
+    };
 
-      const options = document.createElement("div");
-      options.className = "perm-options";
+    const ROLE_ICONS = {
+      CO_LEAD: "🤝",
+      RECRUITER: "🔍",
+      TASK_MANAGER: "📋",
+    };
 
-      group.items.forEach((code) => {
-        const label = document.createElement("label");
-        const checked = selected.has(code) ? "checked" : "";
-        label.innerHTML = `<input type="checkbox" data-perm-code="${escapeHTML(code)}" ${checked} />${escapeHTML(code)}`;
-        options.appendChild(label);
+    // System roles (read-only badges).
+    const systemRoles = (access.role_codes || []).filter((c) => SYSTEM_LIFECYCLE_ROLES.has(c));
+    ui.permSystemRoles.innerHTML = systemRoles.length
+      ? systemRoles.map((c) => `<span class="perm-system-chip">${escapeHTML(SYSTEM_ROLE_NAMES[c] || c)}</span>`).join("")
+      : '<span class="perm-empty">Нет базовых ролей</span>';
+
+    // Assignable role checkboxes.
+    const managedSet = new Set(access.managed_role_codes || []);
+    ui.permAssignableRoles.innerHTML = "";
+    state.accessCatalog.forEach((item) => {
+      const label = document.createElement("label");
+      label.className = "perm-role-card" + (managedSet.has(item.code) ? " active" : "");
+      const checked = managedSet.has(item.code) ? "checked" : "";
+      const icon = ROLE_ICONS[item.code] || "⚙️";
+      const permsList = (item.permission_codes || []).map((p) => `<span class="perm-tag">${escapeHTML(p)}</span>`).join("");
+      label.innerHTML =
+        `<input type="checkbox" data-role-code="${escapeHTML(item.code)}" ${checked} />` +
+        `<div class="perm-role-card-body">` +
+          `<div class="perm-role-card-top">` +
+            `<span class="perm-role-icon">${icon}</span>` +
+            `<div>` +
+              `<strong>${escapeHTML(item.name)}</strong>` +
+              `<span class="perm-role-desc">${escapeHTML(item.description)}</span>` +
+            `</div>` +
+          `</div>` +
+          `<div class="perm-role-perms">${permsList}</div>` +
+        `</div>`;
+
+      label.querySelector("input").addEventListener("change", () => {
+        label.classList.toggle("active", label.querySelector("input").checked);
       });
 
-      wrap.appendChild(options);
-      ui.permChecklist.appendChild(wrap);
+      ui.permAssignableRoles.appendChild(label);
     });
-  }
 
-  function permissionSelection() {
-    const selected = [];
-    ui.permChecklist.querySelectorAll("input[data-perm-code]").forEach((input) => {
-      if (input.checked) {
-        selected.push(input.getAttribute("data-perm-code"));
-      }
-    });
-    return selected;
-  }
-
-  function syncPermissionsWithRole(roleCode) {
-    renderPermissionChecklist(permissionPresetForRole(roleCode));
+    // Effective permissions (read-only).
+    const effectivePerms = access.effective_permission_codes || [];
+    const countEl = document.getElementById("permEffectiveCount");
+    if (countEl) countEl.textContent = effectivePerms.length;
+    ui.permEffectivePermissions.innerHTML = effectivePerms.length
+      ? effectivePerms.map((c) => `<span class="perm-eff-chip">${escapeHTML(c)}</span>`).join("")
+      : '<span class="perm-empty">Нет разрешений</span>';
   }
 
   async function onUploadCover(file) {
@@ -2636,17 +2624,25 @@
     setNotice("Заявка отправлена.", false);
   }
 
-  function savePermissions() {
+  async function savePermissions() {
     if (!state.currentPermUserID) return;
 
-    state.memberPerms[state.currentPermUserID] = {
-      role: ui.permRoleSelect.value,
-      permissions: permissionSelection(),
-    };
+    const selectedRoles = [];
+    ui.permAssignableRoles.querySelectorAll("input[data-role-code]").forEach((input) => {
+      if (input.checked) {
+        selectedRoles.push(input.getAttribute("data-role-code"));
+      }
+    });
 
-    saveJSON(memberPermsKey(), state.memberPerms);
-    closeModal(ui.permissionsModal);
-    setNotice("Права участника обновлены (локально).", false);
+    try {
+      const access = await request("PUT", `/v2/projects/${state.projectID}/members/${state.currentPermUserID}/access`, {
+        managed_role_codes: selectedRoles,
+      });
+      renderPermissionsModalContent(access);
+      setNotice("Права участника обновлены.", false);
+    } catch (err) {
+      setNotice(`Ошибка сохранения прав: ${err.message || String(err)}`, true);
+    }
   }
 
   async function refreshData() {
@@ -2672,7 +2668,7 @@
       return;
     }
 
-    const [stacks, positions, members, readiness, criteria, tasks, gradingResp, taskActivityResp, professorResp] = await Promise.all([
+    const [stacks, positions, members, readiness, criteria, tasks, gradingResp, taskActivityResp, professorResp, myPermsResp] = await Promise.all([
       loadOptional("stacks", "GET", `/v2/projects/${state.projectID}/stacks`, []),
       loadOptional("positions", "GET", `/v2/projects/${state.projectID}/positions`, []),
       loadOptional("members", "GET", `/v2/projects/${state.projectID}/members`, []),
@@ -2682,6 +2678,7 @@
       loadOptional("grading", "GET", `/v2/projects/${state.projectID}/grading`, { items: [] }),
       loadOptional("task activity", "GET", `/v2/projects/${state.projectID}/tasks/activity`, { items: [] }),
       loadOptional("assigned professor", "GET", `/v2/projects/${state.projectID}/professor`, { professor: null }),
+      loadOptional("my permissions", "GET", `/v2/projects/${state.projectID}/my-permissions`, { permissions: [] }),
     ]);
 
     state.stacks = Array.isArray(stacks) ? stacks : [];
@@ -2716,6 +2713,7 @@
     if (state.professorSummary && state.professorSummary.user_id) {
       rememberUser(state.professorSummary.user_id, state.professorSummary.full_name, state.professorSummary.email);
     }
+    state.myPermissions = myPermsResp && Array.isArray(myPermsResp.permissions) ? myPermsResp.permissions : [];
 
     localStorage.setItem(LS_SELECTED_PROJECT, JSON.stringify({
       ...state.project,
@@ -3046,7 +3044,6 @@
 
     state.projectMeta = loadJSON(projectMetaKey(), {});
     state.taskMeta = loadJSON(taskMetaKey(), {});
-    state.memberPerms = loadJSON(memberPermsKey(), {});
     state.favorite = Boolean(state.projectMeta.favorite);
 
     wireTabSwitching();
