@@ -1,13 +1,19 @@
 :root {
-  --role-sidebar-bg: #171a1f;
-  --role-sidebar-bg-soft: #1d2128;
-  --role-sidebar-line: #2b313c;
-  --role-sidebar-text: #e5ebf5;
-  --role-sidebar-muted: #8ea0bc;
-  --role-sidebar-active: #163a23;
-  --role-sidebar-active-border: rgba(34, 197, 94, 0.34);
-  --role-sidebar-active-text: #f0fff7;
-  --role-sidebar-danger: #fda4af;
+  --role-sidebar-bg: linear-gradient(180deg, #021610 0%, #031d17 46%, #04241d 100%);
+  --role-sidebar-bg-soft: rgba(255, 255, 255, 0.06);
+  --role-sidebar-line: rgba(140, 214, 187, 0.16);
+  --role-sidebar-text: #eefcf4;
+  --role-sidebar-muted: rgba(215, 241, 229, 0.72);
+  --role-sidebar-active: rgba(102, 214, 164, 0.16);
+  --role-sidebar-active-border: rgba(128, 231, 186, 0.22);
+  --role-sidebar-active-text: #ffffff;
+  --role-sidebar-danger: #ffc7c7;
+  --role-sidebar-focus-ring: rgba(113, 225, 176, 0.24);
+  --role-sidebar-icon-active-bg: rgba(102, 214, 164, 0.18);
+  --role-sidebar-icon-hover-bg: rgba(102, 214, 164, 0.12);
+  --role-sidebar-avatar-bg: rgba(255, 255, 255, 0.08);
+  --role-sidebar-avatar-border: rgba(140, 214, 187, 0.22);
+  --role-sidebar-avatar-text: #edfff6;
 }
 
 .role-sidebar {
@@ -23,14 +29,20 @@
   flex-direction: column;
   gap: 14px;
   padding: 12px 10px;
-  background: linear-gradient(180deg, var(--role-sidebar-bg) 0%, #14171d 100%);
+  background: var(--role-sidebar-bg);
   border-right: 1px solid var(--role-sidebar-line);
-  box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.22);
   color: var(--role-sidebar-text);
   overflow-y: auto;
   overflow-x: hidden;
   font-family: "Inter", sans-serif;
   scrollbar-width: thin;
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.04);
+}
+
+.role-sidebar--admin,
+.role-sidebar--teacher,
+.role-sidebar--student {
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.06);
 }
 
 .role-sidebar__brand {
@@ -38,9 +50,9 @@
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  border: 1px solid #303946;
-  border-radius: 14px;
-  background: linear-gradient(180deg, #1d2128 0%, #1a1e25 100%);
+  border: 1px solid var(--role-sidebar-line);
+  border-radius: 8px;
+  background: var(--role-sidebar-bg-soft);
   color: inherit;
   text-decoration: none;
 }
@@ -68,10 +80,10 @@
 
 .role-sidebar__brand-text strong {
   display: block;
-  color: #f8fbff;
+  color: var(--role-sidebar-text);
   font-size: 14px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -80,8 +92,8 @@
 .role-sidebar__brand-text small {
   display: block;
   color: var(--role-sidebar-muted);
-  font: 600 11px/1.2 "JetBrains Mono", ui-monospace, monospace;
-  letter-spacing: 0.08em;
+  font: 600 11px/1.2 "Inter", sans-serif;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   white-space: nowrap;
   overflow: hidden;
@@ -96,17 +108,17 @@
 
 .role-sidebar__link {
   position: relative;
-  min-height: 46px;
+  min-height: 40px;
   border: 1px solid transparent;
-  border-radius: 12px;
+  border-radius: 6px;
   background: transparent;
-  color: #d6dfef;
-  padding: 8px 12px;
+  color: var(--role-sidebar-text);
+  padding: 6px 10px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   text-decoration: none;
-  font: 700 14px/1.2 "Inter", sans-serif;
+  font: 500 14px/1.2 "Inter", sans-serif;
   text-align: left;
   cursor: pointer;
   transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
@@ -115,12 +127,12 @@
 .role-sidebar__link::before {
   content: "";
   position: absolute;
-  top: 8px;
-  bottom: 8px;
+  top: 7px;
+  bottom: 7px;
   left: -10px;
-  width: 4px;
+  width: 3px;
   border-radius: 999px;
-  background: linear-gradient(180deg, #2f81f7 0%, #22c55e 100%);
+  background: currentColor;
   opacity: 0;
   transform: scaleY(0.55);
   transition: opacity 0.16s ease, transform 0.16s ease;
@@ -128,18 +140,18 @@
 
 .role-sidebar__link:hover:not([disabled]),
 .role-sidebar__link:focus-visible {
-  background: #20262f;
-  border-color: #324056;
-  color: #f7fbff;
+  background: var(--role-sidebar-bg-soft);
+  border-color: var(--role-sidebar-line);
+  color: var(--role-sidebar-text);
   outline: none;
 }
 
 .role-sidebar__link:focus-visible {
-  box-shadow: 0 0 0 3px rgba(47, 129, 247, 0.16);
+  box-shadow: 0 0 0 3px var(--role-sidebar-focus-ring);
 }
 
 .role-sidebar__link.active {
-  background: linear-gradient(180deg, #173f27 0%, #143320 100%);
+  background: var(--role-sidebar-active);
   border-color: var(--role-sidebar-active-border);
   color: var(--role-sidebar-active-text);
 }
@@ -155,26 +167,26 @@
 }
 
 .role-sidebar__icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  background: #232934;
-  color: #9fb0c7;
+  background: var(--role-sidebar-bg-soft);
+  color: var(--role-sidebar-muted);
   transition: background 0.16s ease, color 0.16s ease;
 }
 
 .role-sidebar__link.active .role-sidebar__icon {
-  background: rgba(34, 197, 94, 0.18);
-  color: #7cf0ad;
+  background: var(--role-sidebar-icon-active-bg);
+  color: var(--role-sidebar-active-text);
 }
 
 .role-sidebar__link:hover:not([disabled]) .role-sidebar__icon,
 .role-sidebar__link:focus-visible .role-sidebar__icon {
-  background: #283242;
-  color: #d8e7fb;
+  background: var(--role-sidebar-icon-hover-bg);
+  color: var(--role-sidebar-active-text);
 }
 
 .role-sidebar .material-symbols-outlined {
@@ -203,18 +215,18 @@
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border: 1px solid #303946;
-  border-radius: 14px;
-  background: #1d2128;
+  border: 1px solid var(--role-sidebar-line);
+  border-radius: 8px;
+  background: var(--role-sidebar-bg-soft);
 }
 
 .role-sidebar__avatar {
   width: 40px;
   height: 40px;
-  border-radius: 12px;
-  border: 1px solid rgba(139, 92, 246, 0.35);
-  background: linear-gradient(160deg, #8b5cf6 0%, #6366f1 100%);
-  color: #fff;
+  border-radius: 8px;
+  border: 1px solid var(--role-sidebar-avatar-border);
+  background: var(--role-sidebar-avatar-bg);
+  color: var(--role-sidebar-avatar-text);
   display: grid;
   place-items: center;
   flex-shrink: 0;
@@ -223,9 +235,9 @@
 }
 
 .role-sidebar__avatar.has-image {
-  background: #0f172a;
+  background: #fff;
   color: transparent;
-  border-color: #263244;
+  border-color: var(--role-sidebar-line);
 }
 
 .role-sidebar__avatar img {
@@ -242,7 +254,7 @@
 .role-sidebar__account-text strong {
   display: block;
   margin: 0;
-  color: #f5f8ff;
+  color: var(--role-sidebar-text);
   font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
@@ -253,7 +265,7 @@
 .role-sidebar__account-text small {
   display: block;
   margin-top: 2px;
-  color: #9db1d0;
+  color: var(--role-sidebar-muted);
   font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
@@ -282,6 +294,86 @@
   color: #fecaca;
 }
 
+.role-sidebar--admin .role-sidebar__brand,
+.role-sidebar--admin .role-sidebar__account,
+.role-sidebar--teacher .role-sidebar__brand,
+.role-sidebar--teacher .role-sidebar__account,
+.role-sidebar--student .role-sidebar__brand,
+.role-sidebar--student .role-sidebar__account {
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(14px);
+}
+
+.role-sidebar--admin .role-sidebar__brand-text strong,
+.role-sidebar--admin .role-sidebar__account-text strong,
+.role-sidebar--admin .role-sidebar__link,
+.role-sidebar--admin .role-sidebar__label,
+.role-sidebar--teacher .role-sidebar__brand-text strong,
+.role-sidebar--teacher .role-sidebar__account-text strong,
+.role-sidebar--teacher .role-sidebar__link,
+.role-sidebar--teacher .role-sidebar__label,
+.role-sidebar--student .role-sidebar__brand-text strong,
+.role-sidebar--student .role-sidebar__account-text strong,
+.role-sidebar--student .role-sidebar__link,
+.role-sidebar--student .role-sidebar__label {
+  color: var(--role-sidebar-text);
+}
+
+.role-sidebar--admin .role-sidebar__brand-text small,
+.role-sidebar--admin .role-sidebar__account-text small,
+.role-sidebar--teacher .role-sidebar__brand-text small,
+.role-sidebar--teacher .role-sidebar__account-text small,
+.role-sidebar--student .role-sidebar__brand-text small,
+.role-sidebar--student .role-sidebar__account-text small {
+  color: var(--role-sidebar-muted);
+}
+
+.role-sidebar--admin .role-sidebar__icon,
+.role-sidebar--teacher .role-sidebar__icon,
+.role-sidebar--student .role-sidebar__icon {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(240, 252, 246, 0.8);
+}
+
+.role-sidebar--admin .role-sidebar__link.active,
+.role-sidebar--teacher .role-sidebar__link.active,
+.role-sidebar--student .role-sidebar__link.active {
+  box-shadow: 0 12px 24px rgba(1, 12, 9, 0.26);
+}
+
+.role-sidebar--admin .role-sidebar__link.active .role-sidebar__icon,
+.role-sidebar--admin .role-sidebar__link:hover:not([disabled]) .role-sidebar__icon,
+.role-sidebar--admin .role-sidebar__link:focus-visible .role-sidebar__icon,
+.role-sidebar--teacher .role-sidebar__link.active .role-sidebar__icon,
+.role-sidebar--teacher .role-sidebar__link:hover:not([disabled]) .role-sidebar__icon,
+.role-sidebar--teacher .role-sidebar__link:focus-visible .role-sidebar__icon,
+.role-sidebar--student .role-sidebar__link.active .role-sidebar__icon,
+.role-sidebar--student .role-sidebar__link:hover:not([disabled]) .role-sidebar__icon,
+.role-sidebar--student .role-sidebar__link:focus-visible .role-sidebar__icon {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.role-sidebar--admin .role-sidebar__avatar,
+.role-sidebar--teacher .role-sidebar__avatar,
+.role-sidebar--student .role-sidebar__avatar {
+  border-color: rgba(140, 214, 187, 0.28);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.role-sidebar--admin .role-sidebar__logout,
+.role-sidebar--teacher .role-sidebar__logout,
+.role-sidebar--student .role-sidebar__logout {
+  color: #ffe4e6;
+}
+
+.role-sidebar--admin .role-sidebar__logout .role-sidebar__icon,
+.role-sidebar--teacher .role-sidebar__logout .role-sidebar__icon,
+.role-sidebar--student .role-sidebar__logout .role-sidebar__icon {
+  background: rgba(255, 205, 210, 0.12);
+  color: #ffd7dc;
+}
+
 @media (max-width: 1080px) {
   body.admin-body .role-sidebar {
     width: 100%;
@@ -296,7 +388,10 @@
 
 @media (max-width: 1180px) {
   body.professor-body .role-sidebar,
-  body.groups-body .role-sidebar {
+  body.groups-body .role-sidebar,
+  body.projects-body .role-sidebar,
+  body.project-body .role-sidebar,
+  body.invites-body .role-sidebar {
     width: 100%;
     min-width: 0;
     max-width: none;
@@ -308,7 +403,8 @@
 }
 
 @media (max-width: 980px) {
-  body.settings-body .role-sidebar {
+  body.settings-body .role-sidebar,
+  body.profile-body .role-sidebar {
     width: 100%;
     min-width: 0;
     max-width: none;

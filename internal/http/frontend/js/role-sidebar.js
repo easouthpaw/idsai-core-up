@@ -1,4 +1,5 @@
 (() => {
+  const auth = window.IDSAIAuth;
   const LS_STUDENT_NAME = "idsai_student_name";
   const LS_STUDENT_EMAIL = "idsai_student_email";
   const LS_AVATAR_URL = "idsai_avatar_url";
@@ -107,13 +108,20 @@
     `;
   }
 
-  function sidebarFrame(role, activeKey, profile, navItems, inlineViews) {
+  function allowedNavItems(navItems, scope) {
+    if (!auth || typeof auth.canCached !== "function") {
+      return navItems;
+    }
+    return navItems.filter((item) => !item.permission || auth.canCached(item.permission, scope));
+  }
+
+  function sidebarFrame(role, activeKey, profile, navItems, inlineViews, scope) {
     const isAdmin = role === ROLE_ADMIN;
     const isTeacher = role === ROLE_TEACHER;
     const name = profile.full_name || profile.email || (isAdmin ? "Администратор" : isTeacher ? "Преподаватель" : "Студент");
     const email = profile.email || (isAdmin ? "admin@idsai.local" : isTeacher ? "professor@idsai.dev" : "student@idsai.dev");
     const iv = initials(name, email, isAdmin ? "AD" : isTeacher ? "PR" : "ST");
-    const navHTML = navItems
+    const navHTML = allowedNavItems(navItems, scope)
       .map((item) => (inlineViews && isAdmin && item.inline !== false ? actionButton(item, activeKey) : actionLink(item, activeKey)))
       .join("");
 
@@ -157,27 +165,30 @@
     `;
   }
 
-  function buildAdminSidebar(activeKey, profile, inlineViews) {
+  function buildAdminSidebar(activeKey, profile, inlineViews, scope) {
     return sidebarFrame(
       ROLE_ADMIN,
       activeKey,
       profile,
       [
-        { key: "dashboard", label: "Дашборд", icon: "dashboard", href: "/dev/admin?view=dashboard" },
-        { key: "projects", label: "Проекты", icon: "folder_data", href: "/dev/admin?view=projects" },
-        { key: "users", label: "Пользователи", icon: "group", href: "/dev/admin?view=users" },
-        { key: "groups", label: "Группы", icon: "account_tree", href: "/dev/groups", inline: false },
+        { key: "profile", label: "Профиль", icon: "person", href: "/dev/profile", inline: false },
+        { key: "dashboard", label: "Дашборд", icon: "dashboard", href: "/dev/admin?view=dashboard", permission: "admin.manage_rbac" },
+        { key: "projects", label: "Проекты", icon: "folder_data", href: "/dev/admin?view=projects", permission: "admin.manage_rbac" },
+        { key: "users", label: "Пользователи", icon: "group", href: "/dev/admin?view=users", permission: "admin.manage_rbac" },
+        { key: "groups", label: "Группы", icon: "account_tree", href: "/dev/groups", inline: false, permission: "admin.manage_rbac" },
       ],
-      inlineViews
+      inlineViews,
+      scope
     );
   }
 
-  function buildTeacherSidebar(activeKey, profile) {
+  function buildTeacherSidebar(activeKey, profile, scope) {
     return sidebarFrame(
       ROLE_TEACHER,
       activeKey,
       profile,
       [
+        { key: "profile", label: "Профиль", icon: "person", href: "/dev/profile" },
         { key: "dashboard", label: "Дашборд", icon: "dashboard", href: "/dev/professor" },
         { key: "reviews", label: "Заявки на ревью", icon: "fact_check", href: "/dev/professor/reviews" },
         { key: "criteria", label: "Критерии", icon: "checklist_rtl", href: "/dev/professor/criteria" },
@@ -185,21 +196,24 @@
         { key: "groups", label: "Группы", icon: "account_tree", href: "/dev/groups" },
         { key: "projects", label: "Проекты", icon: "folder_open", href: "/dev/professor#projects" },
       ],
-      false
+      false,
+      scope
     );
   }
 
-  function buildStudentSidebar(activeKey, profile) {
+  function buildStudentSidebar(activeKey, profile, scope) {
     return sidebarFrame(
       ROLE_STUDENT,
       activeKey,
       profile,
       [
+        { key: "profile", label: "Профиль", icon: "person", href: "/dev/profile" },
         { key: "mine", label: "Мои проекты", icon: "folder", href: "/dev/projects?tab=mine" },
         { key: "community", label: "Сообщество", icon: "public", href: "/dev/projects?tab=community" },
         { key: "invites", label: "Заявки", icon: "mark_email_unread", href: "/dev/invites" },
       ],
-      false
+      false,
+      scope
     );
   }
 
@@ -210,6 +224,7 @@
     const roleHint = opts.role || container.dataset.sidebarRole;
     const profile = normalizeProfile(opts.profile);
     const role = resolveRole(roleHint, profile);
+    const scope = opts.scope || (auth && typeof auth.getDefaultScope === "function" ? auth.getDefaultScope() : null);
     const inlineViews = opts.adminViewMode
       ? String(opts.adminViewMode).toLowerCase() === "inline"
       : String(container.dataset.adminViewMode || "").toLowerCase() === "inline";
@@ -228,26 +243,33 @@
 
     if (role === ROLE_ADMIN) {
       container.className = "role-sidebar role-sidebar--admin";
-      container.innerHTML = buildAdminSidebar(active || "dashboard", profile, inlineViews);
+      container.innerHTML = buildAdminSidebar(active || "dashboard", profile, inlineViews, scope);
       return { role, active: active || "dashboard" };
     }
 
     if (role === ROLE_TEACHER) {
       container.className = "role-sidebar role-sidebar--teacher";
-      container.innerHTML = buildTeacherSidebar(active || "dashboard", profile);
+      container.innerHTML = buildTeacherSidebar(active || "dashboard", profile, scope);
       return { role, active: active || "dashboard" };
     }
 
     container.className = "role-sidebar role-sidebar--student";
-    container.innerHTML = buildStudentSidebar(active || "settings", profile);
+    container.innerHTML = buildStudentSidebar(active || "profile", profile, scope);
 
-    return { role, active: active || "settings" };
+    return { role, active: active || "profile" };
   }
 
-  function mountFromDOM() {
+  async function mountFromDOM() {
     const hosts = Array.from(document.querySelectorAll("[data-role-sidebar]"));
+    let profile = null;
+    if (auth && typeof auth.fetchCurrentProfile === "function") {
+      profile = await auth.fetchCurrentProfile();
+      if (profile && typeof auth.loadCapabilities === "function") {
+        await auth.loadCapabilities();
+      }
+    }
     hosts.forEach((host) => {
-      renderSidebar(host);
+      renderSidebar(host, { profile });
     });
   }
 

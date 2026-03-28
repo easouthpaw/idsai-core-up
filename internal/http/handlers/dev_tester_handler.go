@@ -9,6 +9,15 @@ import (
 
 var devFrontendFS = http.FS(frontend.Files)
 
+func serveFrontendHTML(c *gin.Context, status int, name string) {
+	data, err := frontend.Files.ReadFile(name)
+	if err != nil {
+		c.String(http.StatusInternalServerError, "failed to load page")
+		return
+	}
+	c.Data(status, "text/html; charset=utf-8", data)
+}
+
 func DevLandingPage(c *gin.Context) {
 	c.FileFromFS("landing.html", devFrontendFS)
 }
@@ -57,6 +66,14 @@ func DevSettingsPage(c *gin.Context) {
 	c.FileFromFS("settings.html", devFrontendFS)
 }
 
+func DevProfilePage(c *gin.Context) {
+	c.FileFromFS("profile.html", devFrontendFS)
+}
+
 func DevGroupsPage(c *gin.Context) {
 	c.FileFromFS("groups.html", devFrontendFS)
+}
+
+func DevNotFoundPage(c *gin.Context) {
+	serveFrontendHTML(c, http.StatusNotFound, "404.html")
 }

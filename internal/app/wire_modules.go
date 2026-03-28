@@ -41,6 +41,7 @@ func wireModules(pool *pgxpool.Pool, cfg config.Config) wiredModules {
 
 	authModule.Service.SetNotifier(notificationsModule.Service)
 	authModule.Service.SetStorage(objectStorage)
+	authModule.Handler.SetAuthorizer(rbacModule.Service)
 	projectsModule.Service.SetStorage(objectStorage)
 	adminModule.Handler.SetNotifier(notificationsModule.Service)
 	projectFlowModule.Handler.SetNotifier(notificationsModule.Service)

@@ -21,44 +21,66 @@ func (r *ProjectFlowRepo) CreateTask(
 	createdBy uuid.UUID,
 	dueAt *time.Time,
 ) (uuid.UUID, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
 	const q = `
 INSERT INTO tasks(tenant_id, project_id, title, description, position_id, assignee_user_id, status, created_by, due_at)
-VALUES ((SELECT tenant_id FROM projects WHERE id = $1), $1, $2, $3, $4, $5, $6, $7, $8)
+SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9
+FROM projects p
+WHERE p.tenant_id = $1
+  AND p.id = $2
 RETURNING id;
 `
 	var taskID uuid.UUID
-	if err := r.db.QueryRow(ctx, q, projectID, title, description, positionID, assigneeUserID, status, createdBy, dueAt).Scan(&taskID); err != nil {
+	if err := r.db.QueryRow(ctx, q, tenantID, projectID, title, description, positionID, assigneeUserID, status, createdBy, dueAt).Scan(&taskID); err != nil {
 		return uuid.Nil, err
 	}
 	return taskID, nil
 }
 
 func (r *ProjectFlowRepo) GetTaskByID(ctx context.Context, projectID, taskID uuid.UUID) (projectflow.Task, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return projectflow.Task{}, err
+	}
+
 	const q = `
 SELECT t.id, t.project_id, t.title, t.description, t.position_id,
        t.assignee_user_id, t.status, t.created_by, t.due_at, t.created_at, t.updated_at,
        p.code, p.name
 FROM tasks t
 JOIN project_positions p ON p.id = t.position_id
-WHERE t.project_id = $1
-  AND t.id = $2;
+WHERE t.tenant_id = $1
+  AND p.tenant_id = $1
+  AND t.project_id = $2
+  AND t.id = $3;
 `
-	row := r.db.QueryRow(ctx, q, projectID, taskID)
+	row := r.db.QueryRow(ctx, q, tenantID, projectID, taskID)
 	t, err := scanTaskRow(row)
 	return t, mapProjectFlowErr(err)
 }
 
 func (r *ProjectFlowRepo) ListProjectTasks(ctx context.Context, projectID uuid.UUID) ([]projectflow.Task, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	const q = `
 SELECT t.id, t.project_id, t.title, t.description, t.position_id,
        t.assignee_user_id, t.status, t.created_by, t.due_at, t.created_at, t.updated_at,
        p.code, p.name
 FROM tasks t
 JOIN project_positions p ON p.id = t.position_id
-WHERE t.project_id = $1
+WHERE t.tenant_id = $1
+  AND p.tenant_id = $1
+  AND t.project_id = $2
 ORDER BY t.created_at ASC;
 `
-	rows, err := r.db.Query(ctx, q, projectID)
+	rows, err := r.db.Query(ctx, q, tenantID, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -76,65 +98,98 @@ ORDER BY t.created_at ASC;
 }
 
 func (r *ProjectFlowRepo) GetTaskStatusAndTitle(ctx context.Context, projectID, taskID uuid.UUID) (string, string, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return "", "", err
+	}
+
 	const q = `
 SELECT status, title
 FROM tasks
-WHERE project_id=$1 AND id=$2;
+WHERE tenant_id = $1
+  AND project_id = $2
+  AND id = $3;
 `
 	var status string
 	var title string
-	if err := r.db.QueryRow(ctx, q, projectID, taskID).Scan(&status, &title); err != nil {
+	if err := r.db.QueryRow(ctx, q, tenantID, projectID, taskID).Scan(&status, &title); err != nil {
 		return "", "", mapProjectFlowErr(err)
 	}
 	return status, title, nil
 }
 
 func (r *ProjectFlowRepo) UpdateTaskStatus(ctx context.Context, projectID, taskID uuid.UUID, status string) (uuid.UUID, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
 	const q = `
 UPDATE tasks
-SET status=$3, updated_at=now()
-WHERE project_id=$1 AND id=$2
+SET status = $4, updated_at = now()
+WHERE tenant_id = $1
+  AND project_id = $2
+  AND id = $3
 RETURNING id;
 `
 	var outTaskID uuid.UUID
-	if err := r.db.QueryRow(ctx, q, projectID, taskID, status).Scan(&outTaskID); err != nil {
+	if err := r.db.QueryRow(ctx, q, tenantID, projectID, taskID, status).Scan(&outTaskID); err != nil {
 		return uuid.Nil, mapProjectFlowErr(err)
 	}
 	return outTaskID, nil
 }
 
 func (r *ProjectFlowRepo) GetTaskAssignContext(ctx context.Context, projectID, taskID uuid.UUID) (uuid.UUID, string, string, *uuid.UUID, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return uuid.Nil, "", "", nil, err
+	}
+
 	const q = `
 SELECT position_id, status, title, assignee_user_id
 FROM tasks
-WHERE project_id = $1 AND id = $2;
+WHERE tenant_id = $1
+  AND project_id = $2
+  AND id = $3;
 `
 	var positionID uuid.UUID
 	var prevStatus string
 	var taskTitle string
 	var prevAssignee *uuid.UUID
-	if err := r.db.QueryRow(ctx, q, projectID, taskID).Scan(&positionID, &prevStatus, &taskTitle, &prevAssignee); err != nil {
+	if err := r.db.QueryRow(ctx, q, tenantID, projectID, taskID).Scan(&positionID, &prevStatus, &taskTitle, &prevAssignee); err != nil {
 		return uuid.Nil, "", "", nil, mapProjectFlowErr(err)
 	}
 	return positionID, prevStatus, taskTitle, prevAssignee, nil
 }
 
 func (r *ProjectFlowRepo) AssignTaskToUser(ctx context.Context, projectID, taskID, assigneeUserID uuid.UUID) (uuid.UUID, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
 	const q = `
 UPDATE tasks
-SET assignee_user_id = $3,
+SET assignee_user_id = $4,
     updated_at = now()
-WHERE project_id=$1 AND id=$2
+WHERE tenant_id = $1
+  AND project_id = $2
+  AND id = $3
 RETURNING id;
 `
 	var outTaskID uuid.UUID
-	if err := r.db.QueryRow(ctx, q, projectID, taskID, assigneeUserID).Scan(&outTaskID); err != nil {
+	if err := r.db.QueryRow(ctx, q, tenantID, projectID, taskID, assigneeUserID).Scan(&outTaskID); err != nil {
 		return uuid.Nil, mapProjectFlowErr(err)
 	}
 	return outTaskID, nil
 }
 
 func (r *ProjectFlowRepo) ListProjectTaskActivities(ctx context.Context, projectID uuid.UUID, taskID *uuid.UUID) ([]projectflow.TaskActivity, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	baseQ := `
 SELECT
   a.id, a.project_id, a.task_id, a.actor_user_id,
@@ -150,11 +205,12 @@ SELECT
 FROM task_activity_logs a
 LEFT JOIN users u ON u.id = a.actor_user_id
 LEFT JOIN user_profiles up ON up.user_id = a.actor_user_id
-WHERE a.project_id = $1
+WHERE a.tenant_id = $1
+  AND a.project_id = $2
 `
-	args := []any{projectID}
+	args := []any{tenantID, projectID}
 	if taskID != nil {
-		baseQ += ` AND a.task_id = $2`
+		baseQ += ` AND a.task_id = $3`
 		args = append(args, *taskID)
 	}
 	baseQ += ` ORDER BY a.created_at ASC;`
@@ -212,28 +268,43 @@ WHERE a.project_id = $1
 }
 
 func (r *ProjectFlowRepo) GetTaskCompleteContext(ctx context.Context, projectID, taskID uuid.UUID) (*uuid.UUID, string, string, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return nil, "", "", err
+	}
+
 	const q = `
 SELECT assignee_user_id, status, title
 FROM tasks
-WHERE project_id=$1 AND id=$2;
+WHERE tenant_id = $1
+  AND project_id = $2
+  AND id = $3;
 `
 	var assigneeID *uuid.UUID
 	var currentStatus string
 	var taskTitle string
-	if err := r.db.QueryRow(ctx, q, projectID, taskID).Scan(&assigneeID, &currentStatus, &taskTitle); err != nil {
+	if err := r.db.QueryRow(ctx, q, tenantID, projectID, taskID).Scan(&assigneeID, &currentStatus, &taskTitle); err != nil {
 		return nil, "", "", mapProjectFlowErr(err)
 	}
 	return assigneeID, currentStatus, taskTitle, nil
 }
 
 func (r *ProjectFlowRepo) UpsertTaskSubmission(ctx context.Context, projectID, taskID, userID uuid.UUID, comment string, attachments []string) error {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
 	const q = `
 INSERT INTO task_submissions(tenant_id, project_id, task_id, user_id, comment, attachments)
-VALUES ((SELECT tenant_id FROM projects WHERE id = $1), $1, $2, $3, $4, $5::jsonb)
+SELECT $1, $2, $3, $4, $5, $6::jsonb
+FROM projects p
+WHERE p.tenant_id = $1
+  AND p.id = $2
 ON CONFLICT (task_id)
 DO UPDATE SET comment = EXCLUDED.comment, attachments = EXCLUDED.attachments, updated_at = now(), submitted_at = now();
 `
-	if _, err := r.db.Exec(ctx, q, projectID, taskID, userID, comment, encodeStringSliceJSON(attachments)); err != nil {
+	if _, err := r.db.Exec(ctx, q, tenantID, projectID, taskID, userID, comment, encodeStringSliceJSON(attachments)); err != nil {
 		if isUndefinedRelationErr(err, "task_submissions") {
 			return nil
 		}
@@ -243,41 +314,55 @@ DO UPDATE SET comment = EXCLUDED.comment, attachments = EXCLUDED.attachments, up
 }
 
 func (r *ProjectFlowRepo) MarkTaskDone(ctx context.Context, projectID, taskID uuid.UUID) (uuid.UUID, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
 	const q = `
 UPDATE tasks
 SET status='DONE', updated_at=now()
-WHERE project_id=$1 AND id=$2
+WHERE tenant_id = $1
+  AND project_id = $2
+  AND id = $3
 RETURNING id;
 `
 	var outTaskID uuid.UUID
-	if err := r.db.QueryRow(ctx, q, projectID, taskID).Scan(&outTaskID); err != nil {
+	if err := r.db.QueryRow(ctx, q, tenantID, projectID, taskID).Scan(&outTaskID); err != nil {
 		return uuid.Nil, mapProjectFlowErr(err)
 	}
 	return outTaskID, nil
 }
 
 func (r *ProjectFlowRepo) ClaimTask(ctx context.Context, projectID, taskID, userID uuid.UUID) error {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
 	const q = `
 UPDATE tasks t
-SET assignee_user_id = COALESCE(t.assignee_user_id, $3), status='IN_PROGRESS', updated_at=now()
-WHERE t.id=$2
-  AND t.project_id=$1
+SET assignee_user_id = COALESCE(t.assignee_user_id, $4), status='IN_PROGRESS', updated_at=now()
+WHERE t.tenant_id = $1
+  AND t.id = $3
+  AND t.project_id = $2
   AND t.status='OPEN'
   AND (
     (
       t.assignee_user_id IS NULL
       AND EXISTS (
         SELECT 1 FROM project_members m
-        WHERE m.project_id=$1
-          AND m.user_id=$3
+        WHERE m.tenant_id = $1
+          AND m.project_id = $2
+          AND m.user_id = $4
           AND m.status='ACTIVE'
           AND m.position_id = t.position_id
       )
     )
-    OR t.assignee_user_id = $3
+    OR t.assignee_user_id = $4
   );
 `
-	ct, err := r.db.Exec(ctx, q, projectID, taskID, userID)
+	ct, err := r.db.Exec(ctx, q, tenantID, projectID, taskID, userID)
 	if err != nil {
 		return err
 	}
@@ -294,17 +379,22 @@ func (r *ProjectFlowRepo) InsertTaskActivity(
 	eventType, fromStatus, toStatus, title, comment string,
 	attachments []string,
 ) error {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
 	const q = `
 INSERT INTO task_activity_logs(
   tenant_id, project_id, task_id, actor_user_id, event_type,
   from_status, to_status, title, comment, attachments
 )
-VALUES (
-  (SELECT tenant_id FROM projects WHERE id = $1),
-  $1, $2, $3, $4, NULLIF($5, ''), NULLIF($6, ''), $7, $8, $9::jsonb
-);
+SELECT $1, $2, $3, $4, $5, NULLIF($6, ''), NULLIF($7, ''), $8, $9, $10::jsonb
+FROM projects p
+WHERE p.tenant_id = $1
+  AND p.id = $2;
 `
-	_, err := r.db.Exec(ctx, q, projectID, taskID, actorUserID, eventType, fromStatus, toStatus, title, comment, encodeStringSliceJSON(attachments))
+	_, err = r.db.Exec(ctx, q, tenantID, projectID, taskID, actorUserID, eventType, fromStatus, toStatus, title, comment, encodeStringSliceJSON(attachments))
 	if err != nil && isUndefinedRelationErr(err, "task_activity_logs") {
 		return nil
 	}

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"idsai-core-up/internal/requestctx"
 	authsvc "idsai-core-up/internal/services/auth"
 
 	"github.com/gin-gonic/gin"
@@ -86,6 +87,7 @@ func AuthRequired(jwtSecret string) gin.HandlerFunc {
 		c.Set("departmentID", did)
 		c.Set("isAdmin", claims.IsAdmin)
 		c.Set("isProfessor", claims.IsProfessor)
+		c.Request = c.Request.WithContext(requestctx.WithIdentity(c.Request.Context(), uid, tid, fid, did))
 		c.Next()
 	}
 }
@@ -110,6 +112,15 @@ func FacultyIDFromCtx(c *gin.Context) (uuid.UUID, bool) {
 
 func TenantIDFromCtx(c *gin.Context) (uuid.UUID, bool) {
 	v, ok := c.Get("tenantID")
+	if !ok {
+		return uuid.Nil, false
+	}
+	id, ok := v.(uuid.UUID)
+	return id, ok
+}
+
+func DepartmentIDFromCtx(c *gin.Context) (uuid.UUID, bool) {
+	v, ok := c.Get("departmentID")
 	if !ok {
 		return uuid.Nil, false
 	}

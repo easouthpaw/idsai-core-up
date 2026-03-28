@@ -51,7 +51,7 @@
                 </div>
                 <h1 id="adminName">admin</h1>
                 <p id="adminEmail">admin@idsai.local</p>
-                <p class="hero-sub">Мониторинг платформы, модерация проектов и управление аккаунтами.</p>
+                <p class="hero-sub">Мониторинг платформы, управление проектами и доступами пользователей.</p>
               </div>
             </div>
             <div class="hero-meta" aria-label="Сводка администратора">
@@ -73,7 +73,7 @@
                 <span class="material-symbols-outlined">bolt</span>
                 <div>
                   <p>Режим</p>
-                  <strong>Live moderation</strong>
+                  <strong>Live control</strong>
                 </div>
               </article>
             </div>
@@ -114,19 +114,19 @@
                 <span>Все доступные проекты</span>
               </article>
               <article class="stat-card warning">
-                <p>На проверке</p>
-                <strong id="statReviewProjects">0</strong>
-                <span>Ожидают модерации</span>
+                <p>Подготовка</p>
+                <strong id="statPreparingProjects">0</strong>
+                <span>Черновики и предзапуск</span>
               </article>
               <article class="stat-card success">
-                <p>Одобрено</p>
-                <strong id="statApprovedProjects">0</strong>
-                <span>Активные проекты</span>
+                <p>В работе</p>
+                <strong id="statWorkingProjects">0</strong>
+                <span>Набор, работа и оценивание</span>
               </article>
-              <article class="stat-card danger">
-                <p>Отклонено</p>
-                <strong id="statRejectedProjects">0</strong>
-                <span>В архиве</span>
+              <article class="stat-card success">
+                <p>Завершены</p>
+                <strong id="statCompletedProjects">0</strong>
+                <span>Итог опубликован</span>
               </article>
             </div>
           </section>
@@ -225,30 +225,31 @@
               <strong id="projTotal">0</strong>
               <span>Все доступные проекты</span>
             </article>
-            <article class="stat-card warning">
-              <p>На проверке</p>
-              <strong id="projReview">0</strong>
-              <span>Ожидают решения</span>
-            </article>
-            <article class="stat-card success">
-              <p>Одобрено</p>
-              <strong id="projApproved">0</strong>
-              <span>Статус ACTIVE</span>
-            </article>
-            <article class="stat-card danger">
-              <p>Отклонено</p>
-              <strong id="projRejected">0</strong>
-              <span>Статус ARCHIVE</span>
-            </article>
-          </section>
+              <article class="stat-card warning">
+                <p>Подготовка</p>
+                <strong id="projPreparing">0</strong>
+                <span>Черновики и предзапуск</span>
+              </article>
+              <article class="stat-card success">
+                <p>В работе</p>
+                <strong id="projWorking">0</strong>
+                <span>Набор, работа и оценивание</span>
+              </article>
+              <article class="stat-card success">
+                <p>Завершены</p>
+                <strong id="projCompleted">0</strong>
+                <span>COMPLETED и исторические записи</span>
+              </article>
+            </section>
 
           <section class="panel projects-panel">
             <div class="panel-head">
               <div class="project-tabs" role="tablist" aria-label="Фильтр по статусу проектов">
                 <button class="tab active" data-status="" type="button">Все</button>
-                <button class="tab" data-status="REVIEW" type="button">На проверке</button>
+                <button class="tab" data-status="RECRUITMENT" type="button">Набор</button>
                 <button class="tab" data-status="ACTIVE" type="button">Активные</button>
-                <button class="tab" data-status="ARCHIVE" type="button">Отклоненные</button>
+                <button class="tab" data-status="GRADING" type="button">Оценивание</button>
+                <button class="tab" data-status="COMPLETED" type="button">Завершенные</button>
               </div>
               <div class="panel-tools">
                 <label class="search-wrap" for="projectSearchInput">
@@ -335,7 +336,7 @@
       <div id="projectModalStatus" class="modal-status" aria-live="polite"></div>
       <div class="modal-actions">
         <button id="projectModalCancelBtn" class="cancel-btn" type="button">Отмена</button>
-        <button id="projectModalSubmitBtn" class="danger-btn" type="button">Отклонить проект</button>
+        <button id="projectModalSubmitBtn" class="danger-btn" type="button">Подтвердить</button>
       </div>
     </div>
   </div>

@@ -9,15 +9,21 @@ import (
 )
 
 func (r *ProjectFlowRepo) IsActiveStudentInFaculty(ctx context.Context, studentID, facultyID uuid.UUID) (bool, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return false, err
+	}
+
 	const q = `
 SELECT EXISTS (
   SELECT 1
   FROM users u
   JOIN user_profiles up ON up.user_id = u.id
-  WHERE u.id = $1
+  WHERE u.tenant_id = $1
+    AND u.id = $2
     AND u.status = 'ACTIVE'
     AND up.tenant_id = u.tenant_id
-    AND up.faculty_id = $2
+    AND up.faculty_id = $3
     AND EXISTS (
       SELECT 1
       FROM role_assignments ra
@@ -29,7 +35,7 @@ SELECT EXISTS (
 ) AS ok;
 `
 	var ok bool
-	if err := r.db.QueryRow(ctx, q, studentID, facultyID).Scan(&ok); err != nil {
+	if err := r.db.QueryRow(ctx, q, tenantID, studentID, facultyID).Scan(&ok); err != nil {
 		return false, err
 	}
 	return ok, nil
@@ -40,32 +46,53 @@ func (r *ProjectFlowRepo) UpsertInvitedMember(
 	projectID, studentID, invitedBy uuid.UUID,
 	comment string,
 ) (projectflow.Member, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return projectflow.Member{}, err
+	}
+
 	const q = `
 INSERT INTO project_members(tenant_id, project_id, user_id, status, position_id, joined_at, invite_comment, invited_by, responded_at)
-VALUES ((SELECT tenant_id FROM projects WHERE id = $1), $1, $2, 'INVITED', NULL, NULL, $3, $4, NULL)
+SELECT $1, $2, $3, 'INVITED', NULL, NULL, $4, $5, NULL
+FROM projects p
+WHERE p.tenant_id = $1
+  AND p.id = $2
 ON CONFLICT (project_id, user_id)
 DO UPDATE SET status='INVITED', position_id=NULL, joined_at=NULL, invite_comment=EXCLUDED.invite_comment, invited_by=EXCLUDED.invited_by, responded_at=NULL
 WHERE project_members.status IN ('INVITED', 'APPLIED', 'REJECTED', 'REMOVED')
 RETURNING id, project_id, user_id, position_id, status, invite_comment, invited_by, responded_at, joined_at, created_at;
 `
-	m, err := scanMemberRow(r.db.QueryRow(ctx, q, projectID, studentID, comment, invitedBy))
+	m, err := scanMemberRow(r.db.QueryRow(ctx, q, tenantID, projectID, studentID, comment, invitedBy))
 	return m, mapProjectFlowErr(err)
 }
 
 func (r *ProjectFlowRepo) UpsertAppliedMember(ctx context.Context, projectID, userID uuid.UUID, comment string) (projectflow.Member, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return projectflow.Member{}, err
+	}
+
 	const q = `
 INSERT INTO project_members(tenant_id, project_id, user_id, status, position_id, joined_at, invite_comment, invited_by, responded_at)
-VALUES ((SELECT tenant_id FROM projects WHERE id = $1), $1, $2, 'APPLIED', NULL, NULL, $3, NULL, now())
+SELECT $1, $2, $3, 'APPLIED', NULL, NULL, $4, NULL, now()
+FROM projects p
+WHERE p.tenant_id = $1
+  AND p.id = $2
 ON CONFLICT (project_id, user_id)
 DO UPDATE SET status='APPLIED', position_id=NULL, joined_at=NULL, invite_comment=EXCLUDED.invite_comment, invited_by=NULL, responded_at=now()
 WHERE project_members.status IN ('APPLIED', 'INVITED', 'REJECTED', 'REMOVED')
 RETURNING id, project_id, user_id, position_id, status, invite_comment, invited_by, responded_at, joined_at, created_at;
 `
-	m, err := scanMemberRow(r.db.QueryRow(ctx, q, projectID, userID, comment))
+	m, err := scanMemberRow(r.db.QueryRow(ctx, q, tenantID, projectID, userID, comment))
 	return m, mapProjectFlowErr(err)
 }
 
 func (r *ProjectFlowRepo) ListProjectMembers(ctx context.Context, projectID uuid.UUID) ([]projectflow.Member, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	const q = `
 SELECT m.id, m.project_id, m.user_id, m.position_id, m.status, m.invite_comment, m.invited_by, m.responded_at, m.joined_at, m.created_at,
        p.code, p.name,
@@ -75,10 +102,14 @@ FROM project_members m
 LEFT JOIN project_positions p ON p.id = m.position_id
 LEFT JOIN users u ON u.id = m.user_id
 LEFT JOIN user_profiles up ON up.user_id = m.user_id
-WHERE m.project_id = $1
+WHERE m.tenant_id = $1
+  AND (p.id IS NULL OR p.tenant_id = $1)
+  AND (u.id IS NULL OR u.tenant_id = $1)
+  AND (up.user_id IS NULL OR up.tenant_id = $1)
+  AND m.project_id = $2
 ORDER BY m.created_at ASC;
 `
-	rows, err := r.db.Query(ctx, q, projectID)
+	rows, err := r.db.Query(ctx, q, tenantID, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -133,56 +164,78 @@ func (r *ProjectFlowRepo) CountActiveMembersByPosition(
 	projectID, positionID uuid.UUID,
 	excludeUserID *uuid.UUID,
 ) (int, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return 0, err
+	}
+
 	const qWithExclude = `
 SELECT COUNT(*)
 FROM project_members
-WHERE project_id = $1
-  AND position_id = $2
+WHERE tenant_id = $1
+  AND project_id = $2
+  AND position_id = $3
   AND status = 'ACTIVE'
-  AND user_id <> $3;
+  AND user_id <> $4;
 `
 	const q = `
 SELECT COUNT(*)
 FROM project_members
-WHERE project_id = $1
-  AND position_id = $2
+WHERE tenant_id = $1
+  AND project_id = $2
+  AND position_id = $3
   AND status = 'ACTIVE';
 `
 	var total int
 	if excludeUserID != nil {
-		if err := r.db.QueryRow(ctx, qWithExclude, projectID, positionID, *excludeUserID).Scan(&total); err != nil {
+		if err := r.db.QueryRow(ctx, qWithExclude, tenantID, projectID, positionID, *excludeUserID).Scan(&total); err != nil {
 			return 0, err
 		}
 		return total, nil
 	}
-	if err := r.db.QueryRow(ctx, q, projectID, positionID).Scan(&total); err != nil {
+	if err := r.db.QueryRow(ctx, q, tenantID, projectID, positionID).Scan(&total); err != nil {
 		return 0, err
 	}
 	return total, nil
 }
 
 func (r *ProjectFlowRepo) GetProjectMemberStatusAndPosition(ctx context.Context, projectID, userID uuid.UUID) (string, *uuid.UUID, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return "", nil, err
+	}
+
 	const q = `
 SELECT status, position_id
 FROM project_members
-WHERE project_id = $1 AND user_id = $2;
+WHERE tenant_id = $1
+  AND project_id = $2
+  AND user_id = $3;
 `
 	var status string
 	var positionID *uuid.UUID
-	if err := r.db.QueryRow(ctx, q, projectID, userID).Scan(&status, &positionID); err != nil {
+	if err := r.db.QueryRow(ctx, q, tenantID, projectID, userID).Scan(&status, &positionID); err != nil {
 		return "", nil, mapProjectFlowErr(err)
 	}
 	return status, positionID, nil
 }
 
 func (r *ProjectFlowRepo) CountActiveMembersWithPosition(ctx context.Context, projectID uuid.UUID) (int, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return 0, err
+	}
+
 	const q = `
 SELECT COUNT(*)
 FROM project_members
-WHERE project_id=$1 AND status='ACTIVE' AND position_id IS NOT NULL;
+WHERE tenant_id = $1
+  AND project_id = $2
+  AND status = 'ACTIVE'
+  AND position_id IS NOT NULL;
 `
 	var total int
-	if err := r.db.QueryRow(ctx, q, projectID).Scan(&total); err != nil {
+	if err := r.db.QueryRow(ctx, q, tenantID, projectID).Scan(&total); err != nil {
 		return 0, err
 	}
 	return total, nil
@@ -193,13 +246,21 @@ func (r *ProjectFlowRepo) ApproveProjectMember(
 	projectID, memberUserID uuid.UUID,
 	positionID *uuid.UUID,
 ) (projectflow.Member, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return projectflow.Member{}, err
+	}
+
 	const q = `
 UPDATE project_members
-SET status='ACTIVE', position_id=COALESCE($3, position_id), joined_at=now(), responded_at=now()
-WHERE project_id=$1 AND user_id=$2 AND status IN ('APPLIED', 'ACTIVE')
+SET status='ACTIVE', position_id=COALESCE($4, position_id), joined_at=now(), responded_at=now()
+WHERE tenant_id = $1
+  AND project_id = $2
+  AND user_id = $3
+  AND status IN ('APPLIED', 'ACTIVE')
 RETURNING id, project_id, user_id, position_id, status, invite_comment, invited_by, responded_at, joined_at, created_at;
 `
-	m, err := scanMemberRow(r.db.QueryRow(ctx, q, projectID, memberUserID, positionID))
+	m, err := scanMemberRow(r.db.QueryRow(ctx, q, tenantID, projectID, memberUserID, positionID))
 	return m, mapProjectFlowErr(err)
 }
 
@@ -207,13 +268,21 @@ func (r *ProjectFlowRepo) RejectProjectMemberApplication(
 	ctx context.Context,
 	projectID, memberUserID uuid.UUID,
 ) (projectflow.Member, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return projectflow.Member{}, err
+	}
+
 	const q = `
 UPDATE project_members
 SET status='REJECTED', position_id=NULL, joined_at=NULL, responded_at=now()
-WHERE project_id=$1 AND user_id=$2 AND status='APPLIED'
+WHERE tenant_id = $1
+  AND project_id = $2
+  AND user_id = $3
+  AND status='APPLIED'
 RETURNING id, project_id, user_id, position_id, status, invite_comment, invited_by, responded_at, joined_at, created_at;
 `
-	m, err := scanMemberRow(r.db.QueryRow(ctx, q, projectID, memberUserID))
+	m, err := scanMemberRow(r.db.QueryRow(ctx, q, tenantID, projectID, memberUserID))
 	return m, mapProjectFlowErr(err)
 }
 
@@ -221,26 +290,40 @@ func (r *ProjectFlowRepo) SetActiveMemberPosition(
 	ctx context.Context,
 	projectID, memberUserID, positionID uuid.UUID,
 ) (projectflow.Member, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return projectflow.Member{}, err
+	}
+
 	const q = `
 UPDATE project_members
-SET position_id=$3
-WHERE project_id=$1 AND user_id=$2 AND status='ACTIVE'
+SET position_id = $4
+WHERE tenant_id = $1
+  AND project_id = $2
+  AND user_id = $3
+  AND status='ACTIVE'
 RETURNING id, project_id, user_id, position_id, status, invite_comment, invited_by, responded_at, joined_at, created_at;
 `
-	m, err := scanMemberRow(r.db.QueryRow(ctx, q, projectID, memberUserID, positionID))
+	m, err := scanMemberRow(r.db.QueryRow(ctx, q, tenantID, projectID, memberUserID, positionID))
 	return m, mapProjectFlowErr(err)
 }
 
 func (r *ProjectFlowRepo) GetInvitedMemberPosition(ctx context.Context, projectID, userID uuid.UUID) (*uuid.UUID, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	const q = `
 SELECT position_id
 FROM project_members
-WHERE project_id = $1
-  AND user_id = $2
+WHERE tenant_id = $1
+  AND project_id = $2
+  AND user_id = $3
   AND status = 'INVITED';
 `
 	var positionID *uuid.UUID
-	if err := r.db.QueryRow(ctx, q, projectID, userID).Scan(&positionID); err != nil {
+	if err := r.db.QueryRow(ctx, q, tenantID, projectID, userID).Scan(&positionID); err != nil {
 		return nil, mapProjectFlowErr(err)
 	}
 	return positionID, nil
@@ -251,17 +334,23 @@ func (r *ProjectFlowRepo) RespondMemberInvite(
 	projectID, userID uuid.UUID,
 	accept bool,
 ) (projectflow.Member, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return projectflow.Member{}, err
+	}
+
 	const q = `
 UPDATE project_members
-SET status = CASE WHEN $3::boolean THEN 'ACTIVE' ELSE 'REJECTED' END,
-    joined_at = CASE WHEN $3::boolean THEN now() ELSE NULL END,
+SET status = CASE WHEN $4::boolean THEN 'ACTIVE' ELSE 'REJECTED' END,
+    joined_at = CASE WHEN $4::boolean THEN now() ELSE NULL END,
     responded_at = now()
-WHERE project_id = $1
-  AND user_id = $2
+WHERE tenant_id = $1
+  AND project_id = $2
+  AND user_id = $3
   AND status = 'INVITED'
 RETURNING id, project_id, user_id, position_id, status, invite_comment, invited_by, responded_at, joined_at, created_at;
 `
-	m, err := scanMemberRow(r.db.QueryRow(ctx, q, projectID, userID, accept))
+	m, err := scanMemberRow(r.db.QueryRow(ctx, q, tenantID, projectID, userID, accept))
 	return m, mapProjectFlowErr(err)
 }
 
@@ -270,6 +359,11 @@ func (r *ProjectFlowRepo) ListIncomingInvites(
 	userID uuid.UUID,
 	limit int,
 ) ([]projectflow.IncomingInvite, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	const q = `
 SELECT
   p.id,
@@ -290,24 +384,28 @@ SELECT
   pm.created_at,
   pm.responded_at
 FROM project_members pm
-JOIN projects p ON p.id = pm.project_id
+JOIN projects p ON p.id = pm.project_id AND p.tenant_id = pm.tenant_id
 LEFT JOIN users inv_u ON inv_u.id = pm.invited_by
 LEFT JOIN user_profiles inv ON inv.user_id = pm.invited_by
 LEFT JOIN users app_u ON app_u.id = pm.user_id
 LEFT JOIN user_profiles app ON app.user_id = pm.user_id
-WHERE (
-    pm.user_id = $1
-    AND pm.status = 'INVITED'
-  )
-  OR (
-    p.created_by = $1
-    AND pm.status = 'APPLIED'
-    AND pm.user_id <> $1
+WHERE p.tenant_id = $1
+  AND pm.tenant_id = $1
+  AND (
+    (
+      pm.user_id = $2
+      AND pm.status = 'INVITED'
+    )
+    OR (
+      p.created_by = $2
+      AND pm.status = 'APPLIED'
+      AND pm.user_id <> $2
+    )
   )
 ORDER BY pm.created_at DESC
-LIMIT $2;
+LIMIT $3;
 `
-	rows, err := r.db.Query(ctx, q, userID, limit)
+	rows, err := r.db.Query(ctx, q, tenantID, userID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -349,6 +447,11 @@ func (r *ProjectFlowRepo) ListOutgoingApplications(
 	userID uuid.UUID,
 	limit int,
 ) ([]projectflow.OutgoingApplication, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	const q = `
 SELECT
   p.id,
@@ -358,14 +461,16 @@ SELECT
   pm.created_at,
   pm.responded_at
 FROM project_members pm
-JOIN projects p ON p.id = pm.project_id
-WHERE pm.user_id = $1
+JOIN projects p ON p.id = pm.project_id AND p.tenant_id = pm.tenant_id
+WHERE p.tenant_id = $1
+  AND pm.tenant_id = $1
+  AND pm.user_id = $2
   AND pm.invited_by IS NULL
   AND pm.status IN ('APPLIED', 'REJECTED', 'ACTIVE', 'REMOVED')
 ORDER BY COALESCE(pm.responded_at, pm.created_at) DESC
-LIMIT $2;
+LIMIT $3;
 `
-	rows, err := r.db.Query(ctx, q, userID, limit)
+	rows, err := r.db.Query(ctx, q, tenantID, userID, limit)
 	if err != nil {
 		return nil, err
 	}

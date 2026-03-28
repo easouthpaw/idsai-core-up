@@ -10,73 +10,98 @@ import (
 )
 
 func (r *ProjectFlowRepo) GetProjectByID(ctx context.Context, projectID uuid.UUID) (domain.Project, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return domain.Project{}, err
+	}
+
 	const q = `
 SELECT id, title, description, status, is_public, created_by, professor_id,
        professor_review_status,
        faculty_id, visibility, group_id,
        created_at, updated_at
 FROM projects
-WHERE id = $1;
+WHERE tenant_id = $1
+  AND id = $2;
 `
-	p, err := scanProjectRow(r.db.QueryRow(ctx, q, projectID))
+	p, err := scanProjectRow(r.db.QueryRow(ctx, q, tenantID, projectID))
 	return p, mapProjectFlowErr(err)
 }
 
 func (r *ProjectFlowRepo) IsActiveProjectMember(ctx context.Context, userID, projectID uuid.UUID) (bool, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return false, err
+	}
+
 	const q = `
 SELECT EXISTS (
   SELECT 1
   FROM projects p
-  WHERE p.id = $1
+  WHERE p.tenant_id = $1
+    AND p.id = $2
     AND (
-      p.created_by = $2
+      p.created_by = $3
       OR EXISTS (
         SELECT 1
         FROM project_members pm
         WHERE pm.project_id = p.id
-          AND pm.user_id = $2
+          AND pm.tenant_id = p.tenant_id
+          AND pm.user_id = $3
           AND pm.status = 'ACTIVE'
       )
     )
 ) AS ok;
 `
 	var ok bool
-	if err := r.db.QueryRow(ctx, q, projectID, userID).Scan(&ok); err != nil {
+	if err := r.db.QueryRow(ctx, q, tenantID, projectID, userID).Scan(&ok); err != nil {
 		return false, err
 	}
 	return ok, nil
 }
 
 func (r *ProjectFlowRepo) HasProjectRole(ctx context.Context, userID, projectID uuid.UUID, roleCode string) (bool, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return false, err
+	}
+
 	const q = `
 SELECT EXISTS (
 	SELECT 1
 	FROM role_assignments ra
 	JOIN roles r ON r.id = ra.role_id
 	WHERE ra.user_id = $1
+	  AND ra.tenant_id = $2
 	  AND ra.scope_type = 'PROJECT'
-	  AND ra.scope_id = $2
-	  AND r.code = $3
+	  AND ra.scope_id = $3
+	  AND r.code = $4
 ) AS ok;
 `
 	var ok bool
-	if err := r.db.QueryRow(ctx, q, userID, projectID, roleCode).Scan(&ok); err != nil {
+	if err := r.db.QueryRow(ctx, q, userID, tenantID, projectID, roleCode).Scan(&ok); err != nil {
 		return false, err
 	}
 	return ok, nil
 }
 
 func (r *ProjectFlowRepo) RevokeProjectRole(ctx context.Context, userID, projectID uuid.UUID, roleCode string) error {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
 	const q = `
 DELETE FROM role_assignments ra
 USING roles r
 WHERE ra.role_id = r.id
   AND ra.user_id = $1
+  AND ra.tenant_id = $2
   AND ra.scope_type = 'PROJECT'
-  AND ra.scope_id = $2
-  AND r.code = $3;
+  AND ra.scope_id = $3
+  AND r.code = $4;
 `
-	_, err := r.db.Exec(ctx, q, userID, projectID, roleCode)
+	_, err = r.db.Exec(ctx, q, userID, tenantID, projectID, roleCode)
 	return err
 }
 
@@ -88,14 +113,20 @@ func (r *ProjectFlowRepo) UpdateProject(
 	descriptionSet bool,
 	description string,
 ) error {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
 	const q = `
 UPDATE projects
 SET title = CASE WHEN $2::boolean THEN $3 ELSE title END,
     description = CASE WHEN $4::boolean THEN $5 ELSE description END,
     updated_at = now()
-WHERE id = $1;
+WHERE tenant_id = $1
+  AND id = $6;
 `
-	ct, err := r.db.Exec(ctx, q, projectID, titleSet, title, descriptionSet, description)
+	ct, err := r.db.Exec(ctx, q, tenantID, titleSet, title, descriptionSet, description, projectID)
 	if err != nil {
 		return err
 	}
@@ -106,13 +137,19 @@ WHERE id = $1;
 }
 
 func (r *ProjectFlowRepo) OpenProjectRecruitment(ctx context.Context, projectID uuid.UUID) error {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
 	const q = `
 UPDATE projects
 SET status = 'RECRUITMENT', updated_at = now()
-WHERE id = $1
+WHERE tenant_id = $1
+  AND id = $2
   AND status IN ('DRAFT','REVIEW','RECRUITMENT');
 `
-	ct, err := r.db.Exec(ctx, q, projectID)
+	ct, err := r.db.Exec(ctx, q, tenantID, projectID)
 	if err != nil {
 		return err
 	}
@@ -128,6 +165,11 @@ func (r *ProjectFlowRepo) ListStudentCandidates(
 	term string,
 	limit int,
 ) ([]projectflow.StudentCandidate, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	const q = `
 SELECT u.id,
        COALESCE(NULLIF(TRIM(up.full_name), ''), split_part(u.email, '@', 1)) AS full_name,
@@ -136,10 +178,12 @@ SELECT u.id,
 FROM users u
 JOIN user_profiles up ON up.user_id = u.id
 LEFT JOIN departments d ON d.id = up.department_id
-WHERE u.status = 'ACTIVE'
-  AND up.faculty_id = $1
-  AND u.id <> $3
+WHERE u.tenant_id = $1
+  AND up.tenant_id = $1
+  AND u.status = 'ACTIVE'
+  AND up.faculty_id = $2
   AND u.id <> $4
+  AND u.id <> $5
   AND EXISTS (
     SELECT 1
     FROM role_assignments ra
@@ -151,15 +195,16 @@ WHERE u.status = 'ACTIVE'
   AND NOT EXISTS (
     SELECT 1
     FROM project_members pm
-    WHERE pm.project_id = $2
+    WHERE pm.tenant_id = $1
+      AND pm.project_id = $3
       AND pm.user_id = u.id
       AND pm.status IN ('ACTIVE', 'INVITED', 'APPLIED')
   )
-  AND ($5 = '' OR lower(up.full_name) LIKE '%' || $5 || '%' OR lower(u.email) LIKE '%' || $5 || '%')
+  AND ($6 = '' OR lower(up.full_name) LIKE '%' || $6 || '%' OR lower(u.email) LIKE '%' || $6 || '%')
 ORDER BY up.full_name ASC, u.email ASC
-LIMIT $6;
+LIMIT $7;
 `
-	rows, err := r.db.Query(ctx, q, facultyID, projectID, requesterUserID, projectOwnerID, term, limit)
+	rows, err := r.db.Query(ctx, q, tenantID, facultyID, projectID, requesterUserID, projectOwnerID, term, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -177,20 +222,31 @@ LIMIT $6;
 }
 
 func (r *ProjectFlowRepo) ReplaceProjectStacks(ctx context.Context, projectID uuid.UUID, stackCodes []string) error {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
 
-	if _, err := tx.Exec(ctx, `DELETE FROM project_stacks WHERE project_id = $1`, projectID); err != nil {
+	if _, err := tx.Exec(ctx, `DELETE FROM project_stacks WHERE tenant_id = $1 AND project_id = $2`, tenantID, projectID); err != nil {
 		if isUndefinedRelationErr(err, "project_stacks") {
 			return projectflow.ErrSchemaMissing
 		}
 		return err
 	}
 	for _, code := range stackCodes {
-		if _, err := tx.Exec(ctx, `INSERT INTO project_stacks(tenant_id, project_id, stack_code) VALUES ((SELECT tenant_id FROM projects WHERE id = $1), $1, $2)`, projectID, code); err != nil {
+		if _, err := tx.Exec(ctx, `
+INSERT INTO project_stacks(tenant_id, project_id, stack_code)
+SELECT $1, $2, $3
+FROM projects p
+WHERE p.tenant_id = $1
+  AND p.id = $2
+`, tenantID, projectID, code); err != nil {
 			if isUndefinedRelationErr(err, "project_stacks") {
 				return projectflow.ErrSchemaMissing
 			}
@@ -201,7 +257,12 @@ func (r *ProjectFlowRepo) ReplaceProjectStacks(ctx context.Context, projectID uu
 }
 
 func (r *ProjectFlowRepo) ListProjectStackCodes(ctx context.Context, projectID uuid.UUID) ([]string, error) {
-	rows, err := r.db.Query(ctx, `SELECT stack_code FROM project_stacks WHERE project_id = $1 ORDER BY stack_code ASC`, projectID)
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := r.db.Query(ctx, `SELECT stack_code FROM project_stacks WHERE tenant_id = $1 AND project_id = $2 ORDER BY stack_code ASC`, tenantID, projectID)
 	if err != nil {
 		if isUndefinedRelationErr(err, "project_stacks") {
 			return []string{}, nil
@@ -222,9 +283,17 @@ func (r *ProjectFlowRepo) ListProjectStackCodes(ctx context.Context, projectID u
 }
 
 func (r *ProjectFlowRepo) CreateProjectPosition(ctx context.Context, projectID uuid.UUID, code, name string, capacity int) (projectflow.Position, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return projectflow.Position{}, err
+	}
+
 	const q = `
 INSERT INTO project_positions(tenant_id, project_id, code, name, capacity)
-VALUES ((SELECT tenant_id FROM projects WHERE id = $1), $1, $2, $3, $4)
+SELECT $1, $2, $3, $4, $5
+FROM projects p
+WHERE p.tenant_id = $1
+  AND p.id = $2
 RETURNING id, project_id, code, name, capacity, created_at;
 `
 	var (
@@ -232,7 +301,7 @@ RETURNING id, project_id, code, name, capacity, created_at;
 		positionID uuid.UUID
 		p          projectflow.Position
 	)
-	err := r.db.QueryRow(ctx, q, projectID, code, name, capacity).Scan(
+	err = r.db.QueryRow(ctx, q, tenantID, projectID, code, name, capacity).Scan(
 		&id,
 		&positionID,
 		&p.Code,
@@ -249,13 +318,19 @@ RETURNING id, project_id, code, name, capacity, created_at;
 }
 
 func (r *ProjectFlowRepo) ListProjectPositions(ctx context.Context, projectID uuid.UUID) ([]projectflow.Position, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	const q = `
 SELECT id, project_id, code, name, capacity, created_at
 FROM project_positions
-WHERE project_id = $1
+WHERE tenant_id = $1
+  AND project_id = $2
 ORDER BY created_at ASC;
 `
-	rows, err := r.db.Query(ctx, q, projectID)
+	rows, err := r.db.Query(ctx, q, tenantID, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -279,22 +354,34 @@ ORDER BY created_at ASC;
 }
 
 func (r *ProjectFlowRepo) GetProjectPositionCapacity(ctx context.Context, projectID, positionID uuid.UUID) (int, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return 0, err
+	}
+
 	const q = `
 SELECT capacity
 FROM project_positions
-WHERE project_id = $1 AND id = $2;
+WHERE tenant_id = $1
+  AND project_id = $2
+  AND id = $3;
 `
 	var capacity int
-	if err := r.db.QueryRow(ctx, q, projectID, positionID).Scan(&capacity); err != nil {
+	if err := r.db.QueryRow(ctx, q, tenantID, projectID, positionID).Scan(&capacity); err != nil {
 		return 0, mapProjectFlowErr(err)
 	}
 	return capacity, nil
 }
 
 func (r *ProjectFlowRepo) SumProjectPositionCapacities(ctx context.Context, projectID uuid.UUID) (int, error) {
-	const q = `SELECT COALESCE(SUM(capacity), 0) FROM project_positions WHERE project_id = $1;`
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	const q = `SELECT COALESCE(SUM(capacity), 0) FROM project_positions WHERE tenant_id = $1 AND project_id = $2;`
 	var total int
-	if err := r.db.QueryRow(ctx, q, projectID).Scan(&total); err != nil {
+	if err := r.db.QueryRow(ctx, q, tenantID, projectID).Scan(&total); err != nil {
 		return 0, err
 	}
 	return total, nil

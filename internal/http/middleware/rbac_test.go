@@ -62,6 +62,23 @@ func TestRequirePermission_Forbidden(t *testing.T) {
 	require.Equal(t, http.StatusForbidden, w.Code)
 }
 
+func TestRequirePermission_InvalidScope(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+
+	user := uuid.New()
+	r.Use(withUser(user))
+	r.GET("/x/:project_id", middleware.RequirePermission(fakeAuthz{allow: true}, "task.view", middleware.ProjectScopeFromParam("project_id")), func(c *gin.Context) {
+		c.JSON(200, gin.H{"ok": true})
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/x/not-a-uuid", nil)
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
 func TestRequirePermission_Allows(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()

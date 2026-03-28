@@ -30,6 +30,13 @@ func (s *Service) Can(ctx context.Context, userID uuid.UUID, permissionCode stri
 	return s.repo.HasPermission(ctx, userID, permissionCode, scope, s.now())
 }
 
+func (s *Service) ListPermissionCodes(ctx context.Context, userID uuid.UUID, scope Scope) ([]string, error) {
+	if !scope.Validate() {
+		return nil, ErrInvalidScope
+	}
+	return s.repo.ListPermissionCodes(ctx, userID, scope, s.now())
+}
+
 // SetNow is useful for deterministic unit tests.
 func (s *Service) SetNow(f func() time.Time) {
 	s.now = f

@@ -18,6 +18,7 @@ func registerProjectsRoutes(
 ) {
 	projectsH := handlers.NewProjectsHandler(projectsSvc)
 	projectsH.SetNotifier(notifier)
+	enforceProjects := rbacFeatureEnabled("RBAC_ENFORCE_PROJECTS_GET", true)
 
 	p := v2.Group("/projects")
 	p.Use(authMW)
@@ -30,7 +31,16 @@ func registerProjectsRoutes(
 		projectsH.Create,
 	)
 
-	p.GET("/:project_id", projectsH.Get)
-	p.POST("/:project_id/image", projectsH.UploadImage)
-	p.DELETE("/:project_id/image", projectsH.DeleteImage)
+	p.GET("/:project_id",
+		middleware.RequirePermissionIf(enforceProjects && rbacSvc != nil, rbacSvc, "project.view", middleware.ProjectScopeFromParam("project_id")),
+		projectsH.Get,
+	)
+	p.POST("/:project_id/image",
+		middleware.RequirePermissionIf(enforceProjects && rbacSvc != nil, rbacSvc, "project.edit", middleware.ProjectScopeFromParam("project_id")),
+		projectsH.UploadImage,
+	)
+	p.DELETE("/:project_id/image",
+		middleware.RequirePermissionIf(enforceProjects && rbacSvc != nil, rbacSvc, "project.edit", middleware.ProjectScopeFromParam("project_id")),
+		projectsH.DeleteImage,
+	)
 }

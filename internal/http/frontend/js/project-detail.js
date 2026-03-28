@@ -1,5 +1,6 @@
 (() => {
   const auth = window.IDSAIAuth;
+  const roleSidebar = window.IDSAIRoleSidebar;
   const LS_ACCESS = "idsai_access_token";
   const LS_REFRESH = "idsai_refresh_token";
   const LS_USER = "idsai_rbac_user_id";
@@ -43,7 +44,7 @@
     QA: new Set(["team.view", "task.update.own", "task.status.change", "submission.review", "comment.create"]),
     DESIGNER: new Set(["team.view", "task.create", "task.update.own", "submission.create", "comment.create"]),
   };
-  const PRIMARY_LIFECYCLE_FLOW = ["DRAFT", "RECRUITMENT", "ACTIVE", "GRADING", "ARCHIVE"];
+  const PRIMARY_LIFECYCLE_FLOW = ["DRAFT", "RECRUITMENT", "ACTIVE", "GRADING", "COMPLETED"];
   const DEFAULT_PROJECT_COVERS = [
     "https://images.pexels.com/photos/16129724/pexels-photo-16129724.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600",
     "https://images.pexels.com/photos/17323801/pexels-photo-17323801.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600",
@@ -257,6 +258,11 @@
     }
     const f = String(fallback || "").trim();
     return f ? f.slice(0, 2).toUpperCase() : "ST";
+  }
+
+  function profileURL(userID) {
+    const id = String(userID || "").trim();
+    return id ? `/dev/profile?user_id=${encodeURIComponent(id)}` : "/dev/profile";
   }
 
   function renderAvatar(el, fallbackText, avatarURL) {
@@ -480,14 +486,27 @@
     return "mine";
   }
 
-  function syncStudentSidebar() {
+  function syncStudentSidebar(profile) {
     const section = currentStudentSection();
     localStorage.setItem(LS_STUDENT_SECTION, section);
 
-    ui.sidebarNavLinks.forEach((link) => {
-      const value = String(link.getAttribute("data-nav-section") || "").trim().toLowerCase();
-      link.classList.toggle("active", value === section);
-    });
+    const host = document.querySelector("[data-role-sidebar]");
+    if (host && roleSidebar && typeof roleSidebar.renderSidebar === "function") {
+      host.dataset.sidebarActive = section;
+      roleSidebar.renderSidebar(host, {
+        role: "student",
+        active: section,
+        profile,
+        scope: typeof auth.getDefaultScope === "function" ? auth.getDefaultScope() : null,
+      });
+
+      const logoutBtn = document.getElementById("logoutBtn");
+      if (logoutBtn) {
+        logoutBtn.onclick = () => {
+          auth.logout();
+        };
+      }
+    }
 
     if (!ui.crumbSectionLink) return;
     if (section === "community") {
@@ -502,6 +521,13 @@
     }
     ui.crumbSectionLink.textContent = "Мои проекты";
     ui.crumbSectionLink.href = "/dev/projects?tab=mine";
+  }
+
+  function normalizedLifecycleStatus(status) {
+    const code = String(status || "").toUpperCase();
+    if (code === "REVIEW") return "DRAFT";
+    if (code === "ARCHIVE") return "COMPLETED";
+    return code || "DRAFT";
   }
 
   function setNotice(message, isError) {
@@ -571,19 +597,22 @@
   function statusPresentation(status) {
     const s = String(status || "").toUpperCase();
     if (s === "ACTIVE") return { label: "В работе", cls: "active" };
-    if (s === "REVIEW" || s === "GRADING") return { label: "На ревью", cls: "review" };
+    if (s === "REVIEW") return { label: "Подготовка", cls: "muted" };
+    if (s === "GRADING") return { label: "Оценивание", cls: "review" };
     if (s === "RECRUITMENT") return { label: "Набор", cls: "muted" };
-    if (s === "ARCHIVE") return { label: "Архив", cls: "muted" };
+    if (s === "COMPLETED") return { label: "Завершен", cls: "active" };
+    if (s === "ARCHIVE") return { label: "Завершен", cls: "active" };
     return { label: "Черновик", cls: "muted" };
   }
 
   function lifecycleStageLabel(status) {
     const s = String(status || "").toUpperCase();
-    if (s === "REVIEW") return "Модерация";
+    if (s === "REVIEW") return "Подготовка";
     if (s === "RECRUITMENT") return "Набор";
     if (s === "ACTIVE") return "В работе";
     if (s === "GRADING") return "Оценивание";
-    if (s === "ARCHIVE") return "Архив";
+    if (s === "COMPLETED") return "Завершен";
+    if (s === "ARCHIVE") return "Завершен";
     return "Черновик";
   }
 
@@ -748,8 +777,8 @@
   function lifecycleSummaryText(snapshot) {
     if (snapshot.statusCode === "REVIEW") {
       return snapshot.canActivate
-        ? "Проект прошел подготовку и может быть запущен после модерации."
-        : "Опциональный этап модерации: после него можно открыть набор или сразу запускать проект при полной готовности.";
+        ? "Проект прошел подготовку и готов к запуску."
+        : "Проект находится на финальной подготовке перед запуском команды.";
     }
 
     if (snapshot.statusCode === "RECRUITMENT") {
@@ -792,31 +821,28 @@
       if (snapshot.gradedCriteria < snapshot.criteriaCount) {
         return `Проект на проверке: оценки выставлены по ${snapshot.gradedCriteria}/${snapshot.criteriaCount} критериям.`;
       }
-      return "Все критерии оценены: можно публиковать итоговую оценку и переносить проект в архив.";
+      return "Все критерии оценены: можно публиковать итоговую оценку и завершать проект.";
+    }
+
+    if (snapshot.statusCode === "COMPLETED") {
+      return "Проект завершен: итоговая оценка опубликована и доступна в карточке проекта.";
     }
 
     if (snapshot.statusCode === "ARCHIVE") {
-      return "Проект завершен: итог опубликован, карточка остается в истории платформы.";
+      return "Проект завершен: итоговая оценка опубликована и доступна в карточке проекта.";
     }
 
-    return "Стартовая стадия: заполните описание, роли и стек, затем откройте набор или отправьте проект на модерацию.";
+    return "Стартовая стадия: заполните описание, роли и стек, затем откройте набор проекта.";
   }
 
   function lifecycleStepState(stepCode, currentStatus) {
     const code = String(stepCode || "").toUpperCase();
-    const status = String(currentStatus || "").toUpperCase();
-
-    if (code === "REVIEW") {
-      return status === "REVIEW" ? "is-current" : "is-optional";
-    }
+    const status = normalizedLifecycleStatus(currentStatus);
 
     const stepIndex = PRIMARY_LIFECYCLE_FLOW.indexOf(code);
     const currentIndex = PRIMARY_LIFECYCLE_FLOW.indexOf(status);
 
     if (stepIndex === -1) return "is-upcoming";
-    if (status === "REVIEW") {
-      return code === "DRAFT" ? "is-complete" : "is-upcoming";
-    }
     if (currentIndex === -1) return stepIndex === 0 ? "is-current" : "is-upcoming";
     if (stepIndex < currentIndex) return "is-complete";
     if (stepIndex === currentIndex) return "is-current";
@@ -1113,14 +1139,8 @@
     return def;
   }
 
-  function bindProfile() {
-    const name = localStorage.getItem(LS_STUDENT_NAME) || "Student";
-    const email = localStorage.getItem(LS_STUDENT_EMAIL) || "student@university.edu";
-    const avatarURL = localStorage.getItem(LS_AVATAR_URL) || "";
-
-    ui.studentName.textContent = name;
-    ui.studentEmail.textContent = email;
-    renderAvatar(ui.profileAvatar, initials(name, email), avatarURL);
+  function bindProfile(profile) {
+    syncStudentSidebar(profile || auth.getCachedProfile());
   }
 
   function bindProjectMetaToUI() {
@@ -1195,16 +1215,9 @@
     const steps = [
       {
         code: "DRAFT",
-        title: "Черновик",
+        title: "Подготовка",
         copy: "Идея проекта, описание, README, стек и базовые роли команды.",
         meta: [visibilityLabel(state.project?.visibility), `Стек ${state.stacks.length}`, "README / описание"],
-      },
-      {
-        code: "REVIEW",
-        title: "Модерация",
-        copy: "Опциональная проверка от куратора или администратора перед запуском.",
-        meta: ["Admin override", snapshot.canActivate ? "Можно запускать" : "Промежуточный этап"],
-        optional: true,
       },
       {
         code: "RECRUITMENT",
@@ -1225,10 +1238,10 @@
         meta: [`Оценено ${snapshot.gradedCriteria}/${snapshot.criteriaCount}`, `Профессор ${snapshot.professorLabel}`],
       },
       {
-        code: "ARCHIVE",
-        title: "Архив",
-        copy: "Финальная стадия: оценка опубликована, проект завершен и сохранен в истории.",
-        meta: [snapshot.statusCode === "ARCHIVE" ? "Проект завершен" : "Финальная стадия", `Критерии ${snapshot.criteriaCount}`],
+        code: "COMPLETED",
+        title: "Завершение",
+        copy: "Итоговая оценка опубликована, проект завершен и доступен как завершенный кейс.",
+        meta: [snapshot.statusCode === "COMPLETED" || snapshot.statusCode === "ARCHIVE" ? "Итог опубликован" : "Финальная стадия", `Критерии ${snapshot.criteriaCount}`],
       },
     ];
 
@@ -1363,7 +1376,7 @@
       ui.readinessList.appendChild(row);
     });
 
-    const canShowApprove = statusCode !== "ACTIVE" && statusCode !== "GRADING" && statusCode !== "ARCHIVE";
+    const canShowApprove = statusCode !== "ACTIVE" && statusCode !== "GRADING" && statusCode !== "COMPLETED" && statusCode !== "ARCHIVE";
     ui.approveProjectBtn.hidden = !canShowApprove;
     ui.approveProjectBtn.disabled = !state.readiness.can_activate;
 
@@ -1387,7 +1400,7 @@
         if (!professorAccepted) reasons.push("преподаватель еще не подтвердил участие");
         if (tasksTotal === 0) reasons.push("нет задач для проверки");
         if (tasksTotal > 0 && tasksDone < tasksTotal) reasons.push(`выполнено задач ${tasksDone}/${tasksTotal}`);
-        ui.completeProjectBtn.title = readyForSubmit ? "" : `Нельзя завершить: ${reasons.join(", ")}`;
+        ui.completeProjectBtn.title = readyForSubmit ? "" : `Нельзя отправить на оценивание: ${reasons.join(", ")}`;
       }
     }
 
@@ -1406,7 +1419,7 @@
         ui.professorIdentity.hidden = false;
         ui.professorIdentity.innerHTML =
           `<div class="member-avatar">${escapeHTML(initials(fullName, state.professorSummary.email))}</div>` +
-          `<div><strong>${escapeHTML(fullName)}</strong><small>${escapeHTML(state.professorSummary.email || "")}${escapeHTML(dep)}</small></div>`;
+          `<div><strong><a href="${escapeHTML(profileURL(state.professorSummary.user_id))}">${escapeHTML(fullName)}</a></strong><small>${escapeHTML(state.professorSummary.email || "")}${escapeHTML(dep)}</small></div>`;
       } else {
         ui.professorIdentity.hidden = true;
         ui.professorIdentity.innerHTML = "";
@@ -1492,7 +1505,7 @@
         `<td>` +
           `<div class="user-cell">` +
             `<div class="member-avatar">${escapeHTML(initials(getDisplayName(m.user_id), m.user_id))}</div>` +
-            `<div><strong>${escapeHTML(getDisplayName(m.user_id))}</strong><small>${escapeHTML(getDisplaySubline(m.user_id))}</small></div>` +
+            `<div><strong><a href="${escapeHTML(profileURL(m.user_id))}">${escapeHTML(getDisplayName(m.user_id))}</a></strong><small>${escapeHTML(getDisplaySubline(m.user_id))}</small></div>` +
           `</div>` +
         `</td>` +
         `<td><span class="status-badge ${statusClass}">${escapeHTML(statusLabel)}</span></td>` +
@@ -1529,7 +1542,7 @@
       row.innerHTML =
         `<div class="invite-user">` +
           `<div class="member-avatar">${escapeHTML(initials(item.full_name, item.email))}</div>` +
-          `<div><strong>${escapeHTML(item.full_name || item.email)}</strong><small>${escapeHTML(item.email || "")} · ${escapeHTML(item.department_code || "-")}</small></div>` +
+          `<div><strong><a href="${escapeHTML(profileURL(item.user_id))}">${escapeHTML(item.full_name || item.email)}</a></strong><small>${escapeHTML(item.email || "")} · ${escapeHTML(item.department_code || "-")}</small></div>` +
         `</div>` +
         `<input class="invite-comment-input" type="text" placeholder="Комментарий к приглашению" />` +
         `<button class="ghost-btn" data-invite-user="${escapeHTML(item.user_id)}">Пригласить</button>`;
@@ -1755,10 +1768,10 @@
       const summary = reviewSummaryData();
       if (summary.hasReview) {
         ui.criteriaReviewHint.textContent = `Проверено: ${summary.met}/${summary.total}. Итоговый балл: ${summary.score}/5.0 (${summary.passPercent}%).`;
-      } else if (status === "REVIEW" || status === "GRADING" || status === "ARCHIVE") {
-        ui.criteriaReviewHint.textContent = "Проект на этапе ревью. Итоговая оценка будет доступна после проверки преподавателем.";
+      } else if (status === "REVIEW" || status === "GRADING" || status === "COMPLETED" || status === "ARCHIVE") {
+        ui.criteriaReviewHint.textContent = "Проект ожидает преподавательскую проверку. Итоговая оценка появится после завершения оценки.";
       } else {
-        ui.criteriaReviewHint.textContent = "Оценивание появится после завершения проекта и начала ревью.";
+        ui.criteriaReviewHint.textContent = "Оценивание появится после завершения проекта и запуска проверки преподавателем.";
       }
     }
   }
@@ -1807,7 +1820,7 @@
     }
 
     if (ui.reviewStatusPill) {
-      if (status === "ARCHIVE" && summary.hasReview) {
+      if ((status === "COMPLETED" || status === "ARCHIVE") && summary.hasReview) {
         ui.reviewStatusPill.className = "status-pill active";
         ui.reviewStatusPill.textContent = "Проверено преподавателем";
       } else if (status === "GRADING") {
@@ -2690,10 +2703,6 @@
   }
 
   function wireEvents() {
-    ui.logoutBtn.addEventListener("click", () => {
-      auth.logout();
-    });
-
     ui.favoriteBtn.addEventListener("click", () => {
       state.favorite = !state.favorite;
       state.projectMeta = {
@@ -2959,8 +2968,7 @@
     const claims = await auth.ensureSession("student");
     if (!claims) return;
 
-    syncStudentSidebar();
-    bindProfile();
+    bindProfile(claims);
 
     state.projectID = projectIDFromPath();
     if (!state.projectID) {
@@ -2981,6 +2989,10 @@
       await refreshData();
       setView(initialViewFromURL());
     } catch (err) {
+      if (err && err.status === 404 && auth && typeof auth.redirectToNotFound === "function") {
+        auth.redirectToNotFound();
+        return;
+      }
       setNotice(`Не удалось загрузить проект: ${err.message || String(err)}`, true);
     }
   }

@@ -39,8 +39,8 @@ func NewRouter(
 	authMW := middleware.AuthRequired(jwtSecret)
 
 	registerPublicRoutes(v2, publicContactH)
-	registerAuthRoutes(v2, authMW, authHandler)
-	registerAdminRoutes(v2, authMW, adminHandler)
+	registerAuthRoutes(v2, authMW, rbacSvc, authHandler)
+	registerAdminRoutes(v2, authMW, rbacSvc, adminHandler)
 	registerProjectsRoutes(v2, authMW, rbacSvc, projectsSvc, notifier)
 	registerNotificationRoutes(v2, authMW, notificationsH)
 	registerProjectFlowRoutes(v2, authMW, rbacSvc, projectFlowH)

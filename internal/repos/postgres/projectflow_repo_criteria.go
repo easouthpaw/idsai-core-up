@@ -9,13 +9,19 @@ import (
 )
 
 func (r *ProjectFlowRepo) GetProjectCriteriaWeightSum(ctx context.Context, projectID uuid.UUID) (int, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return 0, err
+	}
+
 	const q = `
 SELECT COALESCE(SUM(weight), 0)
 FROM project_criteria
-WHERE project_id = $1;
+WHERE tenant_id = $1
+  AND project_id = $2;
 `
 	var total int
-	if err := r.db.QueryRow(ctx, q, projectID).Scan(&total); err != nil {
+	if err := r.db.QueryRow(ctx, q, tenantID, projectID).Scan(&total); err != nil {
 		return 0, err
 	}
 	return total, nil
@@ -27,9 +33,17 @@ func (r *ProjectFlowRepo) CreateProjectCriterion(
 	title, description string,
 	weight int,
 ) (projectflow.Criterion, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return projectflow.Criterion{}, err
+	}
+
 	const q = `
 INSERT INTO project_criteria(tenant_id, project_id, title, description, weight, created_by)
-VALUES ((SELECT tenant_id FROM projects WHERE id = $1), $1, $2, $3, $4, $5)
+SELECT $1, $2, $3, $4, $5, $6
+FROM projects p
+WHERE p.tenant_id = $1
+  AND p.id = $2
 RETURNING id, project_id, title, description, weight, created_by, created_at;
 `
 	var (
@@ -38,7 +52,7 @@ RETURNING id, project_id, title, description, weight, created_by, created_at;
 		pid       uuid.UUID
 		createdBy uuid.UUID
 	)
-	err := r.db.QueryRow(ctx, q, projectID, title, description, weight, userID).Scan(
+	err = r.db.QueryRow(ctx, q, tenantID, projectID, title, description, weight, userID).Scan(
 		&id,
 		&pid,
 		&c.Title,
@@ -57,13 +71,19 @@ RETURNING id, project_id, title, description, weight, created_by, created_at;
 }
 
 func (r *ProjectFlowRepo) ListProjectCriteria(ctx context.Context, projectID uuid.UUID) ([]projectflow.Criterion, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	const q = `
 SELECT id, project_id, title, description, weight, created_by, created_at
 FROM project_criteria
-WHERE project_id=$1
+WHERE tenant_id = $1
+  AND project_id = $2
 ORDER BY created_at ASC;
 `
-	rows, err := r.db.Query(ctx, q, projectID)
+	rows, err := r.db.Query(ctx, q, tenantID, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -92,14 +112,20 @@ func (r *ProjectFlowRepo) ListProjectCriterionGrades(
 	ctx context.Context,
 	projectID, professorID uuid.UUID,
 ) ([]projectflow.CriterionGrade, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	const q = `
 SELECT criterion_id, is_met, comment, updated_at
 FROM project_criterion_reviews
-WHERE project_id = $1
-  AND professor_id = $2
+WHERE tenant_id = $1
+  AND project_id = $2
+  AND professor_id = $3
 ORDER BY updated_at DESC;
 `
-	rows, err := r.db.Query(ctx, q, projectID, professorID)
+	rows, err := r.db.Query(ctx, q, tenantID, projectID, professorID)
 	if err != nil {
 		if isUndefinedRelationErr(err, "project_criterion_reviews") {
 			return []projectflow.CriterionGrade{}, nil
@@ -128,6 +154,11 @@ func (r *ProjectFlowRepo) UpsertProjectCriterionGrades(
 	projectID, professorID uuid.UUID,
 	items []projectflow.CriterionGradeUpsert,
 ) error {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return err
@@ -138,26 +169,30 @@ func (r *ProjectFlowRepo) UpsertProjectCriterionGrades(
 SELECT EXISTS (
   SELECT 1
   FROM project_criteria
-  WHERE id = $1
-    AND project_id = $2
+  WHERE tenant_id = $1
+    AND id = $2
+    AND project_id = $3
 ) AS ok;
 `
 	const qUpsert = `
 INSERT INTO project_criterion_reviews(tenant_id, project_id, criterion_id, professor_id, is_met, comment)
-VALUES ((SELECT tenant_id FROM projects WHERE id = $1), $1, $2, $3, $4, $5)
+SELECT $1, $2, $3, $4, $5, $6
+FROM projects p
+WHERE p.tenant_id = $1
+  AND p.id = $2
 ON CONFLICT (project_id, criterion_id, professor_id)
 DO UPDATE SET is_met = EXCLUDED.is_met, comment = EXCLUDED.comment, updated_at = now();
 `
 
 	for _, item := range items {
 		var ok bool
-		if err := tx.QueryRow(ctx, qExists, item.CriterionID, projectID).Scan(&ok); err != nil {
+		if err := tx.QueryRow(ctx, qExists, tenantID, item.CriterionID, projectID).Scan(&ok); err != nil {
 			return err
 		}
 		if !ok {
 			return projectflow.ErrInvalidInput
 		}
-		if _, err := tx.Exec(ctx, qUpsert, projectID, item.CriterionID, professorID, item.IsMet, item.Comment); err != nil {
+		if _, err := tx.Exec(ctx, qUpsert, tenantID, projectID, item.CriterionID, professorID, item.IsMet, item.Comment); err != nil {
 			if isUndefinedRelationErr(err, "project_criterion_reviews") {
 				return projectflow.ErrSchemaMissing
 			}
@@ -169,28 +204,40 @@ DO UPDATE SET is_met = EXCLUDED.is_met, comment = EXCLUDED.comment, updated_at =
 }
 
 func (r *ProjectFlowRepo) CountProjectCriteria(ctx context.Context, projectID uuid.UUID) (int, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return 0, err
+	}
+
 	const q = `
 SELECT COUNT(*)
 FROM project_criteria
-WHERE project_id = $1;
+WHERE tenant_id = $1
+  AND project_id = $2;
 `
 	var total int
-	if err := r.db.QueryRow(ctx, q, projectID).Scan(&total); err != nil {
+	if err := r.db.QueryRow(ctx, q, tenantID, projectID).Scan(&total); err != nil {
 		return 0, err
 	}
 	return total, nil
 }
 
 func (r *ProjectFlowRepo) CountProjectGradedCriteria(ctx context.Context, projectID, professorID uuid.UUID) (int, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return 0, err
+	}
+
 	const q = `
 SELECT COUNT(*)
 FROM project_criterion_reviews
-WHERE project_id = $1
-  AND professor_id = $2
+WHERE tenant_id = $1
+  AND project_id = $2
+  AND professor_id = $3
   AND is_met IS NOT NULL;
 `
 	var total int
-	if err := r.db.QueryRow(ctx, q, projectID, professorID).Scan(&total); err != nil {
+	if err := r.db.QueryRow(ctx, q, tenantID, projectID, professorID).Scan(&total); err != nil {
 		if isUndefinedRelationErr(err, "project_criterion_reviews") {
 			return 0, projectflow.ErrSchemaMissing
 		}

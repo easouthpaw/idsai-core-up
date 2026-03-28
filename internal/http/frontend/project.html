@@ -9,72 +9,18 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/dev/static/css/project-detail.css" />
+  <link rel="stylesheet" href="/dev/static/css/role-sidebar.css" />
   <link rel="stylesheet" href="/dev/static/css/notifications-popup.css" />
   <link rel="stylesheet" href="/dev/static/css/dev-theme.css" />
 </head>
 <body class="project-body">
   <div class="app-shell">
-    <aside class="sidebar">
-      <div class="brand">
-        <img class="brand-logo" src="/dev/static/assets/idsai-corp-logo.png" alt="IDSAI Corp. logo" width="160" height="40" />
-        <span class="logo-text">IDSAI Corp.</span>
-      </div>
-
-      <div class="profile-row">
-        <div id="profileAvatar" class="avatar">ST</div>
-        <div class="user-info-text">
-          <p id="studentName" class="profile-name">Student</p>
-          <p id="studentEmail" class="profile-sub">student@university.edu</p>
-        </div>
-      </div>
-
-      <p class="nav-title">WORKSPACE</p>
-      <nav class="main-nav side-nav" aria-label="Student sections">
-        <a class="nav-link side-link" data-nav-section="mine" href="/dev/projects?tab=mine">
-          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">folder</span></span>
-          <span class="nav-label">Мои проекты</span>
-        </a>
-        <a class="nav-link side-link" data-nav-section="community" href="/dev/projects?tab=community">
-          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">public</span></span>
-          <span class="nav-label">Сообщество</span>
-        </a>
-        <a class="nav-link side-link" data-nav-section="invites" href="/dev/invites">
-          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">mark_email_unread</span></span>
-          <span class="nav-label">Заявки</span>
-        </a>
-        <button class="nav-item side-link ghost" type="button" disabled>
-          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">task</span></span>
-          <span class="nav-label">Задачи</span>
-        </button>
-        <button class="nav-item side-link ghost" type="button" disabled>
-          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">group</span></span>
-          <span class="nav-label">Команда</span>
-        </button>
-        <button class="nav-item side-link ghost" type="button" disabled>
-          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">calendar_month</span></span>
-          <span class="nav-label">Календарь</span>
-        </button>
-      </nav>
-
-      <p class="nav-title">UTILITIES</p>
-      <nav class="main-nav side-nav">
-        <a class="nav-link side-link muted" href="/swagger/index.html" target="_blank" rel="noreferrer">
-          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">description</span></span>
-          <span class="nav-label">Swagger</span>
-        </a>
-      </nav>
-
-      <div class="sidebar-bottom">
-        <a class="bottom-link" href="/dev/settings">
-          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">settings</span></span>
-          <span class="nav-label">Настройки</span>
-        </a>
-        <button id="logoutBtn" class="bottom-link danger" type="button">
-          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">logout</span></span>
-          <span class="nav-label">Выйти</span>
-        </button>
-      </div>
-    </aside>
+    <aside
+      data-role-sidebar
+      data-sidebar-role="student"
+      data-sidebar-active="mine"
+      class="role-sidebar"
+    ></aside>
 
     <div class="main-shell">
       <header class="topbar">
@@ -206,7 +152,7 @@
                   <div id="readinessList" class="readiness-list"></div>
                   <button id="openRecruitmentBtn" class="ghost-btn" type="button" hidden>Открыть набор (RECRUITMENT)</button>
                   <button id="approveProjectBtn" class="primary-btn" type="button">Утвердить проект (ACTIVE)</button>
-                  <button id="completeProjectBtn" class="ghost-btn" type="button" hidden>Завершить проект (GRADING)</button>
+                  <button id="completeProjectBtn" class="ghost-btn" type="button" hidden>Отправить на оценивание (GRADING)</button>
                 </div>
               </article>
             </div>
@@ -614,7 +560,7 @@
       }
       const status = String(project.status || "").toUpperCase();
       if (status) {
-        setText("statusBadge", status === "ACTIVE" ? "В работе" : status === "RECRUITMENT" ? "Набор" : status === "ARCHIVE" ? "Архив" : status);
+        setText("statusBadge", status === "ACTIVE" ? "В работе" : status === "RECRUITMENT" ? "Набор" : status === "COMPLETED" || status === "ARCHIVE" ? "Завершен" : status);
       }
       const about = document.getElementById("aboutContent");
       if (about && description) {
@@ -625,6 +571,7 @@
     })();
   </script>
   <script src="/dev/static/js/auth-session.js" defer></script>
+  <script src="/dev/static/js/role-sidebar.js" defer></script>
   <script src="/dev/static/js/notifications-popup.js?v=20260307-2" defer></script>
   <script src="/dev/static/js/project-detail.js" defer></script>
 </body>

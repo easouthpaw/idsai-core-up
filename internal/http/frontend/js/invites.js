@@ -1,5 +1,6 @@
 (() => {
   const auth = window.IDSAIAuth;
+  const roleSidebar = window.IDSAIRoleSidebar;
   const LS_ACCESS = "idsai_access_token";
   const LS_REFRESH = "idsai_refresh_token";
   const LS_USER = "idsai_rbac_user_id";
@@ -65,6 +66,16 @@
     }
     el.classList.remove("has-image");
     el.textContent = fallbackText;
+  }
+
+  function projectStatusLabel(status) {
+    const code = String(status || "").toUpperCase();
+    if (code === "DRAFT" || code === "REVIEW") return "ПОДГОТОВКА";
+    if (code === "RECRUITMENT") return "НАБОР";
+    if (code === "ACTIVE") return "В РАБОТЕ";
+    if (code === "GRADING") return "ОЦЕНИВАНИЕ";
+    if (code === "COMPLETED" || code === "ARCHIVE") return "ЗАВЕРШЕН";
+    return code || "СТАТУС";
   }
 
   function formatDate(raw) {
@@ -137,14 +148,30 @@
     return data;
   }
 
-  function bindProfile() {
-    const name = localStorage.getItem(LS_STUDENT_NAME) || "Student";
-    const email = localStorage.getItem(LS_STUDENT_EMAIL) || "student@university.edu";
-    const avatarURL = localStorage.getItem(LS_AVATAR_URL) || "";
+  function syncSidebar(profile) {
+    const host = document.querySelector("[data-role-sidebar]");
+    if (!host || !roleSidebar || typeof roleSidebar.renderSidebar !== "function") {
+      return;
+    }
 
-    ui.studentName.textContent = name;
-    ui.studentEmail.textContent = email;
-    renderAvatar(ui.profileAvatar, initials(name, email), avatarURL);
+    host.dataset.sidebarActive = "invites";
+    roleSidebar.renderSidebar(host, {
+      role: "student",
+      active: "invites",
+      profile,
+      scope: typeof auth.getDefaultScope === "function" ? auth.getDefaultScope() : null,
+    });
+
+    const logoutBtn = document.getElementById("logoutBtn");
+    if (logoutBtn) {
+      logoutBtn.onclick = () => {
+        auth.logout();
+      };
+    }
+  }
+
+  function bindProfile(profile) {
+    syncSidebar(profile || auth.getCachedProfile());
   }
 
   function badgeClass(status) {
@@ -225,7 +252,7 @@
           `</div>` +
           `<div class="invite-badges">` +
             `<span class="inv-badge ${escapeHTML(badgeClass(memberStatus))}">${escapeHTML(memberStatusLabel)}</span>` +
-            `<span class="inv-badge">${escapeHTML(String(item.project_status || "DRAFT").toUpperCase())}</span>` +
+            `<span class="inv-badge">${escapeHTML(projectStatusLabel(item.project_status || "DRAFT"))}</span>` +
           `</div>` +
         `</div>` +
         (inviteComment ? `<div class="invite-comment">${escapeHTML(inviteComment)}</div>` : "") +
@@ -262,7 +289,7 @@
           `</div>` +
           `<div class="invite-badges">` +
             `<span class="inv-badge ${escapeHTML(badgeClass(status))}">${escapeHTML(statusLabel)}</span>` +
-            `<span class="inv-badge">${escapeHTML(String(item.project_status || "DRAFT").toUpperCase())}</span>` +
+            `<span class="inv-badge">${escapeHTML(projectStatusLabel(item.project_status || "DRAFT"))}</span>` +
           `</div>` +
         `</div>` +
         `<div class="invite-actions">` +
@@ -380,10 +407,6 @@
   }
 
   function wireEvents() {
-    ui.logoutBtn.addEventListener("click", () => {
-      auth.logout();
-    });
-
     ui.tabIncoming.addEventListener("click", () => setTab("incoming"));
     ui.tabOutgoing.addEventListener("click", () => setTab("outgoing"));
 
@@ -399,7 +422,7 @@
     if (!claims) return;
 
     localStorage.setItem(LS_STUDENT_SECTION, "invites");
-    bindProfile();
+    bindProfile(claims);
     wireEvents();
 
     try {

@@ -1,5 +1,6 @@
 (() => {
   const auth = window.IDSAIAuth;
+  const roleSidebar = window.IDSAIRoleSidebar;
   const LS_ACCESS = "idsai_access_token";
   const LS_REFRESH = "idsai_refresh_token";
   const LS_USER = "idsai_rbac_user_id";
@@ -10,7 +11,6 @@
   const LS_IS_ADMIN = "idsai_is_admin";
   const LS_IS_PROFESSOR = "idsai_is_professor";
 
-  const viewButtons = Array.from(document.querySelectorAll(".role-sidebar__link[data-sidebar-view]"));
   const viewEls = Array.from(document.querySelectorAll(".view"));
   const crumbCurrentEl = document.getElementById("crumbCurrent");
   const quickSearchInputEl = document.getElementById("quickSearchInput");
@@ -34,7 +34,6 @@
   const quickAddProfessorBtnEl = document.getElementById("quickAddProfessorBtn");
   const addStudentBtnEl = document.getElementById("addStudentBtn");
   const addProfessorBtnEl = document.getElementById("addProfessorBtn");
-  const logoutBtnEl = document.getElementById("logoutBtn");
 
   const statTotalUsersEl = document.getElementById("statTotalUsers");
   const statStudentsEl = document.getElementById("statStudents");
@@ -42,14 +41,14 @@
   const statDisabledEl = document.getElementById("statDisabled");
 
   const statTotalProjectsEl = document.getElementById("statTotalProjects");
-  const statReviewProjectsEl = document.getElementById("statReviewProjects");
-  const statApprovedProjectsEl = document.getElementById("statApprovedProjects");
-  const statRejectedProjectsEl = document.getElementById("statRejectedProjects");
+  const statPreparingProjectsEl = document.getElementById("statPreparingProjects");
+  const statWorkingProjectsEl = document.getElementById("statWorkingProjects");
+  const statCompletedProjectsEl = document.getElementById("statCompletedProjects");
 
   const projTotalEl = document.getElementById("projTotal");
-  const projReviewEl = document.getElementById("projReview");
-  const projApprovedEl = document.getElementById("projApproved");
-  const projRejectedEl = document.getElementById("projRejected");
+  const projPreparingEl = document.getElementById("projPreparing");
+  const projWorkingEl = document.getElementById("projWorking");
+  const projCompletedEl = document.getElementById("projCompleted");
 
   const activityListEl = document.getElementById("activityList");
 
@@ -86,8 +85,6 @@
   const adminNameEl = document.getElementById("adminName");
   const adminEmailEl = document.getElementById("adminEmail");
   const adminAvatarEl = document.getElementById("adminAvatar");
-  const sidebarNameEl = document.getElementById("sidebarName");
-  const sidebarInitialsEl = document.getElementById("sidebarInitials");
 
   const state = {
     activeView: "dashboard",
@@ -136,6 +133,30 @@
     el.textContent = fallbackText;
   }
 
+  function sidebarHost() {
+    return document.querySelector("[data-role-sidebar]");
+  }
+
+  function sidebarViewButtons() {
+    return Array.from(document.querySelectorAll("[data-role-sidebar] [data-sidebar-view]"));
+  }
+
+  function syncSidebar(profile) {
+    const host = sidebarHost();
+    if (!host || !roleSidebar || typeof roleSidebar.renderSidebar !== "function") {
+      return;
+    }
+
+    host.dataset.sidebarActive = state.activeView;
+    roleSidebar.renderSidebar(host, {
+      role: "admin",
+      active: state.activeView,
+      profile,
+      adminViewMode: "inline",
+      scope: typeof auth.getDefaultScope === "function" ? auth.getDefaultScope() : { type: "SYSTEM", id: "" },
+    });
+  }
+
   function clearSession() {
     auth.clearClientState();
   }
@@ -160,10 +181,14 @@
     const iv = initials(name || email);
 
     adminNameEl.textContent = name;
-    sidebarNameEl.textContent = name;
     adminEmailEl.textContent = email;
     renderAvatar(adminAvatarEl, iv, avatarURL);
-    renderAvatar(sidebarInitialsEl, iv, avatarURL);
+    syncSidebar(auth.getCachedProfile() || {
+      full_name: name,
+      email,
+      avatar_url: avatarURL,
+      is_admin: true,
+    });
   }
 
   function authHeaders(withJSON) {
@@ -177,10 +202,15 @@
   }
 
   function handleAuthFail(status) {
-    if (status !== 401 && status !== 403) return false;
-    clearSession();
-    window.location.href = "/dev/login";
-    return true;
+    if (status === 401) {
+      clearSession();
+      window.location.href = "/dev/login";
+      return true;
+    }
+    if (status === 403) {
+      return true;
+    }
+    return false;
   }
 
   async function fetchUsers(role, search) {
@@ -253,22 +283,23 @@
 
   function projectStatusLabel(status) {
     const s = String(status || "").toUpperCase();
-    if (s === "DRAFT") return "Черновик";
-    if (s === "REVIEW") return "На проверке";
+    if (s === "DRAFT" || s === "REVIEW") return "Подготовка";
     if (s === "RECRUITMENT") return "Набор";
     if (s === "ACTIVE") return "Активный";
     if (s === "GRADING") return "Оценивание";
-    if (s === "ARCHIVE") return "Отклонен";
+    if (s === "COMPLETED") return "Завершен";
+    if (s === "ARCHIVE") return "Завершен";
     return s || "-";
   }
 
   function projectStatusClass(status) {
     const s = String(status || "").toUpperCase();
-    if (s === "REVIEW") return "review";
+    if (s === "REVIEW" || s === "DRAFT") return "draft";
     if (s === "ACTIVE") return "active";
     if (s === "RECRUITMENT") return "recruitment";
     if (s === "GRADING") return "grading";
-    if (s === "ARCHIVE") return "archive";
+    if (s === "COMPLETED") return "active";
+    if (s === "ARCHIVE") return "active";
     return "draft";
   }
 
@@ -283,9 +314,11 @@
   function projectStatusDot(status) {
     const s = String(status || "").toUpperCase();
     if (s === "ACTIVE") return "green";
-    if (s === "REVIEW") return "amber";
-    if (s === "ARCHIVE") return "red";
+    if (s === "COMPLETED") return "green";
+    if (s === "REVIEW" || s === "DRAFT") return "gray";
+    if (s === "ARCHIVE") return "green";
     if (s === "RECRUITMENT") return "violet";
+    if (s === "GRADING") return "amber";
     return "gray";
   }
 
@@ -338,9 +371,18 @@
     const list = Array.isArray(projects) ? projects : [];
     return {
       total: list.length,
-      review: list.filter((p) => String(p.status || "").toUpperCase() === "REVIEW").length,
-      approved: list.filter((p) => String(p.status || "").toUpperCase() === "ACTIVE").length,
-      rejected: list.filter((p) => String(p.status || "").toUpperCase() === "ARCHIVE").length,
+      preparing: list.filter((p) => {
+        const status = String(p.status || "").toUpperCase();
+        return status === "DRAFT" || status === "REVIEW";
+      }).length,
+      working: list.filter((p) => {
+        const status = String(p.status || "").toUpperCase();
+        return status === "RECRUITMENT" || status === "ACTIVE" || status === "GRADING";
+      }).length,
+      completed: list.filter((p) => {
+        const status = String(p.status || "").toUpperCase();
+        return status === "COMPLETED" || status === "ARCHIVE";
+      }).length,
     };
   }
 
@@ -361,14 +403,14 @@
     const stats = computeProjectStats(projects);
 
     statTotalProjectsEl.textContent = String(stats.total);
-    statReviewProjectsEl.textContent = String(stats.review);
-    statApprovedProjectsEl.textContent = String(stats.approved);
-    statRejectedProjectsEl.textContent = String(stats.rejected);
+    statPreparingProjectsEl.textContent = String(stats.preparing);
+    statWorkingProjectsEl.textContent = String(stats.working);
+    statCompletedProjectsEl.textContent = String(stats.completed);
 
     projTotalEl.textContent = String(stats.total);
-    projReviewEl.textContent = String(stats.review);
-    projApprovedEl.textContent = String(stats.approved);
-    projRejectedEl.textContent = String(stats.rejected);
+    projPreparingEl.textContent = String(stats.preparing);
+    projWorkingEl.textContent = String(stats.working);
+    projCompletedEl.textContent = String(stats.completed);
   }
 
   function renderActivity(users, projects, query) {
@@ -455,6 +497,7 @@
         <td><span class="pill ${userStatusClass(u.status)}"><i class="dot ${userStatusDot(u.status)}"></i>${escapeHTML(userStatusLabel(u.status))}</span></td>
         <td>
           <div class="row-actions">
+            <button type="button" class="action-btn" data-act="view-profile" data-id="${u.id}">Профиль</button>
             <button type="button" class="action-btn" data-act="set-user-status" data-id="${u.id}" data-status="${actionStatus}">${escapeHTML(actionLabel)}</button>
             ${canSwitchRole ? `<button type="button" class="action-btn" data-act="set-user-role" data-id="${u.id}" data-role="${nextRole}">${escapeHTML(roleActionLabel)}</button>` : ""}
             <button type="button" class="action-btn" data-act="reset-password" data-id="${u.id}" data-name="${escapeHTML(u.full_name || u.email || "Пользователь")}">Сброс пароля</button>
@@ -488,20 +531,17 @@
       if (status === "REVIEW") {
         actions = `
           ${observeBtn}
-          <button class="action-btn approve" data-project-act="set-status" data-id="${p.id}" data-next="ACTIVE">Одобрить</button>
-          <button class="action-btn reject" data-project-act="set-status" data-id="${p.id}" data-next="ARCHIVE" data-title="${escapeHTML(p.title || "")}">Отклонить</button>
+          <button class="action-btn approve" data-project-act="set-status" data-id="${p.id}" data-next="ACTIVE">Запустить</button>
           <button class="action-btn reject" data-project-act="delete" data-id="${p.id}" data-title="${escapeHTML(p.title || "")}">Удалить</button>
         `;
-      } else if (status === "ARCHIVE") {
+      } else if (status === "COMPLETED" || status === "ARCHIVE") {
         actions = `
           ${observeBtn}
-          <button class="action-btn" data-project-act="set-status" data-id="${p.id}" data-next="ACTIVE">Активировать</button>
           <button class="action-btn reject" data-project-act="delete" data-id="${p.id}" data-title="${escapeHTML(p.title || "")}">Удалить</button>
         `;
       } else {
         actions = `
           ${observeBtn}
-          <button class="action-btn reject" data-project-act="set-status" data-id="${p.id}" data-next="ARCHIVE" data-title="${escapeHTML(p.title || "")}">В архив</button>
           <button class="action-btn reject" data-project-act="delete" data-id="${p.id}" data-title="${escapeHTML(p.title || "")}">Удалить</button>
         `;
       }
@@ -572,7 +612,8 @@
     const next = view === "users" || view === "projects" ? view : "dashboard";
     state.activeView = next;
 
-    viewButtons.forEach((btn) => {
+    syncSidebar(auth.getCachedProfile());
+    sidebarViewButtons().forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.sidebarView === next);
     });
 
@@ -743,7 +784,12 @@
 
     if (!resp.ok) {
       if (handleAuthFail(resp.status)) return false;
-      projectModalStatusEl.textContent = data.error || `Ошибка смены статуса: ${resp.status}`;
+      const message = data.error || `Ошибка смены статуса: ${resp.status}`;
+      if (!projectStatusModalEl.hidden) {
+        projectModalStatusEl.textContent = message;
+      } else {
+        alert(message);
+      }
       return false;
     }
 
@@ -927,14 +973,12 @@
       status: targetStatus,
     };
 
-    projectModalTitleEl.textContent = targetStatus === "ARCHIVE" ? "Предупреждение" : "Подтверждение действия";
-    projectModalSubtitleEl.textContent = targetStatus === "ARCHIVE"
-      ? "Проект будет переведен в архив и исключен из активного списка."
-      : "Подтвердите смену статуса проекта.";
+    projectModalTitleEl.textContent = "Подтверждение действия";
+    projectModalSubtitleEl.textContent = "Подтвердите смену статуса проекта.";
     projectModalExpectedEl.textContent = projectTitle ? `Ожидается: ${projectTitle}` : "";
     projectModalStatusEl.textContent = "";
     projectConfirmInputEl.value = "";
-    projectModalSubmitBtnEl.textContent = targetStatus === "ARCHIVE" ? "Отклонить проект" : "Подтвердить";
+    projectModalSubmitBtnEl.textContent = "Подтвердить";
     projectModalSubmitBtnEl.disabled = true;
 
     projectStatusModalEl.hidden = false;
@@ -979,12 +1023,26 @@
   }
 
   function bindEvents() {
-    viewButtons.forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const next = btn.dataset.sidebarView || "dashboard";
-        setView(next, false);
+    const sidebar = sidebarHost();
+    if (sidebar) {
+      sidebar.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+
+        const viewBtn = target.closest("[data-sidebar-view]");
+        if (viewBtn instanceof HTMLElement) {
+          event.preventDefault();
+          setView(viewBtn.dataset.sidebarView || "dashboard", false);
+          return;
+        }
+
+        const logoutBtn = target.closest("#logoutBtn");
+        if (logoutBtn instanceof HTMLElement) {
+          event.preventDefault();
+          auth.logout();
+        }
       });
-    });
+    }
 
     if (openUsersViewBtnEl) {
       openUsersViewBtnEl.addEventListener("click", () => setView("users", false));
@@ -1118,6 +1176,11 @@
       const userID = target.dataset.id || "";
       if (!userID) return;
 
+      if (action === "view-profile") {
+        window.location.href = `/dev/profile?user_id=${encodeURIComponent(userID)}`;
+        return;
+      }
+
       if (action === "set-user-status") {
         const status = target.dataset.status || "";
         if (!status) return;
@@ -1188,18 +1251,9 @@
       const nextStatus = String(target.dataset.next || "").toUpperCase();
       if (!nextStatus) return;
 
-      if (nextStatus === "ARCHIVE") {
-        openProjectStatusModal(projectID, projectTitle, nextStatus);
-        return;
-      }
-
       const ok = await setProjectStatus(projectID, nextStatus);
       if (!ok) return;
       await reloadAll();
-    });
-
-    logoutBtnEl.addEventListener("click", () => {
-      auth.logout();
     });
   }
 

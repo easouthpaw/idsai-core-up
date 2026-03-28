@@ -3,17 +3,23 @@ package httpx
 import (
 	"idsai-core-up/internal/http/handlers"
 	"idsai-core-up/internal/http/middleware"
+	"idsai-core-up/internal/services/rbac"
 
 	"github.com/gin-gonic/gin"
 )
 
-func registerAdminRoutes(v2 *gin.RouterGroup, authMW gin.HandlerFunc, adminHandler *handlers.AdminHandler) {
+func registerAdminRoutes(v2 *gin.RouterGroup, authMW gin.HandlerFunc, rbacSvc *rbac.Service, adminHandler *handlers.AdminHandler) {
 	if adminHandler == nil {
 		return
 	}
 
+	enforce := rbacFeatureEnabled("RBAC_ENFORCE_ADMIN_PERMS", true)
 	admin := v2.Group("/admin")
-	admin.Use(authMW, middleware.AdminRequired())
+	admin.Use(
+		authMW,
+		middleware.AdminRequired(),
+		middleware.RequirePermissionIf(enforce && rbacSvc != nil, rbacSvc, "admin.manage_rbac", middleware.SystemScope()),
+	)
 	admin.GET("/users", adminHandler.ListUsers)
 	admin.POST("/users/students", adminHandler.CreateStudent)
 	admin.POST("/users/professors", adminHandler.CreateProfessor)

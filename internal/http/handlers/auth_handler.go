@@ -5,20 +5,28 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"idsai-core-up/internal/http/middleware"
 	"idsai-core-up/internal/security/passwords"
 	"idsai-core-up/internal/services/auth"
+	rbacsvc "idsai-core-up/internal/services/rbac"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type AuthHandler struct {
-	svc *auth.Service
+	svc   *auth.Service
+	authz *rbacsvc.Service
 }
 
 func NewAuthHandler(svc *auth.Service) *AuthHandler {
 	return &AuthHandler{svc: svc}
+}
+
+func (h *AuthHandler) SetAuthorizer(authz *rbacsvc.Service) {
+	h.authz = authz
 }
 
 type registerReq struct {
@@ -68,22 +76,40 @@ type accessResp struct {
 }
 
 type meResp struct {
-	UserID         string `json:"user_id"`
-	TenantID       string `json:"tenant_id"`
-	FacultyID      string `json:"faculty_id"`
-	DepartmentID   string `json:"department_id"`
-	DepartmentCode string `json:"department_code"`
-	GroupID        string `json:"group_id,omitempty"`
-	GroupCode      string `json:"group_code,omitempty"`
-	GroupNumber    *int   `json:"group_number,omitempty"`
-	Email          string `json:"email"`
-	PendingEmail   string `json:"pending_email,omitempty"`
-	PendingStatus  string `json:"pending_email_status,omitempty"`
-	FullName       string `json:"full_name"`
-	AvatarURL      string `json:"avatar_url,omitempty"`
-	IsAdmin        bool   `json:"is_admin"`
-	IsProfessor    bool   `json:"is_professor"`
-	EmailVerified  bool   `json:"email_verified"`
+	UserID         string   `json:"user_id"`
+	TenantID       string   `json:"tenant_id"`
+	FacultyID      string   `json:"faculty_id"`
+	DepartmentID   string   `json:"department_id"`
+	DepartmentCode string   `json:"department_code"`
+	GroupID        string   `json:"group_id,omitempty"`
+	GroupCode      string   `json:"group_code,omitempty"`
+	GroupNumber    *int     `json:"group_number,omitempty"`
+	Email          string   `json:"email"`
+	PendingEmail   string   `json:"pending_email,omitempty"`
+	PendingStatus  string   `json:"pending_email_status,omitempty"`
+	FullName       string   `json:"full_name"`
+	AvatarURL      string   `json:"avatar_url,omitempty"`
+	Headline       string   `json:"headline,omitempty"`
+	About          string   `json:"about,omitempty"`
+	PreferredRole  string   `json:"preferred_role,omitempty"`
+	Semester       string   `json:"semester,omitempty"`
+	Availability   string   `json:"availability,omitempty"`
+	Goals          string   `json:"goals,omitempty"`
+	GithubURL      string   `json:"github_url,omitempty"`
+	Telegram       string   `json:"telegram,omitempty"`
+	PortfolioURL   string   `json:"portfolio_url,omitempty"`
+	Stacks         []string `json:"stacks,omitempty"`
+	Interests      []string `json:"interests,omitempty"`
+	UpdatedAt      string   `json:"updated_at,omitempty"`
+	IsAdmin        bool     `json:"is_admin"`
+	IsProfessor    bool     `json:"is_professor"`
+	EmailVerified  bool     `json:"email_verified"`
+}
+
+type capabilitiesResp struct {
+	ScopeType   string   `json:"scope_type"`
+	ScopeID     string   `json:"scope_id,omitempty"`
+	Permissions []string `json:"permissions"`
 }
 
 func tenantCodeFromHeader(c *gin.Context) string {
@@ -165,11 +191,19 @@ func writeAuthError(c *gin.Context, err error) {
 }
 
 func buildMeResp(u auth.User) meResp {
+	return buildProfileResp(u, true)
+}
+
+func buildPublicProfileResp(u auth.User) meResp {
+	return buildProfileResp(u, false)
+}
+
+func buildProfileResp(u auth.User, includePrivate bool) meResp {
 	groupID := ""
 	if u.GroupID != nil {
 		groupID = u.GroupID.String()
 	}
-	return meResp{
+	resp := meResp{
 		UserID:         u.ID.String(),
 		TenantID:       u.TenantID.String(),
 		FacultyID:      u.FacultyID.String(),
@@ -179,14 +213,29 @@ func buildMeResp(u auth.User) meResp {
 		GroupCode:      strings.TrimSpace(u.GroupCode),
 		GroupNumber:    u.GroupNumber,
 		Email:          u.Email,
-		PendingEmail:   strings.TrimSpace(u.PendingEmail),
-		PendingStatus:  pendingEmailStatus(u),
 		FullName:       u.FullName,
 		AvatarURL:      strings.TrimSpace(u.AvatarURL),
+		Headline:       strings.TrimSpace(u.Headline),
+		About:          strings.TrimSpace(u.About),
+		PreferredRole:  strings.TrimSpace(u.PreferredRole),
+		Semester:       strings.TrimSpace(u.Semester),
+		Availability:   strings.TrimSpace(u.Availability),
+		Goals:          strings.TrimSpace(u.Goals),
+		GithubURL:      strings.TrimSpace(u.GithubURL),
+		Telegram:       strings.TrimSpace(u.Telegram),
+		PortfolioURL:   strings.TrimSpace(u.PortfolioURL),
+		Stacks:         append([]string(nil), u.Stacks...),
+		Interests:      append([]string(nil), u.Interests...),
+		UpdatedAt:      u.ProfileUpdatedAt.UTC().Format(time.RFC3339),
 		IsAdmin:        u.IsAdmin,
 		IsProfessor:    u.IsProfessor,
 		EmailVerified:  u.EmailVerifiedAt != nil,
 	}
+	if includePrivate {
+		resp.PendingEmail = strings.TrimSpace(u.PendingEmail)
+		resp.PendingStatus = pendingEmailStatus(u)
+	}
+	return resp
 }
 
 func pendingEmailStatus(u auth.User) string {
@@ -198,6 +247,64 @@ func pendingEmailStatus(u auth.User) string {
 		return "pending_verification"
 	}
 	return "verification_sent"
+}
+
+func parseCapabilitiesScope(c *gin.Context) (rbacsvc.Scope, error) {
+	scopeType := strings.ToUpper(strings.TrimSpace(c.Query("scope_type")))
+	scopeID := strings.TrimSpace(c.Query("scope_id"))
+
+	if scopeType == "" {
+		isAdmin, _ := middleware.IsAdminFromCtx(c)
+		if isAdmin {
+			return rbacsvc.Scope{Type: rbacsvc.ScopeSystem, ID: nil}, nil
+		}
+		if facultyID, ok := middleware.FacultyIDFromCtx(c); ok {
+			return rbacsvc.Scope{Type: rbacsvc.ScopeFaculty, ID: &facultyID}, nil
+		}
+		return rbacsvc.Scope{}, rbacsvc.ErrInvalidScope
+	}
+
+	parseID := func(raw string) (*uuid.UUID, error) {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			return nil, rbacsvc.ErrInvalidScope
+		}
+		return &id, nil
+	}
+
+	switch scopeType {
+	case string(rbacsvc.ScopeSystem):
+		if scopeID != "" {
+			return rbacsvc.Scope{}, rbacsvc.ErrInvalidScope
+		}
+		return rbacsvc.Scope{Type: rbacsvc.ScopeSystem, ID: nil}, nil
+	case string(rbacsvc.ScopeTenant):
+		id, err := parseID(scopeID)
+		if err != nil {
+			return rbacsvc.Scope{}, err
+		}
+		return rbacsvc.Scope{Type: rbacsvc.ScopeTenant, ID: id}, nil
+	case string(rbacsvc.ScopeFaculty):
+		id, err := parseID(scopeID)
+		if err != nil {
+			return rbacsvc.Scope{}, err
+		}
+		return rbacsvc.Scope{Type: rbacsvc.ScopeFaculty, ID: id}, nil
+	case string(rbacsvc.ScopeDepartment):
+		id, err := parseID(scopeID)
+		if err != nil {
+			return rbacsvc.Scope{}, err
+		}
+		return rbacsvc.Scope{Type: rbacsvc.ScopeDepartment, ID: id}, nil
+	case string(rbacsvc.ScopeProject):
+		id, err := parseID(scopeID)
+		if err != nil {
+			return rbacsvc.Scope{}, err
+		}
+		return rbacsvc.Scope{Type: rbacsvc.ScopeProject, ID: id}, nil
+	default:
+		return rbacsvc.Scope{}, rbacsvc.ErrInvalidScope
+	}
 }
 
 func (h *AuthHandler) RegisterStudent(c *gin.Context) {
@@ -429,4 +536,45 @@ func (h *AuthHandler) Me(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, buildMeResp(user))
+}
+
+func (h *AuthHandler) Capabilities(c *gin.Context) {
+	authResponseNoStore(c)
+
+	if h.authz == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "rbac unavailable"})
+		return
+	}
+
+	uid, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	scope, err := parseCapabilitiesScope(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid scope"})
+		return
+	}
+
+	permissions, err := h.authz.ListPermissionCodes(c.Request.Context(), uid, scope)
+	if err != nil {
+		if errors.Is(err, rbacsvc.ErrInvalidScope) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid scope"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load capabilities"})
+		return
+	}
+
+	resp := capabilitiesResp{
+		ScopeType:   string(scope.Type),
+		Permissions: permissions,
+	}
+	if scope.ID != nil {
+		resp.ScopeID = scope.ID.String()
+	}
+
+	c.JSON(http.StatusOK, resp)
 }

@@ -142,3 +142,106 @@ VALUES ($1, $2, 'integration-hash', 'ACTIVE');
 	require.NoError(t, err)
 	require.True(t, ok)
 }
+
+func TestRBACRepo_Integration_HasPermission_ProjectScopeInheritsFacultyScope(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	require.NotEmpty(t, dsn)
+
+	ctx := context.Background()
+	pool, err := db.NewPool(ctx, dsn)
+	require.NoError(t, err)
+	defer pool.Close()
+
+	repo := postgres.NewRBACRepo(pool)
+
+	tenantID := uuid.New()
+	facultyID := uuid.New()
+	userID := uuid.New()
+	projectID := uuid.New()
+
+	_, err = pool.Exec(ctx, `
+INSERT INTO tenants(id, code, name, status)
+VALUES ($1, $2, $3, 'ACTIVE');
+`, tenantID, "RBAC_T_"+tenantID.String()[:8], "RBAC Tenant")
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `
+INSERT INTO faculties(id, tenant_id, code, name)
+VALUES ($1, $2, $3, $4);
+`, facultyID, tenantID, "RBAC_F_"+facultyID.String()[:8], "RBAC Faculty")
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `
+INSERT INTO users(id, tenant_id, email, password_hash, status)
+VALUES ($1, $2, $3, 'integration-hash', 'ACTIVE');
+`, userID, tenantID, "rbac-hierarchy-"+userID.String()+"@example.local")
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `
+INSERT INTO projects(id, tenant_id, title, description, status, is_public, created_by, faculty_id, visibility)
+VALUES ($1, $2, 'Hierarchy Project', 'demo', 'RECRUITMENT', FALSE, $3, $4, 'FACULTY');
+`, projectID, tenantID, userID, facultyID)
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `
+INSERT INTO role_assignments(tenant_id, user_id, role_id, scope_type, scope_id)
+VALUES (
+  $1,
+  $2,
+  (SELECT id FROM roles WHERE code='STUDENT'),
+  'FACULTY',
+  $3
+);
+`, tenantID, userID, facultyID)
+	require.NoError(t, err)
+
+	ok, err := repo.HasPermission(ctx, userID, "member.apply", rbac.Scope{
+		Type: rbac.ScopeProject,
+		ID:   &projectID,
+	}, time.Now())
+	require.NoError(t, err)
+	require.True(t, ok)
+}
+
+func TestRBACRepo_Integration_GrantRoleByCode_UpsertDoesNotDuplicate(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	require.NotEmpty(t, dsn)
+
+	ctx := context.Background()
+	pool, err := db.NewPool(ctx, dsn)
+	require.NoError(t, err)
+	defer pool.Close()
+
+	repo := postgres.NewRBACRepo(pool)
+
+	userID := uuid.New()
+	projectID := uuid.New()
+	_, err = pool.Exec(ctx, `
+INSERT INTO users(id, email, password_hash, status)
+VALUES ($1, $2, 'integration-hash', 'ACTIVE');
+`, userID, "rbac-upsert-"+userID.String()+"@example.local")
+	require.NoError(t, err)
+
+	scope := rbac.Scope{Type: rbac.ScopeProject, ID: &projectID}
+	firstExpiry := time.Now().Add(2 * time.Hour).UTC()
+	secondExpiry := firstExpiry.Add(3 * time.Hour)
+
+	require.NoError(t, repo.GrantRoleByCode(ctx, userID, "TEAM_LEAD", scope, &firstExpiry))
+	require.NoError(t, repo.GrantRoleByCode(ctx, userID, "TEAM_LEAD", scope, &secondExpiry))
+
+	var (
+		count     int
+		expiresAt time.Time
+	)
+	err = pool.QueryRow(ctx, `
+SELECT COUNT(*), COALESCE(MAX(expires_at), 'epoch'::timestamptz)
+FROM role_assignments
+WHERE user_id = $1
+  AND role_id = (SELECT id FROM roles WHERE code = 'TEAM_LEAD')
+  AND scope_type = 'PROJECT'
+  AND scope_id = $2;
+`, userID, projectID).Scan(&count, &expiresAt)
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+	require.True(t, expiresAt.Equal(secondExpiry))
+}

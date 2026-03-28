@@ -17,6 +17,7 @@ type fakeRepo struct {
 	wantScope rbac.Scope
 	retBool   bool
 	retErr    error
+	retCodes  []string
 	called    bool
 }
 
@@ -26,6 +27,13 @@ func (f *fakeRepo) HasPermission(ctx context.Context, userID uuid.UUID, permissi
 	f.wantPerm = permissionCode
 	f.wantScope = scope
 	return f.retBool, f.retErr
+}
+
+func (f *fakeRepo) ListPermissionCodes(ctx context.Context, userID uuid.UUID, scope rbac.Scope, now time.Time) ([]string, error) {
+	f.called = true
+	f.wantUser = userID
+	f.wantScope = scope
+	return append([]string(nil), f.retCodes...), f.retErr
 }
 
 func TestService_Can_InvalidScope_SystemWithID(t *testing.T) {
@@ -74,6 +82,40 @@ func TestService_Can_DelegatesToRepo(t *testing.T) {
 	require.True(t, repo.called)
 	require.Equal(t, userID, repo.wantUser)
 	require.Equal(t, "task.view", repo.wantPerm)
+	require.Equal(t, rbac.ScopeProject, repo.wantScope.Type)
+	require.NotNil(t, repo.wantScope.ID)
+	require.Equal(t, projectID, *repo.wantScope.ID)
+}
+
+func TestService_ListPermissionCodes_InvalidScope(t *testing.T) {
+	repo := &fakeRepo{}
+	svc := rbac.NewService(repo)
+
+	_, err := svc.ListPermissionCodes(context.Background(), uuid.New(), rbac.Scope{
+		Type: rbac.ScopeFaculty,
+		ID:   nil,
+	})
+
+	require.ErrorIs(t, err, rbac.ErrInvalidScope)
+	require.False(t, repo.called)
+}
+
+func TestService_ListPermissionCodes_DelegatesToRepo(t *testing.T) {
+	repo := &fakeRepo{retCodes: []string{"project.view", "task.view"}}
+	svc := rbac.NewService(repo)
+
+	userID := uuid.New()
+	projectID := uuid.New()
+
+	codes, err := svc.ListPermissionCodes(context.Background(), userID, rbac.Scope{
+		Type: rbac.ScopeProject,
+		ID:   &projectID,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, []string{"project.view", "task.view"}, codes)
+	require.True(t, repo.called)
+	require.Equal(t, userID, repo.wantUser)
 	require.Equal(t, rbac.ScopeProject, repo.wantScope.Type)
 	require.NotNil(t, repo.wantScope.ID)
 	require.Equal(t, projectID, *repo.wantScope.ID)

@@ -1,5 +1,6 @@
 (() => {
   const auth = window.IDSAIAuth;
+  const roleSidebar = window.IDSAIRoleSidebar;
   const LS_ACCESS = "idsai_access_token";
   const LS_REFRESH = "idsai_refresh_token";
   const LS_USER = "idsai_rbac_user_id";
@@ -127,14 +128,30 @@
     el.textContent = fallbackText;
   }
 
-  function bindProfile() {
-    const name = localStorage.getItem(LS_STUDENT_NAME) || "Student";
-    const email = localStorage.getItem(LS_STUDENT_EMAIL) || "student@university.edu";
-    const avatarURL = localStorage.getItem(LS_AVATAR_URL) || "";
+  function syncSidebar(profile, active = activeTab) {
+    const host = document.querySelector("[data-role-sidebar]");
+    if (!host || !roleSidebar || typeof roleSidebar.renderSidebar !== "function") {
+      return;
+    }
 
-    document.getElementById("studentName").textContent = name;
-    document.getElementById("studentEmail").textContent = email;
-    renderAvatar(document.getElementById("profileAvatar"), initials(name, email), avatarURL);
+    host.dataset.sidebarActive = active;
+    roleSidebar.renderSidebar(host, {
+      role: "student",
+      active,
+      profile,
+      scope: typeof auth.getDefaultScope === "function" ? auth.getDefaultScope() : null,
+    });
+
+    const logoutBtn = document.getElementById("logoutBtn");
+    if (logoutBtn) {
+      logoutBtn.onclick = () => {
+        auth.logout();
+      };
+    }
+  }
+
+  function bindProfile(profile) {
+    syncSidebar(profile || auth.getCachedProfile(), activeTab);
   }
 
   function escapeHTML(value) {
@@ -150,8 +167,18 @@
     const s = String(status || "").toUpperCase();
     if (s === "ACTIVE" || s === "RECRUITMENT" || s === "DRAFT") return "inwork";
     if (s === "REVIEW" || s === "GRADING") return "review";
-    if (s === "ARCHIVE" || s === "DONE") return "done";
+    if (s === "COMPLETED" || s === "ARCHIVE" || s === "DONE") return "done";
     return "default";
+  }
+
+  function projectStatusLabel(status) {
+    const s = String(status || "").toUpperCase();
+    if (s === "DRAFT" || s === "REVIEW") return "Подготовка";
+    if (s === "RECRUITMENT") return "Набор";
+    if (s === "ACTIVE") return "В работе";
+    if (s === "GRADING") return "Оценивание";
+    if (s === "COMPLETED" || s === "ARCHIVE" || s === "DONE") return "Завершен";
+    return s || "-";
   }
 
   function visibilityLabel(value) {
@@ -216,7 +243,7 @@
 
   function progressForProject(p) {
     const s = String(p.status || "").toUpperCase();
-    if (s === "ARCHIVE" || s === "DONE") return 100;
+    if (s === "COMPLETED" || s === "ARCHIVE" || s === "DONE") return 100;
     if (s === "GRADING") return 90;
     if (s === "ACTIVE") return 70;
     if (s === "REVIEW") return 60;
@@ -225,19 +252,14 @@
   }
 
   function minePillLabel(p) {
-    const s = String(p.status || "").toUpperCase();
-    if (s === "ARCHIVE" || s === "DONE") return "Done";
-    if (s === "REVIEW" || s === "GRADING") return "Review";
-    if (s === "ACTIVE") return "In Progress";
-    if (s === "RECRUITMENT") return "Recruiting";
-    return "Planning";
+    return projectStatusLabel(p.status);
   }
 
   function communityDifficulty(p) {
     const s = String(p.status || "").toUpperCase();
     if (s === "REVIEW" || s === "GRADING") return "ADVANCED";
     if (s === "ACTIVE") return "MEDIUM";
-    if (s === "ARCHIVE" || s === "DONE") return "ADVANCED";
+    if (s === "COMPLETED" || s === "ARCHIVE" || s === "DONE") return "ADVANCED";
     return "BEGINNER";
   }
 
@@ -305,6 +327,9 @@
   }
 
   function openCreateModal() {
+    if (createToggleBtnEl.hidden || createToggleBtnEl.disabled) {
+      return;
+    }
     createModalEl.hidden = false;
     document.body.classList.add("modal-open");
     setVisibility(selectedVisibility);
@@ -369,14 +394,17 @@
 
   function renderMine() {
     const filtered = applyMineFilters(myProjects);
+    const canCreate = !createToggleBtnEl.hidden && !createToggleBtnEl.disabled;
     updateCounts(myProjects);
 
     myProjectsEl.classList.toggle("list-view", activeView === "list");
     myProjectsEl.innerHTML = "";
 
     if (filtered.length === 0) {
-      myProjectsEl.innerHTML = '<article class="empty-card new-project" id="newProjectCard">Нет проектов под текущий фильтр.<br>Нажми, чтобы создать новый.</article>';
-      const emptyCard = document.getElementById("newProjectCard");
+      myProjectsEl.innerHTML = canCreate
+        ? '<article class="empty-card new-project" id="newProjectCard">Нет проектов под текущий фильтр.<br>Нажми, чтобы создать новый.</article>'
+        : '<article class="empty-card">Нет проектов под текущий фильтр.</article>';
+      const emptyCard = canCreate ? document.getElementById("newProjectCard") : null;
       if (emptyCard) {
         emptyCard.addEventListener("click", openCreateModal);
       }
@@ -403,7 +431,7 @@
         `<div class="mine-progress"><span style="width:${progress}%"></span></div>` +
         `<div class="card-meta">` +
           `<span>created: ${escapeHTML(formatDate(p.created_at))}</span>` +
-          `<span>status: ${escapeHTML(p.status || "-")}</span>` +
+          `<span>status: ${escapeHTML(projectStatusLabel(p.status))}</span>` +
         `</div>` +
         `<div class="mine-footer">` +
           `<span class="badge ${kind}">${escapeHTML(minePillLabel(p))}</span>` +
@@ -417,12 +445,14 @@
       myProjectsEl.appendChild(article);
     });
 
-    const createCard = document.createElement("button");
-    createCard.type = "button";
-    createCard.className = "empty-card new-project";
-    createCard.innerHTML = "＋<br>Новый проект";
-    createCard.addEventListener("click", openCreateModal);
-    myProjectsEl.appendChild(createCard);
+    if (canCreate) {
+      const createCard = document.createElement("button");
+      createCard.type = "button";
+      createCard.className = "empty-card new-project";
+      createCard.innerHTML = "＋<br>Новый проект";
+      createCard.addEventListener("click", openCreateModal);
+      myProjectsEl.appendChild(createCard);
+    }
 
     myProjectsEl.querySelectorAll("[data-open-id]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -507,6 +537,7 @@
   function switchTab(tab) {
     activeTab = tab === "community" ? "community" : "mine";
     localStorage.setItem(LS_STUDENT_SECTION, activeTab);
+    bindProfile(auth.getCachedProfile());
     const isMine = activeTab === "mine";
     const url = new URL(window.location.href);
     url.searchParams.set("tab", activeTab);
@@ -757,8 +788,17 @@
     closeCreateModal();
   }
 
-  function logout() {
-    auth.logout();
+  async function syncCapabilities() {
+    if (!createToggleBtnEl || !auth || typeof auth.can !== "function") {
+      return;
+    }
+
+    const canCreate = await auth.can("project.create");
+    createToggleBtnEl.hidden = !canCreate;
+    createToggleBtnEl.disabled = !canCreate;
+    if (!canCreate && !createModalEl.hidden) {
+      closeCreateModal();
+    }
   }
 
   document.getElementById("createBtn").addEventListener("click", async () => {
@@ -777,8 +817,6 @@
     }
     await loadCommunityProjects();
   });
-
-  document.getElementById("logoutBtn").addEventListener("click", logout);
 
   createToggleBtnEl.addEventListener("click", openCreateModal);
   createCancelBtnEl.addEventListener("click", closeCreateModal);
@@ -867,13 +905,15 @@
     const claims = await auth.ensureSession("student");
     if (!claims) return;
 
-    bindProfile();
+    activeTab = initialTabFromURL();
+    bindProfile(claims);
+    await syncCapabilities();
     logLine("session initialized");
     loadGroups()
       .then(async () => {
         await loadMineProjects();
         await loadCommunityProjects();
-        switchTab(initialTabFromURL());
+        switchTab(activeTab);
         logLine("all systems operational");
       })
       .catch((e) => {

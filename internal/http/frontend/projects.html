@@ -9,72 +9,18 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/dev/static/css/projects.css" />
+  <link rel="stylesheet" href="/dev/static/css/role-sidebar.css" />
   <link rel="stylesheet" href="/dev/static/css/notifications-popup.css" />
   <link rel="stylesheet" href="/dev/static/css/dev-theme.css" />
 </head>
 <body class="projects-body">
   <div class="layout">
-    <aside class="sidebar">
-      <div class="brand">
-        <img class="brand-logo" src="/dev/static/assets/idsai-corp-logo.png" alt="IDSAI Corp. logo" width="160" height="40" />
-        <span class="logo-text">IDSAI Corp.</span>
-      </div>
-
-      <div class="profile-row">
-        <div id="profileAvatar" class="avatar">ST</div>
-        <div class="user-info-text">
-          <p id="studentName" class="profile-name">Student</p>
-          <p id="studentEmail" class="profile-sub">student@university.edu</p>
-        </div>
-      </div>
-
-      <p class="nav-title">WORKSPACE</p>
-      <nav class="main-nav side-nav" aria-label="Student sections">
-        <a class="nav-link side-link active" data-tab="mine" href="/dev/projects?tab=mine">
-          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">folder</span></span>
-          <span class="nav-label">Мои проекты</span>
-        </a>
-        <a class="nav-link side-link" data-tab="community" href="/dev/projects?tab=community">
-          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">public</span></span>
-          <span class="nav-label">Сообщество</span>
-        </a>
-        <a class="nav-link side-link" href="/dev/invites">
-          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">mark_email_unread</span></span>
-          <span class="nav-label">Заявки</span>
-        </a>
-        <button class="nav-item side-link ghost" type="button" disabled>
-          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">task</span></span>
-          <span class="nav-label">Задачи</span>
-        </button>
-        <button class="nav-item side-link ghost" type="button" disabled>
-          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">group</span></span>
-          <span class="nav-label">Команда</span>
-        </button>
-        <button class="nav-item side-link ghost" type="button" disabled>
-          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">calendar_month</span></span>
-          <span class="nav-label">Календарь</span>
-        </button>
-      </nav>
-
-      <p class="nav-title">UTILITIES</p>
-      <nav class="main-nav side-nav">
-        <a class="nav-link side-link" href="/swagger/index.html" target="_blank" rel="noreferrer">
-          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">description</span></span>
-          <span class="nav-label">Swagger</span>
-        </a>
-      </nav>
-
-      <div class="sidebar-bottom">
-        <a class="bottom-link" href="/dev/settings">
-          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">settings</span></span>
-          <span class="nav-label">Настройки</span>
-        </a>
-        <button id="logoutBtn" class="bottom-link danger" type="button">
-          <span class="icon-box" aria-hidden="true"><span class="material-symbols-outlined">logout</span></span>
-          <span class="nav-label">Выйти</span>
-        </button>
-      </div>
-    </aside>
+    <aside
+      data-role-sidebar
+      data-sidebar-role="student"
+      data-sidebar-active="mine"
+      class="role-sidebar"
+    ></aside>
 
     <div class="content-shell">
       <header class="topbar">
@@ -107,7 +53,7 @@
           <div class="filters">
             <button class="filter-btn active" data-filter="all" type="button">Все <span id="countAll">0</span></button>
             <button class="filter-btn" data-filter="inwork" type="button">В работе <span id="countInwork">0</span></button>
-            <button class="filter-btn" data-filter="review" type="button">На ревью <span id="countReview">0</span></button>
+            <button class="filter-btn" data-filter="review" type="button">Проверка <span id="countReview">0</span></button>
             <button class="filter-btn" data-filter="done" type="button">Готово <span id="countDone">0</span></button>
           </div>
           <div class="view-toggle" role="group" aria-label="View mode">
@@ -235,6 +181,7 @@
   </div>
 
   <script src="/dev/static/js/auth-session.js" defer></script>
+  <script src="/dev/static/js/role-sidebar.js" defer></script>
   <script src="/dev/static/js/notifications-popup.js?v=20260307-2" defer></script>
   <script src="/dev/static/js/projects.js" defer></script>
 </body>

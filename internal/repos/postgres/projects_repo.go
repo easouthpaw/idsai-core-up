@@ -67,6 +67,11 @@ DO UPDATE SET status='ACTIVE', joined_at=COALESCE(project_members.joined_at, now
 }
 
 func (r *ProjectsRepo) GetByID(ctx context.Context, id uuid.UUID) (domain.Project, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return domain.Project{}, err
+	}
+
 	const q = `
 SELECT
   p.id,
@@ -90,14 +95,15 @@ SELECT
 FROM projects p
 LEFT JOIN users u ON u.id = p.created_by
 LEFT JOIN user_profiles up ON up.user_id = p.created_by
-WHERE p.id = $1;
+WHERE p.tenant_id = $1
+  AND p.id = $2;
 `
 	var p domain.Project
 	var professorID *uuid.UUID
 	var groupID *uuid.UUID
 	var imageUpdatedAt *time.Time
 
-	err := r.db.QueryRow(ctx, q, id).Scan(
+	err = r.db.QueryRow(ctx, q, tenantID, id).Scan(
 		&p.ID,
 		&p.Title,
 		&p.Description,
@@ -130,6 +136,11 @@ WHERE p.id = $1;
 }
 
 func (r *ProjectsRepo) HasProjectPermission(ctx context.Context, userID, projectID uuid.UUID, permissionCode string) (bool, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return false, err
+	}
+
 	const q = `
 SELECT EXISTS (
   SELECT 1
@@ -139,7 +150,9 @@ SELECT EXISTS (
   JOIN role_permissions rp ON rp.role_id = ra.role_id
   JOIN permissions perm ON perm.id = rp.permission_id
   WHERE ra.user_id = $1
+    AND u.tenant_id = $4
     AND u.tenant_id = ra.tenant_id
+    AND p.tenant_id = $4
     AND p.tenant_id = ra.tenant_id
     AND ra.scope_type = 'PROJECT'
     AND ra.scope_id = $2
@@ -148,11 +161,16 @@ SELECT EXISTS (
 ) AS ok;
 `
 	var ok bool
-	err := r.db.QueryRow(ctx, q, userID, projectID, permissionCode).Scan(&ok)
+	err = r.db.QueryRow(ctx, q, userID, projectID, permissionCode, tenantID).Scan(&ok)
 	return ok, err
 }
 
 func (r *ProjectsRepo) GetProjectReviewSummary(ctx context.Context, projectID uuid.UUID) (*projects.ReviewSummary, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	const q = `
 SELECT
   COUNT(c.id) AS total,
@@ -167,7 +185,8 @@ LEFT JOIN project_criterion_reviews r
   ON r.project_id = p.id
  AND r.criterion_id = c.id
  AND r.professor_id = p.professor_id
-WHERE p.id = $1
+WHERE p.tenant_id = $1
+  AND p.id = $2
 GROUP BY reviewer;
 `
 
@@ -177,7 +196,7 @@ GROUP BY reviewer;
 		reviewedAt *time.Time
 		reviewer   string
 	)
-	if err := r.db.QueryRow(ctx, q, projectID).Scan(&total, &met, &reviewedAt, &reviewer); err != nil {
+	if err := r.db.QueryRow(ctx, q, tenantID, projectID).Scan(&total, &met, &reviewedAt, &reviewer); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
@@ -205,12 +224,18 @@ GROUP BY reviewer;
 }
 
 func (r *ProjectsRepo) SetProjectImage(ctx context.Context, projectID uuid.UUID, imageKey string, updatedAt time.Time) error {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
 	tag, err := r.db.Exec(ctx, `
 UPDATE projects
 SET image_key = $2,
     image_updated_at = $3
-WHERE id = $1;
-`, projectID, imageKey, updatedAt)
+WHERE tenant_id = $1
+  AND id = $2;
+`, tenantID, projectID, imageKey, updatedAt)
 	if err != nil {
 		return err
 	}
@@ -221,12 +246,18 @@ WHERE id = $1;
 }
 
 func (r *ProjectsRepo) ClearProjectImage(ctx context.Context, projectID uuid.UUID) error {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
 	tag, err := r.db.Exec(ctx, `
 UPDATE projects
 SET image_key = NULL,
     image_updated_at = now()
-WHERE id = $1;
-`, projectID)
+WHERE tenant_id = $1
+  AND id = $2;
+`, tenantID, projectID)
 	if err != nil {
 		return err
 	}
@@ -237,6 +268,11 @@ WHERE id = $1;
 }
 
 func (r *ProjectsRepo) ListByCreator(ctx context.Context, createdBy uuid.UUID) ([]domain.Project, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	const q = `
 SELECT
   p.id,
@@ -260,10 +296,11 @@ SELECT
 FROM projects p
 LEFT JOIN users u ON u.id = p.created_by
 LEFT JOIN user_profiles up ON up.user_id = p.created_by
-WHERE p.created_by = $1
+WHERE p.tenant_id = $1
+  AND p.created_by = $2
 ORDER BY p.created_at DESC;
 `
-	rows, err := r.db.Query(ctx, q, createdBy)
+	rows, err := r.db.Query(ctx, q, tenantID, createdBy)
 	if err != nil {
 		return nil, err
 	}
@@ -313,6 +350,11 @@ ORDER BY p.created_at DESC;
 }
 
 func (r *ProjectsRepo) ListPublic(ctx context.Context) ([]domain.Project, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	const q = `
 SELECT
   p.id,
@@ -336,10 +378,11 @@ SELECT
 FROM projects p
 LEFT JOIN users u ON u.id = p.created_by
 LEFT JOIN user_profiles up ON up.user_id = p.created_by
-WHERE p.is_public = TRUE
+WHERE p.tenant_id = $1
+  AND p.is_public = TRUE
 ORDER BY p.created_at DESC;
 `
-	rows, err := r.db.Query(ctx, q)
+	rows, err := r.db.Query(ctx, q, tenantID)
 	if err != nil {
 		return nil, err
 	}
