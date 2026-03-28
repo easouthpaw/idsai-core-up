@@ -1,40 +1,44 @@
+/* ============================================================
+   IDSAI Groups — Green Glassmorphism Theme
+   Unified with admin.css / profile.css / kb.css
+   ============================================================ */
+
 :root {
-  --groups-bg: #f4f6fa;
-  --groups-surface: #ffffff;
-  --groups-line: #d9e1ee;
-  --groups-line-strong: #ced8e8;
-  --groups-text: #17233b;
-  --groups-muted: #62718a;
-  --groups-blue: #1f67c2;
-  --groups-blue-soft: #e9f2ff;
-  --groups-green: #16a34a;
-  --groups-red: #dc2626;
+  --grp-canvas: transparent;
+  --grp-surface: rgba(255, 255, 255, 0.96);
+  --grp-border: rgba(184, 203, 188, 0.85);
+  --grp-border-strong: rgba(184, 203, 188, 1);
+  --grp-text: #173028;
+  --grp-text-strong: #0d211a;
+  --grp-muted: #5f746c;
+  --grp-muted-soft: #7a8f87;
+  --grp-accent: #0d6b50;
+  --grp-accent-soft: rgba(13, 107, 80, 0.1);
+  --grp-success: #1f8e5a;
+  --grp-success-soft: rgba(31, 142, 90, 0.12);
+  --grp-danger: #c54444;
+  --grp-danger-soft: rgba(197, 68, 68, 0.12);
+  --grp-radius: 16px;
+  --grp-radius-lg: 22px;
+  --grp-radius-xl: 28px;
+  --grp-shadow: 0 20px 40px rgba(10, 32, 24, 0.08);
+  --grp-shadow-soft: 0 12px 24px rgba(10, 32, 24, 0.06);
 }
 
-* {
-  box-sizing: border-box;
-}
-
-html,
-body {
-  margin: 0;
-  padding: 0;
-}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
 
 body.groups-body {
   min-height: 100vh;
-  background: var(--groups-bg);
-  color: var(--groups-text);
-}
-
-body.groups-body.role-admin {
-  font-family: "Manrope", sans-serif;
-}
-
-body.groups-body.role-teacher {
+  background:
+    radial-gradient(700px 300px at 100% -4%, rgba(13, 107, 80, 0.11), transparent 72%),
+    radial-gradient(500px 220px at -6% 12%, rgba(198, 136, 31, 0.08), transparent 72%),
+    linear-gradient(180deg, #f6f8f6 0%, #eff5f1 100%);
+  color: var(--grp-text);
   font-family: "Inter", sans-serif;
 }
 
+/* ── Layout ──────────────────────────────────────────────── */
 .groups-layout {
   min-height: 100vh;
   display: grid;
@@ -49,76 +53,107 @@ body.groups-body.role-teacher .groups-layout {
   min-width: 0;
   display: grid;
   align-content: start;
-  gap: 14px;
-  padding: 18px;
+  gap: 16px;
+  padding: 20px 24px 32px;
 }
 
+/* ── Hero ────────────────────────────────────────────────── */
 .groups-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.95fr);
-  gap: 14px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
+  gap: 16px;
 }
 
 .groups-head {
-  border: 1px solid var(--groups-line);
-  border-radius: 14px;
-  background: #f9fbff;
-  padding: 14px 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--grp-border);
+  border-radius: var(--grp-radius-lg);
+  background: var(--grp-surface);
+  box-shadow: var(--grp-shadow-soft);
 }
 
 .groups-head--hero {
-  min-height: 100%;
-  padding: 20px 22px;
-  border-radius: 22px;
+  position: relative;
+  overflow: hidden;
+  padding: 24px 28px;
+  border-radius: var(--grp-radius-xl);
   background:
-    radial-gradient(380px 180px at 100% 0%, rgba(31, 103, 194, 0.12), transparent 72%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 251, 255, 0.98) 100%);
-  box-shadow: 0 14px 32px rgba(23, 35, 59, 0.06);
+    radial-gradient(520px 200px at 100% 0%, rgba(13, 107, 80, 0.14), transparent 74%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(246, 250, 247, 0.98) 100%);
+  box-shadow: var(--grp-shadow);
+}
+
+.groups-head--hero::after {
+  content: "";
+  position: absolute;
+  inset: auto 24px 0 auto;
+  width: 148px;
+  height: 148px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(13, 107, 80, 0.08) 0%, transparent 68%);
+  pointer-events: none;
 }
 
 .groups-breadcrumbs {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--groups-muted);
-  font-size: 14px;
+  color: var(--grp-muted);
+  font: 600 14px/1.3 "Inter", sans-serif;
 }
 
 .groups-breadcrumbs strong {
-  color: var(--groups-text);
+  color: var(--grp-text-strong);
 }
 
 .groups-head h1 {
-  margin: 8px 0 0;
-  font-size: clamp(30px, 3.2vw, 42px);
-  line-height: 1.04;
-  letter-spacing: -0.03em;
+  margin: 10px 0 0;
+  font-size: clamp(28px, 3vw, 40px);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+  color: var(--grp-text-strong);
 }
 
 .groups-head p {
-  margin: 8px 0 0;
-  color: var(--groups-muted);
+  margin: 10px 0 0;
+  color: var(--grp-muted);
   font-size: 14px;
+  line-height: 1.6;
+  max-width: 56ch;
 }
 
+/* ── Metrics ─────────────────────────────────────────────── */
 .groups-hero__stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
 
 .groups-metric {
-  padding: 16px;
-  border: 1px solid var(--groups-line);
-  border-radius: 18px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 251, 255, 0.98) 100%);
-  box-shadow: 0 10px 24px rgba(23, 35, 59, 0.04);
+  position: relative;
+  overflow: hidden;
+  padding: 18px;
+  border: 1px solid var(--grp-border);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--grp-shadow-soft);
+}
+
+.groups-metric::after {
+  content: "";
+  position: absolute;
+  inset: auto -16px -22px auto;
+  width: 80px;
+  height: 80px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(13, 107, 80, 0.07) 0%, transparent 70%);
+  pointer-events: none;
 }
 
 .groups-metric small {
   display: block;
-  color: #6a7c98;
+  color: var(--grp-muted-soft);
   font: 700 11px "JetBrains Mono", ui-monospace, monospace;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -127,7 +162,7 @@ body.groups-body.role-teacher .groups-layout {
 .groups-metric strong {
   display: block;
   margin-top: 10px;
-  color: #142544;
+  color: var(--grp-text-strong);
   font-size: 34px;
   line-height: 1;
   letter-spacing: -0.04em;
@@ -136,20 +171,27 @@ body.groups-body.role-teacher .groups-layout {
 .groups-metric span {
   display: block;
   margin-top: 6px;
-  color: var(--groups-muted);
+  color: var(--grp-muted);
   font-size: 12px;
+  font-weight: 600;
 }
 
 .groups-metric--accent {
-  border-color: rgba(31, 103, 194, 0.18);
-  background: linear-gradient(180deg, rgba(237, 245, 255, 0.98) 0%, rgba(230, 241, 255, 0.98) 100%);
+  border-color: rgba(13, 107, 80, 0.22);
+  background: linear-gradient(180deg, rgba(240, 253, 244, 0.98) 0%, rgba(230, 248, 237, 0.98) 100%);
 }
 
+.groups-metric--accent strong {
+  color: var(--grp-accent);
+}
+
+/* ── Filters ─────────────────────────────────────────────── */
 .groups-card {
-  border: 1px solid var(--groups-line);
-  border-radius: 14px;
-  background: var(--groups-surface);
-  padding: 14px;
+  border: 1px solid var(--grp-border);
+  border-radius: var(--grp-radius-lg);
+  background: var(--grp-surface);
+  box-shadow: var(--grp-shadow-soft);
+  padding: 18px;
 }
 
 .tree-card,
@@ -159,8 +201,8 @@ body.groups-body.role-teacher .groups-layout {
 
 .filters-card {
   display: grid;
-  grid-template-columns: minmax(220px, 300px) minmax(240px, 1fr) 140px;
-  gap: 10px;
+  grid-template-columns: minmax(200px, 280px) minmax(220px, 1fr) auto;
+  gap: 12px;
   align-items: end;
 }
 
@@ -168,7 +210,7 @@ body.groups-body.role-teacher .groups-layout {
 .requests-controls label {
   display: grid;
   gap: 6px;
-  color: #5b6c88;
+  color: var(--grp-muted-soft);
   font: 700 11px "JetBrains Mono", ui-monospace, monospace;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -181,52 +223,60 @@ body.groups-body.role-teacher .groups-layout {
 .requests-controls button,
 .request-item textarea,
 .request-item button {
-  min-height: 40px;
-  border: 1px solid var(--groups-line-strong);
-  border-radius: 10px;
-  background: #fbfdff;
-  color: #20304b;
-  padding: 9px 11px;
-  font: 600 14px "Inter", sans-serif;
+  min-height: 44px;
+  border: 1px solid var(--grp-border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--grp-text);
+  padding: 10px 14px;
+  font: 600 14px/1.4 "Inter", sans-serif;
+  outline: none;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
 }
 
 .filters-card select:focus,
 .filters-card input:focus,
 .requests-controls select:focus,
 .request-item textarea:focus {
-  outline: 2px solid rgba(50, 116, 222, 0.15);
-  border-color: #98b8ee;
+  border-color: rgba(13, 107, 80, 0.55);
+  box-shadow: 0 0 0 4px rgba(13, 107, 80, 0.14);
 }
 
 .filters-card button,
 .requests-controls button {
-  border-color: #27b060;
-  background: linear-gradient(180deg, #1eff7f 0%, #16c765 100%);
-  color: #082a16;
+  border-color: rgba(8, 79, 59, 0.3);
+  background: linear-gradient(180deg, #1f8e5a 0%, #157347 100%);
+  color: #fff;
   font-weight: 700;
   cursor: pointer;
+  box-shadow: 0 10px 18px rgba(21, 115, 71, 0.16);
+  transition: background 0.15s ease, transform 0.15s ease;
 }
 
 .filters-card button:hover,
 .requests-controls button:hover {
-  background: linear-gradient(180deg, #1ce576 0%, #15b65c 100%);
+  background: linear-gradient(180deg, #249b64 0%, #178553 100%);
+  transform: translateY(-1px);
 }
 
+/* ── Status ──────────────────────────────────────────────── */
 .page-status {
   min-height: 20px;
   margin: 0;
-  color: #2f4f7f;
+  color: var(--grp-accent);
   font-size: 13px;
+  font-weight: 600;
 }
 
 .page-status.err {
-  color: #b4232d;
+  color: var(--grp-danger);
 }
 
+/* ── Content Grid ────────────────────────────────────────── */
 .groups-content-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
-  gap: 14px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
+  gap: 16px;
   align-items: start;
 }
 
@@ -234,54 +284,67 @@ body.groups-body.role-teacher .groups-layout {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 12px;
+  margin-bottom: 14px;
 }
 
 .section-title h2 {
   margin: 0;
-  font-size: 24px;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--grp-text-strong);
 }
 
 .section-title p {
   margin: 6px 0 0;
-  color: var(--groups-muted);
+  color: var(--grp-muted);
   font-size: 13px;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 .section-title span {
-  color: var(--groups-muted);
-  font-size: 12px;
+  color: var(--grp-muted-soft);
+  font: 700 11px "JetBrains Mono", ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
+/* ── Tree ────────────────────────────────────────────────── */
 .tree-root {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .dep-node {
-  border: 1px solid #d5e0ee;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #fbfdff 0%, #f7faff 100%);
+  border: 1px solid var(--grp-border);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.92);
   overflow: hidden;
+  box-shadow: var(--grp-shadow-soft);
 }
 
 .dep-node > summary {
   list-style: none;
   cursor: pointer;
-  padding: 16px 18px;
-  border-bottom: 1px solid #dfe7f3;
-  background: linear-gradient(180deg, rgba(233, 242, 255, 0.96) 0%, rgba(242, 247, 255, 0.96) 100%);
+  padding: 18px 20px;
+  border-bottom: 1px solid rgba(184, 203, 188, 0.5);
+  background:
+    radial-gradient(300px 120px at 100% 0%, rgba(13, 107, 80, 0.08), transparent 72%),
+    linear-gradient(180deg, rgba(246, 252, 248, 0.98) 0%, rgba(240, 248, 243, 0.98) 100%);
+  transition: background 0.16s ease;
 }
 
-.dep-node > summary::-webkit-details-marker {
-  display: none;
+.dep-node > summary:hover {
+  background:
+    radial-gradient(300px 120px at 100% 0%, rgba(13, 107, 80, 0.12), transparent 72%),
+    linear-gradient(180deg, rgba(240, 253, 244, 0.98) 0%, rgba(234, 248, 239, 0.98) 100%);
 }
+
+.dep-node > summary::-webkit-details-marker { display: none; }
 
 .dep-summary__main small {
   display: block;
-  color: #5e7394;
+  color: var(--grp-muted-soft);
   font: 700 11px "JetBrains Mono", ui-monospace, monospace;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -289,10 +352,10 @@ body.groups-body.role-teacher .groups-layout {
 
 .dep-summary__main strong {
   display: block;
-  margin-top: 6px;
-  color: var(--groups-blue);
-  font-size: 26px;
-  line-height: 1.04;
+  margin-top: 8px;
+  color: var(--grp-accent);
+  font-size: 24px;
+  line-height: 1.08;
   letter-spacing: -0.03em;
 }
 
@@ -309,78 +372,91 @@ body.groups-body.role-teacher .groups-layout {
   display: inline-flex;
   align-items: center;
   min-height: 30px;
-  padding: 0 10px;
+  padding: 0 12px;
   border-radius: 999px;
-  border: 1px solid rgba(31, 103, 194, 0.14);
+  border: 1px solid var(--grp-border);
   background: rgba(255, 255, 255, 0.86);
-  color: #415e88;
+  color: var(--grp-muted);
   font: 700 11px/1 "JetBrains Mono", ui-monospace, monospace;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .dep-node[open] > summary {
-  border-bottom-color: #d3dfef;
+  border-bottom-color: rgba(184, 203, 188, 0.7);
 }
 
+/* ── Groups List ─────────────────────────────────────────── */
 .groups-list {
   display: grid;
-  gap: 10px;
-  padding: 12px;
+  gap: 12px;
+  padding: 14px;
 }
 
 .group-node {
-  border: 1px solid #d8e3f0;
-  border-radius: 14px;
+  border: 1px solid var(--grp-border);
+  border-radius: 18px;
   overflow: hidden;
-  background: #fff;
-  box-shadow: 0 8px 18px rgba(23, 35, 59, 0.04);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: var(--grp-shadow-soft);
 }
 
 .group-node > summary {
   list-style: none;
   cursor: pointer;
-  padding: 12px 14px;
+  padding: 14px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
+  transition: background 0.14s ease;
 }
 
-.group-node > summary::-webkit-details-marker {
-  display: none;
+.group-node > summary:hover {
+  background: rgba(13, 107, 80, 0.03);
 }
+
+.group-node > summary::-webkit-details-marker { display: none; }
 
 .group-summary__main strong {
-  color: #244777;
   display: block;
-  font-size: 18px;
+  color: var(--grp-accent);
+  font-size: 17px;
+  font-weight: 800;
 }
 
 .group-summary__main span {
   display: block;
   margin-top: 4px;
-  color: #687b98;
+  color: var(--grp-muted);
   font-size: 13px;
+  font-weight: 600;
 }
 
+/* ── Students ────────────────────────────────────────────── */
 .students-list {
   margin: 0;
-  padding: 0 12px 12px;
+  padding: 0 14px 14px;
   list-style: none;
   display: grid;
   gap: 8px;
 }
 
 .student-row {
-  border: 1px solid #e2e8f2;
-  border-radius: 14px;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-  padding: 12px;
+  border: 1px solid var(--grp-border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 14px;
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+
+.student-row:hover {
+  border-color: rgba(13, 107, 80, 0.22);
+  background: rgba(246, 252, 248, 0.98);
 }
 
 .student-row--empty {
@@ -391,8 +467,8 @@ body.groups-body.role-teacher .groups-layout {
   width: 44px;
   height: 44px;
   border-radius: 999px;
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: rgba(13, 107, 80, 0.12);
+  color: var(--grp-accent);
   overflow: hidden;
   display: grid;
   place-items: center;
@@ -412,91 +488,97 @@ body.groups-body.role-teacher .groups-layout {
 
 .student-meta strong {
   font-size: 14px;
+  font-weight: 700;
+  color: var(--grp-text-strong);
 }
 
 .student-meta p {
   margin-top: 3px;
-  color: var(--groups-muted);
+  color: var(--grp-muted);
   font-size: 12px;
+  font-weight: 600;
 }
 
-.student-empty {
+/* ── Empty States ────────────────────────────────────────── */
+.student-empty,
+.group-empty,
+.tree-empty {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
 .student-empty .material-symbols-outlined,
 .group-empty .material-symbols-outlined,
 .tree-empty .material-symbols-outlined {
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   border-radius: 14px;
   display: grid;
   place-items: center;
-  background: rgba(31, 103, 194, 0.1);
-  color: var(--groups-blue);
+  background: rgba(13, 107, 80, 0.12);
+  color: var(--grp-accent);
   font-size: 20px;
+  flex-shrink: 0;
 }
 
 .student-empty strong,
 .group-empty strong,
 .tree-empty strong {
   display: block;
-  color: #17233b;
-  font-size: 15px;
+  color: var(--grp-text-strong);
+  font-size: 14px;
 }
 
 .student-empty p,
 .group-empty p,
 .tree-empty p {
   margin: 4px 0 0;
-  color: var(--groups-muted);
+  color: var(--grp-muted);
   font-size: 13px;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 .group-empty,
 .tree-empty {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
-  border: 1px dashed #d7e2f0;
-  border-radius: 16px;
-  background: #fbfdff;
+  padding: 18px;
+  border: 1px dashed var(--grp-border);
+  border-radius: 18px;
+  background: rgba(246, 252, 248, 0.8);
 }
 
+/* ── Requests ────────────────────────────────────────────── */
 .requests-controls {
   display: flex;
   flex-wrap: wrap;
   align-items: end;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 .requests-list {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .requests-card {
   position: sticky;
-  top: 18px;
+  top: 20px;
 }
 
 .request-item {
-  border: 1px solid #d7e2f0;
-  border-radius: 16px;
-  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
-  padding: 14px;
+  border: 1px solid var(--grp-border);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 16px;
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .request-item .meta {
-  color: var(--groups-muted);
+  color: var(--grp-muted);
   font-size: 12px;
+  font-weight: 600;
 }
 
 .request-item textarea {
@@ -518,13 +600,23 @@ body.groups-body.role-teacher .groups-layout {
 }
 
 .request-item .actions button.approve {
-  border-color: var(--groups-green);
-  background: var(--groups-green);
+  border-color: rgba(8, 79, 59, 0.3);
+  background: linear-gradient(180deg, #1f8e5a 0%, #157347 100%);
+  box-shadow: 0 8px 16px rgba(21, 115, 71, 0.16);
+}
+
+.request-item .actions button.approve:hover {
+  background: linear-gradient(180deg, #249b64 0%, #178553 100%);
 }
 
 .request-item .actions button.reject {
-  border-color: var(--groups-red);
-  background: var(--groups-red);
+  border-color: rgba(197, 68, 68, 0.3);
+  background: linear-gradient(180deg, #c54444 0%, #a33636 100%);
+  box-shadow: 0 8px 16px rgba(197, 68, 68, 0.16);
+}
+
+.request-item .actions button.reject:hover {
+  background: linear-gradient(180deg, #d64e4e 0%, #b43c3c 100%);
 }
 
 .request-item .actions button:disabled {
@@ -535,36 +627,41 @@ body.groups-body.role-teacher .groups-layout {
 .requests-empty {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px;
-  border: 1px dashed #d7e2f0;
-  border-radius: 16px;
-  background: #fbfdff;
+  gap: 14px;
+  padding: 18px;
+  border: 1px dashed var(--grp-border);
+  border-radius: 18px;
+  background: rgba(246, 252, 248, 0.8);
 }
 
 .requests-empty .material-symbols-outlined {
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   border-radius: 14px;
   display: grid;
   place-items: center;
-  background: rgba(22, 163, 74, 0.1);
-  color: var(--groups-green);
+  background: rgba(13, 107, 80, 0.12);
+  color: var(--grp-accent);
   font-size: 20px;
+  flex-shrink: 0;
 }
 
 .requests-empty strong {
   display: block;
-  color: #17233b;
-  font-size: 15px;
+  color: var(--grp-text-strong);
+  font-size: 14px;
 }
 
 .requests-empty p {
   margin: 4px 0 0;
-  color: var(--groups-muted);
+  color: var(--grp-muted);
   font-size: 13px;
-  line-height: 1.45;
+  line-height: 1.5;
 }
+
+/* ────────────────────────────────────────────────────────── */
+/*  RESPONSIVE                                                */
+/* ────────────────────────────────────────────────────────── */
 
 @media (max-width: 1180px) {
   body.groups-body.role-admin .groups-layout,
@@ -578,7 +675,7 @@ body.groups-body.role-teacher .groups-layout {
   }
 
   .groups-main {
-    padding: 14px 12px 22px;
+    padding: 14px 16px 28px;
   }
 
   .filters-card {
@@ -601,8 +698,21 @@ body.groups-body.role-teacher .groups-layout {
     grid-template-columns: 1fr;
   }
 
+  .groups-head--hero {
+    padding: 18px 20px;
+    border-radius: var(--grp-radius-lg);
+  }
+
+  .groups-head h1 {
+    font-size: 24px;
+  }
+
   .dep-node > summary {
-    font-size: 17px;
+    padding: 14px 16px;
+  }
+
+  .dep-summary__main strong {
+    font-size: 20px;
   }
 
   .group-node > summary {
@@ -612,5 +722,9 @@ body.groups-body.role-teacher .groups-layout {
 
   .student-row {
     grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .groups-metric strong {
+    font-size: 28px;
   }
 }
