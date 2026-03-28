@@ -164,6 +164,14 @@
     return items.join("");
   }
 
+  function canActivateProject(project) {
+    const ready = state.readiness.get(String(project?.id || ""));
+    const status = statusCode(project);
+    return isAcceptedReviewer(project) &&
+      Boolean(ready && ready.can_activate) &&
+      (status === "RECRUITMENT" || status === "REVIEW");
+  }
+
   function projectNarrative(project) {
     const ready = state.readiness.get(String(project.id || ""));
     const status = statusCode(project);
@@ -173,6 +181,9 @@
     }
     if (isAcceptedReviewer(project) && status === "GRADING") {
       return "Проект уже передан на финальную проверку. Откройте оценивание и завершите ревью по критериям.";
+    }
+    if (canActivateProject(project)) {
+      return "Команда, преподавательское ревью и критерии готовы. Вы можете дать разрешение на запуск и перевести проект в ACTIVE.";
     }
     if (isAcceptedReviewer(project) && (status === "DRAFT" || status === "REVIEW" || status === "RECRUITMENT")) {
       if (ready && Number(ready.criteria_count || 0) === 0) {
@@ -197,6 +208,9 @@
     if (isInvitePending(project)) {
       return { label: "Принять ревью", act: "accept", primary: true };
     }
+    if (canActivateProject(project)) {
+      return { label: "Дать разрешение на запуск и запустить", act: "activate", primary: true };
+    }
     if (isAcceptedReviewer(project) && (status === "GRADING" || status === "COMPLETED")) {
       return { label: status === "COMPLETED" ? "Открыть результат" : "Открыть оценивание", act: "grade", primary: true };
     }
@@ -212,6 +226,11 @@
 
     if (isInvitePending(project)) {
       actions.unshift({ label: "Отклонить", act: "reject", primary: false, danger: true });
+      return actions;
+    }
+
+    if (canActivateProject(project)) {
+      actions.unshift({ label: "Критерии", act: "criteria", primary: false });
       return actions;
     }
 
@@ -309,6 +328,18 @@
           actions: [
             { label: "Принять", act: "accept", id: project.id, primary: true },
             { label: "Отклонить", act: "reject", id: project.id, danger: true },
+          ],
+        });
+        return;
+      }
+
+      if (canActivateProject(project)) {
+        focus.push({
+          title: project.title || "Без названия",
+          text: "Команда готова к старту. Вы можете дать разрешение на запуск и перевести проект в ACTIVE.",
+          actions: [
+            { label: "Дать разрешение на запуск и запустить", act: "activate", id: project.id, primary: true },
+            { label: "Открыть критерии", act: "criteria", id: project.id, primary: false },
           ],
         });
         return;
@@ -433,6 +464,11 @@
     setStatus(accept ? "Приглашение на ревью принято." : "Приглашение на ревью отклонено.", false);
   }
 
+  async function actionActivateProject(projectID) {
+    await request("POST", `/v2/projects/${projectID}/approve`, {});
+    setStatus("Разрешение на запуск выдано. Проект переведен в ACTIVE.", false);
+  }
+
   function actionOpenCriteria(projectID) {
     window.location.href = `/dev/professor/criteria?project_id=${encodeURIComponent(projectID)}`;
   }
@@ -456,7 +492,9 @@
         actionOpenGrading(projectID);
         return;
       }
-      if (act === "accept") {
+      if (act === "activate") {
+        await actionActivateProject(projectID);
+      } else if (act === "accept") {
         await actionRespondProfessorInvite(projectID, true);
       } else if (act === "reject") {
         await actionRespondProfessorInvite(projectID, false);

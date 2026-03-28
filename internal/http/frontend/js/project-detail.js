@@ -82,6 +82,7 @@
     professorIdentity: document.getElementById("professorIdentity"),
     professorInviteHint: document.getElementById("professorInviteHint"),
     assignProfessorBtn: document.getElementById("assignProfessorBtn"),
+    pipelineStatusNote: document.getElementById("pipelineStatusNote"),
     approveProjectBtn: document.getElementById("approveProjectBtn"),
     completeProjectBtn: document.getElementById("completeProjectBtn"),
 
@@ -360,8 +361,21 @@
     return `${LS_TASK_META_PREFIX}${state.projectID}`;
   }
 
+  function hasProjectPermission(code) {
+    const wanted = String(code || "").trim();
+    return Boolean(wanted) && Array.isArray(state.myPermissions) && state.myPermissions.includes(wanted);
+  }
+
   function canManageAccess() {
-    return Array.isArray(state.myPermissions) && state.myPermissions.includes("member.access.manage");
+    return hasProjectPermission("member.access.manage");
+  }
+
+  function canApproveProjectLaunch() {
+    return hasProjectPermission("project.approve");
+  }
+
+  function canInviteProfessorToProject() {
+    return hasProjectPermission("project.invite_professor");
   }
 
   function decodePayload(token) {
@@ -654,8 +668,20 @@
     if (!canViewProjectDetails()) {
       return [];
     }
-    const members = Array.isArray(state.members) ? [...state.members] : [];
     const leadID = String(state.project?.created_by || "").trim();
+    const members = (Array.isArray(state.members) ? state.members : []).map((member) => {
+      if (String(member?.user_id || "") !== leadID) {
+        return member;
+      }
+      if (String(member?.position_name || "").trim() || String(member?.position_code || "").trim()) {
+        return member;
+      }
+      return {
+        ...member,
+        position_code: "TEAM_LEAD",
+        position_name: "Тимлид",
+      };
+    });
     if (leadID && !members.some((m) => String(m.user_id) === leadID)) {
       members.unshift({
         id: `lead-${leadID}`,
@@ -1312,16 +1338,25 @@
 
     const statusCode = projectStatusCode();
     const canManagePipeline = canViewWorkspace() && isCurrentUserLead();
+    const canGrantLaunch = canViewWorkspace() && canApproveProjectLaunch();
+    const isPrelaunchStatus = statusCode !== "ACTIVE" && statusCode !== "GRADING" && statusCode !== "COMPLETED" && statusCode !== "ARCHIVE";
     const canOpenRecruitment = canManagePipeline && (statusCode === "DRAFT" || statusCode === "REVIEW");
     if (ui.openRecruitmentBtn) {
       ui.openRecruitmentBtn.hidden = !canOpenRecruitment;
       ui.openRecruitmentBtn.disabled = !canOpenRecruitment;
     }
+    if (ui.pipelineStatusNote) {
+      ui.pipelineStatusNote.hidden = true;
+      ui.pipelineStatusNote.textContent = "";
+      ui.pipelineStatusNote.className = "pipeline-status-note";
+    }
 
     if (!state.readiness) {
       ui.readinessList.innerHTML = '<div class="empty-state">Данные о готовности не загружены.</div>';
-      ui.approveProjectBtn.hidden = !canManagePipeline;
+      ui.approveProjectBtn.hidden = !canGrantLaunch;
       ui.approveProjectBtn.disabled = true;
+      ui.approveProjectBtn.textContent = "Дать разрешение на запуск и запустить";
+      ui.approveProjectBtn.title = "";
       if (ui.completeProjectBtn) {
         ui.completeProjectBtn.hidden = true;
         ui.completeProjectBtn.disabled = true;
@@ -1372,9 +1407,31 @@
       ui.readinessList.appendChild(row);
     });
 
-    const canShowApprove = canManagePipeline && statusCode !== "ACTIVE" && statusCode !== "GRADING" && statusCode !== "COMPLETED" && statusCode !== "ARCHIVE";
+    if (ui.pipelineStatusNote && isPrelaunchStatus) {
+      if (canGrantLaunch) {
+        ui.pipelineStatusNote.hidden = false;
+        ui.pipelineStatusNote.className = `pipeline-status-note ${state.readiness.can_activate ? "pipeline-status-note--ready" : "pipeline-status-note--info"}`;
+        ui.pipelineStatusNote.textContent = state.readiness.can_activate
+          ? "Команда и критерии готовы. Как назначенный преподаватель, вы можете дать разрешение на запуск и перевести проект в ACTIVE."
+          : "Для запуска проект еще не готов. Проверьте состав команды, подтверждение ревью и критерии перед переводом в ACTIVE.";
+      } else if (canManagePipeline) {
+        ui.pipelineStatusNote.hidden = false;
+        ui.pipelineStatusNote.className = "pipeline-status-note";
+        ui.pipelineStatusNote.textContent = state.readiness.can_activate
+          ? "Команда готова к запуску. Следующий шаг за преподавателем: он должен дать разрешение на запуск и перевести проект в ACTIVE."
+          : "После выполнения всех условий проект запускает преподаватель. Доведите пайплайн до готовности и дождитесь его разрешения на старт.";
+      }
+    }
+
+    const canShowApprove = canGrantLaunch && isPrelaunchStatus;
     ui.approveProjectBtn.hidden = !canShowApprove;
+    ui.approveProjectBtn.textContent = "Дать разрешение на запуск и запустить";
     ui.approveProjectBtn.disabled = !state.readiness.can_activate;
+    ui.approveProjectBtn.title = !canShowApprove
+      ? ""
+      : state.readiness.can_activate
+        ? "Перевести проект в ACTIVE"
+        : "Для запуска должны быть готовы команда, подтвержден преподаватель и настроены критерии.";
 
     if (ui.completeProjectBtn) {
       const isMember = isCurrentUserActiveMember();
@@ -1909,7 +1966,7 @@
       ui.teamHelperCard.hidden = !workspaceMode;
     }
     if (ui.professorAssignWrap) {
-      ui.professorAssignWrap.hidden = !workspaceMode;
+      ui.professorAssignWrap.hidden = !workspaceMode || !canInviteProfessorToProject();
     }
     if (ui.positionForm) {
       ui.positionForm.hidden = !workspaceMode || !isCurrentUserLead();
@@ -2247,8 +2304,12 @@
 
     state.currentPermUserID = userID;
     ui.permMemberName.textContent = getDisplayName(userID);
+    ui.permLoading.textContent = "Загрузка данных...";
     ui.permLoading.hidden = false;
     ui.permContent.hidden = true;
+    ui.permSystemRoles.innerHTML = "";
+    ui.permAssignableRoles.innerHTML = "";
+    ui.permEffectivePermissions.innerHTML = "";
     openModal(ui.permissionsModal);
 
     try {
@@ -2318,8 +2379,6 @@
 
     // Effective permissions (read-only).
     const effectivePerms = access.effective_permission_codes || [];
-    const countEl = document.getElementById("permEffectiveCount");
-    if (countEl) countEl.textContent = effectivePerms.length;
     ui.permEffectivePermissions.innerHTML = effectivePerms.length
       ? effectivePerms.map((c) => `<span class="perm-eff-chip">${escapeHTML(c)}</span>`).join("")
       : '<span class="perm-empty">Нет разрешений</span>';
@@ -3019,11 +3078,9 @@
       renderTasks();
     });
 
-    ui.permRoleSelect.addEventListener("change", () => {
-      syncPermissionsWithRole(ui.permRoleSelect.value);
-    });
-
-    ui.savePermissionsBtn.addEventListener("click", savePermissions);
+    if (ui.savePermissionsBtn) {
+      ui.savePermissionsBtn.addEventListener("click", savePermissions);
+    }
   }
 
   async function bootstrap() {
