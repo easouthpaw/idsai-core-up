@@ -92,6 +92,10 @@ func (f *fakeRepo) RevokeRefreshToken(ctx context.Context, tokenHash string) err
 	return nil
 }
 
+func (f *fakeRepo) RevokeAndReturnRefreshToken(ctx context.Context, tokenHash string) (uuid.UUID, uuid.UUID, time.Time, error) {
+	return uuid.Nil, uuid.Nil, time.Time{}, ErrNotFound
+}
+
 func (f *fakeRepo) RevokeUserRefreshTokens(ctx context.Context, tenantID, userID uuid.UUID) error {
 	return nil
 }

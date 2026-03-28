@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"idsai-core-up/internal/domain"
+	"idsai-core-up/internal/strutil"
 
 	"github.com/google/uuid"
 )
@@ -157,9 +158,7 @@ func (s *Service) CompleteTask(ctx context.Context, userID, projectID, taskID uu
 		return Task{}, err
 	}
 	comment = strings.TrimSpace(comment)
-	if len(comment) > 3000 {
-		comment = comment[:3000]
-	}
+	comment = strutil.TruncateUTF8(comment, 3000)
 	attachments = normalizeTaskAttachments(attachments)
 
 	assigneeID, currentStatus, taskTitle, err := s.tasksRepo.GetTaskCompleteContext(ctx, projectID, taskID)

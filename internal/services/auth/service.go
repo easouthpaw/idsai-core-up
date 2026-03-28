@@ -189,6 +189,7 @@ type Repository interface {
 	InsertRefreshToken(ctx context.Context, tenantID, userID uuid.UUID, tokenHash string, expiresAt time.Time) error
 	FindRefreshToken(ctx context.Context, tokenHash string) (tenantID uuid.UUID, userID uuid.UUID, expiresAt time.Time, revokedAt *time.Time, err error)
 	RevokeRefreshToken(ctx context.Context, tokenHash string) error
+	RevokeAndReturnRefreshToken(ctx context.Context, tokenHash string) (tenantID uuid.UUID, userID uuid.UUID, expiresAt time.Time, err error)
 	RevokeUserRefreshTokens(ctx context.Context, tenantID, userID uuid.UUID) error
 	FindDepartment(ctx context.Context, tenantID uuid.UUID, departmentCode string) (departmentID uuid.UUID, facultyID uuid.UUID, err error)
 	FindGroupByCodeInDepartment(ctx context.Context, tenantID, departmentID uuid.UUID, groupCode string) (groupID uuid.UUID, err error)
@@ -439,18 +440,17 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (Session, er
 	}
 
 	h := hashToken(refreshToken)
-	tenantID, userID, exp, revokedAt, err := s.repo.FindRefreshToken(ctx, h)
+
+	// Atomic revoke-and-return: prevents TOCTOU race condition
+	// where two concurrent requests with the same token could both succeed.
+	tenantID, userID, exp, err := s.repo.RevokeAndReturnRefreshToken(ctx, h)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return Session{}, ErrSessionInvalid
 		}
 		return Session{}, err
 	}
-	if revokedAt != nil {
-		return Session{}, ErrSessionInvalid
-	}
 	if time.Now().UTC().After(exp) {
-		_ = s.repo.RevokeRefreshToken(ctx, h)
 		return Session{}, ErrSessionExpired
 	}
 
@@ -459,14 +459,9 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (Session, er
 		return Session{}, err
 	}
 	if u.Status != StatusActive || u.EmailVerifiedAt == nil {
-		_ = s.repo.RevokeRefreshToken(ctx, h)
 		return Session{}, ErrSessionInvalid
 	}
 	u.AvatarURL = s.resolveAvatarURL(u.AvatarKey)
-
-	if err := s.repo.RevokeRefreshToken(ctx, h); err != nil {
-		return Session{}, err
-	}
 
 	tokens, err := s.issueTokens(ctx, u.TenantID, u.ID, u.FacultyID, u.DepartmentID, u.IsAdmin, u.IsProfessor)
 	if err != nil {

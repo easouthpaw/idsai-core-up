@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"idsai-core-up/internal/strutil"
 	"sort"
 	"strings"
 
@@ -18,9 +19,7 @@ func normalizeStackCodes(input []string) []string {
 		if v == "" {
 			continue
 		}
-		if len(v) > 40 {
-			v = v[:40]
-		}
+		v = strutil.TruncateUTF8(v, 40)
 		if _, ok := seen[v]; ok {
 			continue
 		}
@@ -46,9 +45,7 @@ func normalizePositionCode(code, name string) string {
 	}
 	v = strings.ReplaceAll(v, " ", "_")
 	v = strings.ReplaceAll(v, "-", "_")
-	if len(v) > 40 {
-		v = v[:40]
-	}
+	v = strutil.TruncateUTF8(v, 40)
 	return v
 }
 
@@ -77,9 +74,7 @@ func normalizeTaskAttachments(items []string) []string {
 		if v == "" {
 			continue
 		}
-		if len(v) > 1000 {
-			v = v[:1000]
-		}
+		v = strutil.TruncateUTF8(v, 1000)
 		if _, ok := seen[v]; ok {
 			continue
 		}
@@ -107,9 +102,7 @@ func (s *Service) appendTaskActivity(
 	toStatus = strings.ToUpper(strings.TrimSpace(toStatus))
 	title = strings.TrimSpace(title)
 	comment = strings.TrimSpace(comment)
-	if len(comment) > 3000 {
-		comment = comment[:3000]
-	}
+	comment = strutil.TruncateUTF8(comment, 3000)
 	attachments = normalizeTaskAttachments(attachments)
 	return s.tasksRepo.InsertTaskActivity(ctx, projectID, taskID, actorUserID, eventType, fromStatus, toStatus, title, comment, attachments)
 }

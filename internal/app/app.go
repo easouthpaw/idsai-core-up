@@ -20,8 +20,7 @@ type App struct {
 	HTTP *gin.Engine
 }
 
-func New(ctx context.Context) (*App, error) {
-	cfg := config.Load()
+func New(ctx context.Context, cfg config.Config) (*App, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}

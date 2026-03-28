@@ -35,143 +35,160 @@
       </header>
 
       <main class="content profile-content">
-        <section class="profile-hero">
-          <div class="profile-hero-main">
-            <div class="profile-avatar-column">
-              <div id="profileAvatarPreview" class="profile-avatar">ST</div>
+        <!-- ===== GitHub-style 2-column layout ===== -->
+        <div class="gh-profile-layout">
+
+          <!-- LEFT COLUMN: Avatar + identity + contacts (GitHub sidebar) -->
+          <aside class="gh-sidebar">
+            <div class="gh-avatar-section">
+              <div id="profileAvatarPreview" class="gh-avatar">ST</div>
               <input id="avatarInput" type="file" name="avatar_file" accept="image/jpeg,image/jpg,image/png,image/webp" hidden />
-              <p id="profileAvatarNote" class="profile-avatar-note">Квадратное изображение от 400x400 px. Поддержка JPG, PNG и WEBP.</p>
+              <p id="profileAvatarNote" class="gh-avatar-note">Квадратное изображение от 400×400 px. JPG, PNG, WEBP.</p>
               <p id="avatarStatus" class="inline-status" aria-live="polite"></p>
             </div>
 
-            <div class="profile-identity">
-              <div class="hero-pills">
-                <span id="profileWorkspaceBadge" class="hero-pill">Student Workspace</span>
-                <span id="profileCompletionBadge" class="hero-pill hero-pill--accent">Профиль 0%</span>
-              </div>
+            <div class="gh-identity">
               <h1 id="heroName">Студент</h1>
-              <p id="heroHeadline" class="hero-headline">Добавьте специализацию, стек и карьерный фокус, чтобы профиль выглядел завершенным.</p>
-              <div class="hero-meta">
+              <p id="heroHeadline" class="gh-headline">Добавьте специализацию</p>
+              <div id="profileWorkspaceBadge" class="gh-role-badge">Student Workspace</div>
+              <div id="profileCompletionBadge" class="gh-completion-badge">Профиль 0%</div>
+            </div>
+
+            <div class="gh-sidebar-actions">
+              <button id="editProfileBtn" class="gh-btn gh-btn--primary full-w" type="button">Редактировать профиль</button>
+              <button id="cancelEditBtn" class="gh-btn gh-btn--outline full-w" type="button" hidden>Отменить</button>
+              <button id="uploadAvatarBtn" class="gh-btn gh-btn--outline full-w" type="button">Обновить аватар</button>
+              <button id="removeAvatarBtn" class="gh-btn gh-btn--danger-link full-w" type="button">Удалить аватар</button>
+            </div>
+
+            <div class="gh-meta-block">
+              <div class="gh-meta-item">
+                <span class="material-symbols-outlined">mail</span>
                 <span id="heroEmail">student@university.edu</span>
-                <span id="heroDepartment">Кафедра: —</span>
-                <span id="heroGroup">Группа: —</span>
               </div>
-              <div id="heroStackPreview" class="hero-stack-preview"></div>
+              <div id="heroDepartment" class="gh-meta-item">
+                <span class="material-symbols-outlined">school</span>
+                <span>Кафедра: —</span>
+              </div>
+              <div id="heroGroup" class="gh-meta-item">
+                <span class="material-symbols-outlined">group</span>
+                <span>Группа: —</span>
+              </div>
             </div>
-          </div>
 
-          <div class="profile-hero-actions">
-            <button id="editProfileBtn" class="primary-btn" type="button">Редактировать профиль</button>
-            <button id="cancelEditBtn" class="ghost-btn" type="button" hidden>Отменить</button>
-            <button id="uploadAvatarBtn" class="primary-btn" type="button">Обновить аватар</button>
-            <button id="removeAvatarBtn" class="ghost-btn" type="button">Удалить аватар</button>
-            <a id="openSettingsBtn" class="ghost-btn" href="/dev/settings">Открыть настройки</a>
-          </div>
-        </section>
+            <!-- Contacts sidebar section -->
+            <section id="profileLinksPanel" class="gh-sidebar-section">
+              <h3>Контакты</h3>
+              <div class="gh-contact-list">
+                <label class="field">
+                  <span>GitHub</span>
+                  <input id="githubInput" type="url" name="github_url" spellcheck="false" placeholder="https://github.com/username" />
+                </label>
+                <label class="field">
+                  <span>Telegram</span>
+                  <input id="telegramInput" type="text" name="telegram" spellcheck="false" placeholder="@username" />
+                </label>
+                <label class="field">
+                  <span>Портфолио / CV</span>
+                  <input id="portfolioInput" type="url" name="portfolio_url" spellcheck="false" placeholder="https://your-portfolio.example" />
+                </label>
+              </div>
+            </section>
+          </aside>
 
-        <section class="profile-stats" aria-label="Сводка профиля">
-          <article id="stackStatCard" class="profile-stat profile-stat--green">
-            <p>Технологии</p>
-            <strong id="stackCountStat">0</strong>
-            <span>в выбранном стеке</span>
-          </article>
-          <article id="interestStatCard" class="profile-stat profile-stat--blue">
-            <p>Направления</p>
-            <strong id="interestCountStat">0</strong>
-            <span>в профессиональном фокусе</span>
-          </article>
-          <article id="linksStatCard" class="profile-stat profile-stat--amber">
-            <p>Контакты</p>
-            <strong id="linksCountStat">0</strong>
-            <span>готовы для команды</span>
-          </article>
-          <article id="availabilityStatCard" class="profile-stat profile-stat--slate">
-            <p>Статус</p>
-            <strong id="availabilityStat">Не указан</strong>
-            <span>учебная загрузка</span>
-          </article>
-        </section>
+          <!-- RIGHT COLUMN: Main content (GitHub readme area) -->
+          <div class="gh-main">
+            <!-- Stats bar -->
+            <section class="profile-stats" aria-label="Сводка профиля">
+              <article id="stackStatCard" class="profile-stat profile-stat--green">
+                <p>Технологии</p>
+                <strong id="stackCountStat">0</strong>
+                <span>в стеке</span>
+              </article>
+              <article id="interestStatCard" class="profile-stat profile-stat--blue">
+                <p>Направления</p>
+                <strong id="interestCountStat">0</strong>
+                <span>в фокусе</span>
+              </article>
+              <article id="linksStatCard" class="profile-stat profile-stat--amber">
+                <p>Контакты</p>
+                <strong id="linksCountStat">0</strong>
+                <span>готовы</span>
+              </article>
+              <article id="availabilityStatCard" class="profile-stat profile-stat--slate">
+                <p>Статус</p>
+                <strong id="availabilityStat">Не указан</strong>
+                <span>загрузка</span>
+              </article>
+            </section>
 
-        <div class="profile-main-grid">
-          <section id="profileMainPanel" class="profile-panel profile-panel--main">
-            <header class="panel-head">
-              <div>
+            <!-- About / README section -->
+            <section id="profileMainPanel" class="gh-panel">
+              <header class="gh-panel-head">
+                <span class="material-symbols-outlined">person</span>
                 <h2>Основная информация</h2>
-                <p>Это ядро студенческого профиля: имя, фокус, описание и учебный контекст.</p>
-              </div>
-            </header>
-
-            <div class="panel-body profile-form-grid">
-              <label class="field">
-                <span>Полное имя</span>
-                <input id="fullNameInput" type="text" name="full_name" autocomplete="name" maxlength="120" placeholder="Ваше полное имя" />
-              </label>
-
-              <label class="field">
-                <span>Профессиональный фокус</span>
-                <input id="headlineInput" type="text" name="headline" maxlength="96" placeholder="Например: Backend Developer / ML Engineer" />
-              </label>
-
-              <label class="field field--full">
-                <span>О себе</span>
-                <textarea id="aboutInput" name="about" rows="6" maxlength="1200" placeholder="Коротко расскажите о своем опыте, сильных сторонах и том, какие проекты вам интересны."></textarea>
-              </label>
-
-              <label class="field">
-                <span>Предпочтительная роль</span>
-                <select id="preferredRoleSelect" name="preferred_role" autocomplete="off">
-                  <option value="">Выберите роль</option>
-                  <option value="Team Lead">Team Lead</option>
-                  <option value="Backend Developer">Backend Developer</option>
-                  <option value="Frontend Developer">Frontend Developer</option>
-                  <option value="Fullstack Developer">Fullstack Developer</option>
-                  <option value="Data Scientist">Data Scientist</option>
-                  <option value="ML Engineer">ML Engineer</option>
-                  <option value="QA Engineer">QA Engineer</option>
-                  <option value="UI/UX Designer">UI/UX Designer</option>
-                </select>
-              </label>
-
-              <label class="field">
-                <span>Семестр / курс</span>
-                <input id="semesterInput" type="text" name="semester" maxlength="40" placeholder="Например: 4 курс, 2 семестр" />
-              </label>
-
-              <label class="field">
-                <span>Загрузка</span>
-                <select id="availabilitySelect" name="availability" autocomplete="off">
-                  <option value="">Не указано</option>
-                  <option value="Свободен для новых проектов">Свободен для новых проектов</option>
-                  <option value="Есть время на 1 активный проект">Есть время на 1 активный проект</option>
-                  <option value="Работаю точечно по задачам">Работаю точечно по задачам</option>
-                  <option value="Сейчас высокая учебная нагрузка">Сейчас высокая учебная нагрузка</option>
-                </select>
-              </label>
-
-              <label class="field field--full">
-                <span>Цель на ближайший проект</span>
-                <textarea id="goalsInput" name="goals" rows="4" maxlength="600" placeholder="Чему хотите научиться, какую роль попробовать и какой результат для себя считаете важным?"></textarea>
-              </label>
-            </div>
-          </section>
-
-          <div class="profile-side-grid">
-            <section id="profileStackPanel" class="profile-panel">
-              <header class="panel-head">
-                <div>
-                  <h2>Технологический стек</h2>
-                  <p>Соберите стек, который лучше всего описывает ваши сильные стороны.</p>
-                </div>
               </header>
+              <div class="gh-panel-body profile-form-grid">
+                <label class="field">
+                  <span>Полное имя</span>
+                  <input id="fullNameInput" type="text" name="full_name" autocomplete="name" maxlength="120" placeholder="Ваше полное имя" />
+                </label>
+                <label class="field">
+                  <span>Фокус</span>
+                  <input id="headlineInput" type="text" name="headline" maxlength="96" placeholder="Например: Backend Developer" />
+                </label>
+                <label class="field field--full">
+                  <span>О себе</span>
+                  <textarea id="aboutInput" name="about" rows="5" maxlength="1200" placeholder="Расскажите о своем опыте и сильных сторонах."></textarea>
+                </label>
+                <label class="field">
+                  <span>Предпочтительная роль</span>
+                  <select id="preferredRoleSelect" name="preferred_role" autocomplete="off">
+                    <option value="">Выберите роль</option>
+                    <option value="Team Lead">Team Lead</option>
+                    <option value="Backend Developer">Backend Developer</option>
+                    <option value="Frontend Developer">Frontend Developer</option>
+                    <option value="Fullstack Developer">Fullstack Developer</option>
+                    <option value="Data Scientist">Data Scientist</option>
+                    <option value="ML Engineer">ML Engineer</option>
+                    <option value="QA Engineer">QA Engineer</option>
+                    <option value="UI/UX Designer">UI/UX Designer</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Семестр / курс</span>
+                  <input id="semesterInput" type="text" name="semester" maxlength="40" placeholder="4 курс, 2 семестр" />
+                </label>
+                <label class="field">
+                  <span>Загрузка</span>
+                  <select id="availabilitySelect" name="availability" autocomplete="off">
+                    <option value="">Не указано</option>
+                    <option value="Свободен для новых проектов">Свободен для новых проектов</option>
+                    <option value="Есть время на 1 активный проект">Есть время на 1 активный проект</option>
+                    <option value="Работаю точечно по задачам">Работаю точечно по задачам</option>
+                    <option value="Сейчас высокая учебная нагрузка">Сейчас высокая учебная нагрузка</option>
+                  </select>
+                </label>
+                <label class="field field--full">
+                  <span>Цель на ближайший проект</span>
+                  <textarea id="goalsInput" name="goals" rows="3" maxlength="600" placeholder="Чему хотите научиться?"></textarea>
+                </label>
+              </div>
+            </section>
 
-              <div class="panel-body">
+            <!-- Tech stack section -->
+            <section id="profileStackPanel" class="gh-panel">
+              <header class="gh-panel-head">
+                <span class="material-symbols-outlined">code</span>
+                <h2>Технологический стек</h2>
+              </header>
+              <div class="gh-panel-body">
                 <div class="stack-entry">
                   <input id="stackInput" type="text" name="stack_input" maxlength="40" placeholder="Например: Go, React, PostgreSQL" />
-                  <button id="addStackBtn" class="ghost-btn" type="button">Добавить</button>
+                  <button id="addStackBtn" class="gh-btn gh-btn--outline" type="button">Добавить</button>
                 </div>
-
                 <div id="stackList" class="chip-list" aria-live="polite"></div>
-
+                <div id="heroStackPreview" class="hero-stack-preview"></div>
                 <div class="stack-suggestions">
                   <button class="suggestion-chip" type="button" data-stack-suggestion="Go">Go</button>
                   <button class="suggestion-chip" type="button" data-stack-suggestion="Python">Python</button>
@@ -185,119 +202,82 @@
               </div>
             </section>
 
-            <section id="profileLinksPanel" class="profile-panel">
-              <header class="panel-head">
-                <div>
-                  <h2>Ссылки и контакты</h2>
-                  <p>То, что команда и преподаватель могут быстро открыть из вашего профиля.</p>
-                </div>
+            <!-- Interests section -->
+            <section id="profileInterestsPanel" class="gh-panel">
+              <header class="gh-panel-head">
+                <span class="material-symbols-outlined">interests</span>
+                <h2>Интересы и направления</h2>
               </header>
-
-              <div class="panel-body contact-grid">
-                <label class="field">
-                  <span>GitHub</span>
-                  <input id="githubInput" type="url" name="github_url" spellcheck="false" placeholder="https://github.com/username" />
+              <div class="gh-panel-body interest-grid">
+                <label class="interest-option">
+                  <input type="checkbox" name="interests" value="Backend" />
+                  <span>Backend</span>
                 </label>
-
-                <label class="field">
-                  <span>Telegram</span>
-                  <input id="telegramInput" type="text" name="telegram" spellcheck="false" placeholder="@username" />
+                <label class="interest-option">
+                  <input type="checkbox" name="interests" value="Frontend" />
+                  <span>Frontend</span>
                 </label>
-
-                <label class="field field--full">
-                  <span>Портфолио / CV</span>
-                  <input id="portfolioInput" type="url" name="portfolio_url" spellcheck="false" placeholder="https://your-portfolio.example" />
+                <label class="interest-option">
+                  <input type="checkbox" name="interests" value="Fullstack" />
+                  <span>Fullstack</span>
+                </label>
+                <label class="interest-option">
+                  <input type="checkbox" name="interests" value="ML / AI" />
+                  <span>ML / AI</span>
+                </label>
+                <label class="interest-option">
+                  <input type="checkbox" name="interests" value="Data Engineering" />
+                  <span>Data Engineering</span>
+                </label>
+                <label class="interest-option">
+                  <input type="checkbox" name="interests" value="DevOps" />
+                  <span>DevOps</span>
+                </label>
+                <label class="interest-option">
+                  <input type="checkbox" name="interests" value="Mobile" />
+                  <span>Mobile</span>
+                </label>
+                <label class="interest-option">
+                  <input type="checkbox" name="interests" value="UI / UX" />
+                  <span>UI / UX</span>
+                </label>
+                <label class="interest-option">
+                  <input type="checkbox" name="interests" value="Research" />
+                  <span>Research</span>
                 </label>
               </div>
             </section>
+
+            <!-- Account panel -->
+            <section id="profileAccountPanel" class="gh-panel">
+              <header class="gh-panel-head">
+                <span class="material-symbols-outlined">shield</span>
+                <h2>Аккаунт</h2>
+              </header>
+              <div class="gh-panel-body account-grid">
+                <label class="field">
+                  <span>Email</span>
+                  <input id="emailInput" type="email" name="email" readonly />
+                </label>
+                <label class="field">
+                  <span>Кафедра</span>
+                  <input id="departmentInput" type="text" name="department_code" readonly />
+                </label>
+                <label class="field">
+                  <span>Группа</span>
+                  <input id="groupInput" type="text" name="group_code" readonly />
+                </label>
+                <p class="profile-note">
+                  Email, пароль и смена группы настраиваются в настройках аккаунта.
+                </p>
+                <div class="panel-actions">
+                  <button id="saveProfileBtn" class="gh-btn gh-btn--primary" type="button">Сохранить профиль</button>
+                  <a id="openSettingsBtn" class="gh-btn gh-btn--outline" href="/dev/settings">Настройки</a>
+                </div>
+                <p id="profileStatus" class="inline-status" aria-live="polite"></p>
+              </div>
+            </section>
           </div>
-        </div>
-
-        <div class="profile-bottom-grid">
-          <section id="profileInterestsPanel" class="profile-panel">
-            <header class="panel-head">
-              <div>
-                <h2>Интересы и направления</h2>
-                <p>Помогают быстрее подобрать проект и командную роль.</p>
-              </div>
-            </header>
-
-            <div class="panel-body interest-grid">
-              <label class="interest-option">
-                <input type="checkbox" name="interests" value="Backend" />
-                <span>Backend</span>
-              </label>
-              <label class="interest-option">
-                <input type="checkbox" name="interests" value="Frontend" />
-                <span>Frontend</span>
-              </label>
-              <label class="interest-option">
-                <input type="checkbox" name="interests" value="Fullstack" />
-                <span>Fullstack</span>
-              </label>
-              <label class="interest-option">
-                <input type="checkbox" name="interests" value="ML / AI" />
-                <span>ML / AI</span>
-              </label>
-              <label class="interest-option">
-                <input type="checkbox" name="interests" value="Data Engineering" />
-                <span>Data Engineering</span>
-              </label>
-              <label class="interest-option">
-                <input type="checkbox" name="interests" value="DevOps" />
-                <span>DevOps</span>
-              </label>
-              <label class="interest-option">
-                <input type="checkbox" name="interests" value="Mobile" />
-                <span>Mobile</span>
-              </label>
-              <label class="interest-option">
-                <input type="checkbox" name="interests" value="UI / UX" />
-                <span>UI / UX</span>
-              </label>
-              <label class="interest-option">
-                <input type="checkbox" name="interests" value="Research" />
-                <span>Research</span>
-              </label>
-            </div>
-          </section>
-
-          <section id="profileAccountPanel" class="profile-panel">
-            <header class="panel-head">
-              <div>
-                <h2>Аккаунт и учебный контур</h2>
-                <p>Эти данные приходят из текущего аккаунта и используются системой.</p>
-              </div>
-            </header>
-
-            <div class="panel-body account-grid">
-              <label class="field">
-                <span>Email</span>
-                <input id="emailInput" type="email" name="email" readonly />
-              </label>
-
-              <label class="field">
-                <span>Кафедра</span>
-                <input id="departmentInput" type="text" name="department_code" readonly />
-              </label>
-
-              <label class="field">
-                <span>Группа</span>
-                <input id="groupInput" type="text" name="group_code" readonly />
-              </label>
-
-              <p class="profile-note">
-                Email, пароль и смена группы настраиваются в отдельной странице аккаунта.
-                Дополнительные поля этого профиля сохраняются в системе и доступны для просмотра другим участникам.
-              </p>
-
-              <div class="panel-actions">
-                <button id="saveProfileBtn" class="primary-btn" type="button">Сохранить профиль</button>
-                <a class="ghost-btn" href="/dev/settings">Перейти в настройки</a>
-              </div>
-              <p id="profileStatus" class="inline-status" aria-live="polite"></p>
-            </div>
-          </section>
         </div>
       </main>
     </div>

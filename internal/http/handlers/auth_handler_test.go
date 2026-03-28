@@ -86,6 +86,10 @@ func (f *authHandlerRepo) RevokeRefreshToken(ctx context.Context, tokenHash stri
 	return nil
 }
 
+func (f *authHandlerRepo) RevokeAndReturnRefreshToken(ctx context.Context, tokenHash string) (uuid.UUID, uuid.UUID, time.Time, error) {
+	return uuid.Nil, uuid.Nil, time.Time{}, auth.ErrNotFound
+}
+
 func (f *authHandlerRepo) RevokeUserRefreshTokens(ctx context.Context, tenantID, userID uuid.UUID) error {
 	return nil
 }

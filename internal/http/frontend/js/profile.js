@@ -122,7 +122,7 @@
     const url = String(avatarURL || "").trim();
     if (url) {
       el.classList.add("has-image");
-      el.innerHTML = `<img src="${escapeHTML(url)}" alt="Avatar" width="104" height="104" loading="lazy" />`;
+      el.innerHTML = `<img src="${escapeHTML(url)}" alt="Avatar" width="296" height="296" loading="lazy" />`;
       return;
     }
     el.classList.remove("has-image");
@@ -417,14 +417,23 @@
     const meta = profileRoleMeta(profile);
     const name = currentFullName();
     const completion = completionPercent({ ...profile, full_name: name }, ext);
-    const headline = ext.headline || (state.isEditMode ? "Добавьте специализацию, стек и карьерный фокус, чтобы профиль выглядел завершенным." : "");
+    const headline = ext.headline || (state.isEditMode ? "Добавьте специализацию" : "");
 
     ui.profileWorkspaceBadge.textContent = meta.workspace;
     ui.heroName.textContent = name;
     ui.heroHeadline.textContent = headline;
     ui.heroEmail.textContent = profile.email || "user@idsai.dev";
-    ui.heroDepartment.textContent = `Кафедра: ${profile.department_code || "—"}`;
-    ui.heroGroup.textContent = `Группа: ${profile.group_code || "—"}`;
+
+    // Update department and group text (inside the span child of gh-meta-item)
+    if (ui.heroDepartment) {
+      const span = ui.heroDepartment.querySelectorAll("span");
+      if (span.length > 1) span[1].textContent = `Кафедра: ${profile.department_code || "—"}`;
+    }
+    if (ui.heroGroup) {
+      const span = ui.heroGroup.querySelectorAll("span");
+      if (span.length > 1) span[1].textContent = `Группа: ${profile.group_code || "—"}`;
+    }
+
     ui.profileCompletionBadge.textContent = `Профиль ${completion}%`;
 
     ui.stackCountStat.textContent = String(ext.stacks.length);
@@ -458,7 +467,7 @@
       field.disabled = !editable;
     });
 
-    ui.addStackBtn.disabled = !editable;
+    if (ui.addStackBtn) ui.addStackBtn.disabled = !editable;
     ui.stackSuggestionBtns.forEach((button) => {
       button.disabled = !editable;
     });
@@ -476,7 +485,7 @@
     ui.cancelEditBtn.hidden = !showEditControls;
     ui.uploadAvatarBtn.hidden = !showEditControls;
     ui.removeAvatarBtn.hidden = !showEditControls;
-    ui.openSettingsBtn.hidden = !showEditControls;
+    if (ui.openSettingsBtn) ui.openSettingsBtn.hidden = !showEditControls;
     ui.saveProfileBtn.hidden = !showEditControls;
     if (ui.profileAvatarNote) {
       ui.profileAvatarNote.hidden = !showEditControls;
@@ -691,6 +700,7 @@
       ui.telegramInput,
       ui.portfolioInput,
     ].forEach((field) => {
+      if (!field) return;
       field.addEventListener("input", updateDraftFromFields);
       field.addEventListener("change", updateDraftFromFields);
     });
@@ -714,15 +724,19 @@
       setMode(false);
     });
 
-    ui.addStackBtn.addEventListener("click", () => {
-      addStack(ui.stackInput.value);
-    });
+    if (ui.addStackBtn) {
+      ui.addStackBtn.addEventListener("click", () => {
+        addStack(ui.stackInput.value);
+      });
+    }
 
-    ui.stackInput.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter") return;
-      event.preventDefault();
-      addStack(ui.stackInput.value);
-    });
+    if (ui.stackInput) {
+      ui.stackInput.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        addStack(ui.stackInput.value);
+      });
+    }
 
     ui.stackSuggestionBtns.forEach((button) => {
       button.addEventListener("click", () => {

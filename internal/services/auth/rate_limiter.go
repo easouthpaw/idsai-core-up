@@ -5,12 +5,18 @@ import (
 	"time"
 )
 
+const (
+	maxLimiterEntries     = 10000
+	cleanupThrottleInterval = 60 * time.Second
+)
+
 type attemptLimiter struct {
-	mu       sync.Mutex
-	window   time.Duration
-	maxFails int
-	now      func() time.Time
-	entries  map[string]attemptWindow
+	mu          sync.Mutex
+	window      time.Duration
+	maxFails    int
+	now         func() time.Time
+	entries     map[string]attemptWindow
+	lastCleanup time.Time
 }
 
 type attemptWindow struct {
@@ -38,6 +44,8 @@ func (l *attemptLimiter) Allow(key string) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	l.cleanupLocked()
+
 	entry, ok := l.currentEntry(key)
 	if !ok {
 		return true
@@ -48,6 +56,8 @@ func (l *attemptLimiter) Allow(key string) bool {
 func (l *attemptLimiter) Fail(key string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
+	l.cleanupLocked()
 
 	now := l.now()
 	entry, ok := l.currentEntry(key)
@@ -79,4 +89,32 @@ func (l *attemptLimiter) currentEntry(key string) (attemptWindow, bool) {
 		return attemptWindow{}, false
 	}
 	return entry, true
+}
+
+// cleanupLocked removes expired entries to prevent unbounded memory growth.
+// Runs at most once per cleanupThrottleInterval. Must be called with l.mu held.
+func (l *attemptLimiter) cleanupLocked() {
+	now := l.now()
+	if now.Sub(l.lastCleanup) < cleanupThrottleInterval {
+		return
+	}
+	l.lastCleanup = now
+
+	for key, entry := range l.entries {
+		if !entry.resetAt.After(now) {
+			delete(l.entries, key)
+		}
+	}
+
+	// Hard cap: if map is still too large after expiry cleanup, evict oldest entries
+	if len(l.entries) > maxLimiterEntries {
+		excess := len(l.entries) - maxLimiterEntries
+		for key := range l.entries {
+			if excess <= 0 {
+				break
+			}
+			delete(l.entries, key)
+			excess--
+		}
+	}
 }

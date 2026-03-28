@@ -56,7 +56,7 @@ func main() {
 	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	a, err := app.New(rootCtx)
+	a, err := app.New(rootCtx, cfg)
 	if err != nil {
 		log.Printf("app init failed: %v", err)
 		notifyDBFailure(notifier, err)
@@ -68,6 +68,9 @@ func main() {
 		Addr:              a.Cfg.Addr,
 		Handler:           a.HTTP,
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	healthMonitor := alerts.NewHealthMonitor(

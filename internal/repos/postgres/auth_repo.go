@@ -480,6 +480,23 @@ WHERE token_hash = $1
 	return err
 }
 
+func (r *AuthRepo) RevokeAndReturnRefreshToken(ctx context.Context, tokenHash string) (uuid.UUID, uuid.UUID, time.Time, error) {
+	const q = `
+UPDATE refresh_tokens
+SET revoked_at = now()
+WHERE token_hash = $1
+  AND revoked_at IS NULL
+RETURNING tenant_id, user_id, expires_at;
+`
+	var tenantID, userID uuid.UUID
+	var exp time.Time
+	err := r.db.QueryRow(ctx, q, tokenHash).Scan(&tenantID, &userID, &exp)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, uuid.Nil, time.Time{}, svc.ErrNotFound
+	}
+	return tenantID, userID, exp, err
+}
+
 func (r *AuthRepo) RevokeUserRefreshTokens(ctx context.Context, tenantID, userID uuid.UUID) error {
 	_, err := r.db.Exec(ctx, `
 UPDATE refresh_tokens

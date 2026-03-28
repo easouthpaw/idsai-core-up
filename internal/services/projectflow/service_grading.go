@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"idsai-core-up/internal/domain"
+	"idsai-core-up/internal/strutil"
 
 	"github.com/google/uuid"
 )
@@ -79,9 +80,7 @@ func (s *Service) UpsertGrading(ctx context.Context, userID, projectID uuid.UUID
 			return nil, ErrInvalidInput
 		}
 		comment := strings.TrimSpace(item.Comment)
-		if len(comment) > 3000 {
-			comment = comment[:3000]
-		}
+		comment = strutil.TruncateUTF8(comment, 3000)
 		uniq[cid] = CriterionGradeUpsert{
 			CriterionID: cid,
 			IsMet:       item.IsMet,

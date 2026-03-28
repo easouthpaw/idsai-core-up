@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"idsai-core-up/internal/domain"
+	"idsai-core-up/internal/strutil"
 
 	"github.com/google/uuid"
 )
@@ -138,9 +139,7 @@ func (s *Service) InviteStudent(ctx context.Context, userID, projectID, studentI
 	}
 
 	comment = strings.TrimSpace(comment)
-	if len(comment) > 500 {
-		comment = comment[:500]
-	}
+	comment = strutil.TruncateUTF8(comment, 500)
 
 	m, err := s.membersRepo.UpsertInvitedMember(ctx, projectID, studentID, userID, comment)
 	if err != nil {
@@ -168,9 +167,7 @@ func (s *Service) ApplyMember(ctx context.Context, userID, projectID uuid.UUID, 
 	}
 
 	comment = strings.TrimSpace(comment)
-	if len(comment) > 500 {
-		comment = comment[:500]
-	}
+	comment = strutil.TruncateUTF8(comment, 500)
 
 	m, err := s.membersRepo.UpsertAppliedMember(ctx, projectID, userID, comment)
 	if err != nil {
