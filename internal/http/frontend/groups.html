@@ -22,15 +22,40 @@
     ></aside>
 
     <main class="groups-main">
-      <header class="groups-head">
-        <div>
-          <div class="groups-breadcrumbs">
-            <span>IDSAI</span>
-            <span>/</span>
-            <strong>Группы</strong>
+      <header class="groups-hero">
+        <div class="groups-head groups-head--hero">
+          <div>
+            <div class="groups-breadcrumbs">
+              <span>IDSAI</span>
+              <span>/</span>
+              <strong>Группы</strong>
+            </div>
+            <h1>Кафедры и студенческие группы</h1>
+            <p>Единая структура по кафедрам, группам и студентам. Здесь легче контролировать академический контур и переходы между группами.</p>
           </div>
-          <h1>Кафедры и студенческие группы</h1>
-          <p>Единая структура по кафедрам, группам и студентам.</p>
+        </div>
+
+        <div class="groups-hero__stats" aria-label="Сводка структуры">
+          <article class="groups-metric">
+            <small>Кафедры</small>
+            <strong id="metricDepartments">0</strong>
+            <span>в текущем срезе</span>
+          </article>
+          <article class="groups-metric">
+            <small>Группы</small>
+            <strong id="metricGroups">0</strong>
+            <span>академическая структура</span>
+          </article>
+          <article class="groups-metric">
+            <small>Студенты</small>
+            <strong id="metricStudents">0</strong>
+            <span>в дереве ниже</span>
+          </article>
+          <article class="groups-metric groups-metric--accent">
+            <small>Показано</small>
+            <strong id="metricShown">0</strong>
+            <span>после фильтров</span>
+          </article>
         </div>
       </header>
 
@@ -52,33 +77,41 @@
 
       <p id="pageStatus" class="page-status" aria-live="polite"></p>
 
-      <section class="groups-card tree-card">
-        <div class="section-title">
-          <h2>Структура</h2>
-          <span>Кафедра -> Группа -> Студенты</span>
-        </div>
-        <div id="treeRoot" class="tree-root"></div>
-      </section>
+      <div class="groups-content-grid">
+        <section class="groups-card tree-card">
+          <div class="section-title">
+            <div>
+              <h2>Структура</h2>
+              <p>Кафедра → группа → студенты. Открывайте только нужный уровень и быстро находите точку управления.</p>
+            </div>
+            <span>Academic directory</span>
+          </div>
+          <div id="treeRoot" class="tree-root"></div>
+        </section>
 
-      <section id="adminRequestsSection" class="groups-card requests-card" hidden>
-        <div class="section-title">
-          <h2>Заявки на смену группы</h2>
-          <span>Только для администраторов</span>
-        </div>
-        <div class="requests-controls">
-          <label>
-            Статус
-            <select id="requestStatusFilter" name="request_status_filter">
-              <option value="">Все</option>
-              <option value="PENDING">Ожидает</option>
-              <option value="APPROVED">Одобрено</option>
-              <option value="REJECTED">Отклонено</option>
-            </select>
-          </label>
-          <button id="refreshRequestsBtn" type="button">Обновить заявки</button>
-        </div>
-        <div id="requestsList" class="requests-list"></div>
-      </section>
+        <section id="adminRequestsSection" class="groups-card requests-card" hidden>
+          <div class="section-title">
+            <div>
+              <h2>Заявки на смену группы</h2>
+              <p>Административный контур переводов между группами и комментариев по заявкам.</p>
+            </div>
+            <span>Admin only</span>
+          </div>
+          <div class="requests-controls">
+            <label>
+              Статус
+              <select id="requestStatusFilter" name="request_status_filter">
+                <option value="">Все</option>
+                <option value="PENDING">Ожидает</option>
+                <option value="APPROVED">Одобрено</option>
+                <option value="REJECTED">Отклонено</option>
+              </select>
+            </label>
+            <button id="refreshRequestsBtn" type="button">Обновить заявки</button>
+          </div>
+          <div id="requestsList" class="requests-list"></div>
+        </section>
+      </div>
     </main>
   </div>
 

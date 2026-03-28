@@ -360,9 +360,29 @@
     const skipRedirect = Boolean(options.skipAuthRedirect);
     const skipAccessAlert = Boolean(options.skipAccessAlert);
     const fetchOptions = { ...options };
+    const headers = { ...(options.headers || {}) };
     delete fetchOptions.skipAuthRefresh;
     delete fetchOptions.skipAuthRedirect;
     delete fetchOptions.skipAccessAlert;
+    delete fetchOptions.headers;
+
+    if (
+      fetchOptions.body !== undefined &&
+      fetchOptions.body !== null &&
+      typeof fetchOptions.body === "object" &&
+      !(fetchOptions.body instanceof FormData) &&
+      !(fetchOptions.body instanceof URLSearchParams) &&
+      !(fetchOptions.body instanceof Blob) &&
+      !(fetchOptions.body instanceof ArrayBuffer)
+    ) {
+      const hasContentType = Object.keys(headers).some((key) => key.toLowerCase() === "content-type");
+      if (!hasContentType) {
+        headers["Content-Type"] = "application/json";
+      }
+      fetchOptions.body = JSON.stringify(fetchOptions.body);
+    }
+
+    fetchOptions.headers = headers;
 
     let resp = await rawFetch(url, fetchOptions);
     if (resp.status === 401 && !skipRefresh && !String(url).startsWith("/v2/auth/refresh")) {

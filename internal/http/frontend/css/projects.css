@@ -381,6 +381,49 @@ body.modal-open {
   gap: 12px;
 }
 
+body.projects-body .hero.hero--welcome {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 18px;
+  padding: 22px 24px;
+  border: 1px solid #dbe3ee;
+  border-radius: 24px;
+  background:
+    radial-gradient(420px 180px at 100% 0%, rgba(22, 163, 74, 0.12), transparent 72%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 251, 255, 0.98) 100%);
+  box-shadow: 0 16px 34px rgba(15, 23, 40, 0.06);
+}
+
+body.projects-body .hero-copy {
+  display: grid;
+  gap: 8px;
+}
+
+body.projects-body .hero.hero--welcome .hero-kicker {
+  margin: 0;
+  color: #71839d;
+  font: 700 11px "JetBrains Mono", ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+body.projects-body .hero.hero--welcome #heroGreeting {
+  margin: 0;
+  color: #11213e;
+  font-size: clamp(34px, 4.4vw, 58px);
+  line-height: 1.02;
+  letter-spacing: -0.05em;
+}
+
+body.projects-body .hero-section-title {
+  margin: 0;
+  color: #1d4374;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
 .hero h1 {
   margin: 0;
   font-size: 46px;
@@ -409,6 +452,14 @@ body.modal-open {
   margin: 8px 0 0;
   color: var(--muted);
   font-size: 24px;
+}
+
+body.projects-body .hero.hero--welcome #tabSubtitle {
+  margin: 0;
+  max-width: 60ch;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.55;
 }
 
 .create-btn {
@@ -1202,12 +1253,22 @@ body.modal-open {
     flex-direction: column;
   }
 
+  body.projects-body .hero.hero--welcome {
+    grid-template-columns: 1fr;
+    align-items: start;
+    padding: 18px;
+  }
+
   .hero-title-row {
     flex-wrap: wrap;
   }
 
   .hero h1 {
     font-size: 31px;
+  }
+
+  body.projects-body .hero-section-title {
+    font-size: 18px;
   }
 
   .hero p {

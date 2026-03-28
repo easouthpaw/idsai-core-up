@@ -53,11 +53,27 @@ body.groups-body.role-teacher .groups-layout {
   padding: 18px;
 }
 
+.groups-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.95fr);
+  gap: 14px;
+}
+
 .groups-head {
   border: 1px solid var(--groups-line);
   border-radius: 14px;
   background: #f9fbff;
   padding: 14px 16px;
+}
+
+.groups-head--hero {
+  min-height: 100%;
+  padding: 20px 22px;
+  border-radius: 22px;
+  background:
+    radial-gradient(380px 180px at 100% 0%, rgba(31, 103, 194, 0.12), transparent 72%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 251, 255, 0.98) 100%);
+  box-shadow: 0 14px 32px rgba(23, 35, 59, 0.06);
 }
 
 .groups-breadcrumbs {
@@ -85,11 +101,60 @@ body.groups-body.role-teacher .groups-layout {
   font-size: 14px;
 }
 
+.groups-hero__stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.groups-metric {
+  padding: 16px;
+  border: 1px solid var(--groups-line);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 251, 255, 0.98) 100%);
+  box-shadow: 0 10px 24px rgba(23, 35, 59, 0.04);
+}
+
+.groups-metric small {
+  display: block;
+  color: #6a7c98;
+  font: 700 11px "JetBrains Mono", ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.groups-metric strong {
+  display: block;
+  margin-top: 10px;
+  color: #142544;
+  font-size: 34px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.groups-metric span {
+  display: block;
+  margin-top: 6px;
+  color: var(--groups-muted);
+  font-size: 12px;
+}
+
+.groups-metric--accent {
+  border-color: rgba(31, 103, 194, 0.18);
+  background: linear-gradient(180deg, rgba(237, 245, 255, 0.98) 0%, rgba(230, 241, 255, 0.98) 100%);
+}
+
 .groups-card {
   border: 1px solid var(--groups-line);
   border-radius: 14px;
   background: var(--groups-surface);
   padding: 14px;
+}
+
+.tree-card,
+.requests-card {
+  min-width: 0;
 }
 
 .filters-card {
@@ -158,6 +223,13 @@ body.groups-body.role-teacher .groups-layout {
   color: #b4232d;
 }
 
+.groups-content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  gap: 14px;
+  align-items: start;
+}
+
 .section-title {
   display: flex;
   align-items: baseline;
@@ -169,6 +241,13 @@ body.groups-body.role-teacher .groups-layout {
 .section-title h2 {
   margin: 0;
   font-size: 24px;
+}
+
+.section-title p {
+  margin: 6px 0 0;
+  color: var(--groups-muted);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .section-title span {
@@ -183,25 +262,61 @@ body.groups-body.role-teacher .groups-layout {
 
 .dep-node {
   border: 1px solid #d5e0ee;
-  border-radius: 12px;
-  background: #f9fbff;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #fbfdff 0%, #f7faff 100%);
   overflow: hidden;
 }
 
 .dep-node > summary {
   list-style: none;
   cursor: pointer;
-  padding: 12px 14px;
+  padding: 16px 18px;
   border-bottom: 1px solid #dfe7f3;
-  color: var(--groups-blue);
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  background: var(--groups-blue-soft);
+  background: linear-gradient(180deg, rgba(233, 242, 255, 0.96) 0%, rgba(242, 247, 255, 0.96) 100%);
 }
 
 .dep-node > summary::-webkit-details-marker {
   display: none;
+}
+
+.dep-summary__main small {
+  display: block;
+  color: #5e7394;
+  font: 700 11px "JetBrains Mono", ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.dep-summary__main strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--groups-blue);
+  font-size: 26px;
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+}
+
+.dep-summary__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.dep-summary__stats span,
+.group-summary__stats span,
+.student-role {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(31, 103, 194, 0.14);
+  background: rgba(255, 255, 255, 0.86);
+  color: #415e88;
+  font: 700 11px/1 "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .dep-node[open] > summary {
@@ -210,21 +325,22 @@ body.groups-body.role-teacher .groups-layout {
 
 .groups-list {
   display: grid;
-  gap: 8px;
-  padding: 10px;
+  gap: 10px;
+  padding: 12px;
 }
 
 .group-node {
   border: 1px solid #d8e3f0;
-  border-radius: 10px;
+  border-radius: 14px;
   overflow: hidden;
   background: #fff;
+  box-shadow: 0 8px 18px rgba(23, 35, 59, 0.04);
 }
 
 .group-node > summary {
   list-style: none;
   cursor: pointer;
-  padding: 10px 12px;
+  padding: 12px 14px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -235,19 +351,22 @@ body.groups-body.role-teacher .groups-layout {
   display: none;
 }
 
-.group-node > summary strong {
+.group-summary__main strong {
   color: #244777;
-  font-size: 16px;
+  display: block;
+  font-size: 18px;
 }
 
-.group-node > summary span {
+.group-summary__main span {
+  display: block;
+  margin-top: 4px;
   color: #687b98;
   font-size: 13px;
 }
 
 .students-list {
   margin: 0;
-  padding: 0 10px 10px;
+  padding: 0 12px 12px;
   list-style: none;
   display: grid;
   gap: 8px;
@@ -255,13 +374,17 @@ body.groups-body.role-teacher .groups-layout {
 
 .student-row {
   border: 1px solid #e2e8f2;
-  border-radius: 10px;
-  background: #f8fbff;
-  padding: 9px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  padding: 12px;
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
+}
+
+.student-row--empty {
+  grid-template-columns: 1fr;
 }
 
 .student-avatar {
@@ -297,6 +420,53 @@ body.groups-body.role-teacher .groups-layout {
   font-size: 12px;
 }
 
+.student-empty {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.student-empty .material-symbols-outlined,
+.group-empty .material-symbols-outlined,
+.tree-empty .material-symbols-outlined {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: rgba(31, 103, 194, 0.1);
+  color: var(--groups-blue);
+  font-size: 20px;
+}
+
+.student-empty strong,
+.group-empty strong,
+.tree-empty strong {
+  display: block;
+  color: #17233b;
+  font-size: 15px;
+}
+
+.student-empty p,
+.group-empty p,
+.tree-empty p {
+  margin: 4px 0 0;
+  color: var(--groups-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.group-empty,
+.tree-empty {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 1px dashed #d7e2f0;
+  border-radius: 16px;
+  background: #fbfdff;
+}
+
 .requests-controls {
   display: flex;
   flex-wrap: wrap;
@@ -310,11 +480,16 @@ body.groups-body.role-teacher .groups-layout {
   gap: 10px;
 }
 
+.requests-card {
+  position: sticky;
+  top: 18px;
+}
+
 .request-item {
   border: 1px solid #d7e2f0;
-  border-radius: 12px;
-  background: #fbfdff;
-  padding: 11px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  padding: 14px;
   display: grid;
   gap: 8px;
 }
@@ -357,9 +532,48 @@ body.groups-body.role-teacher .groups-layout {
   cursor: default;
 }
 
+.requests-empty {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 1px dashed #d7e2f0;
+  border-radius: 16px;
+  background: #fbfdff;
+}
+
+.requests-empty .material-symbols-outlined {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: rgba(22, 163, 74, 0.1);
+  color: var(--groups-green);
+  font-size: 20px;
+}
+
+.requests-empty strong {
+  display: block;
+  color: #17233b;
+  font-size: 15px;
+}
+
+.requests-empty p {
+  margin: 4px 0 0;
+  color: var(--groups-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 @media (max-width: 1180px) {
   body.groups-body.role-admin .groups-layout,
   body.groups-body.role-teacher .groups-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .groups-hero,
+  .groups-content-grid {
     grid-template-columns: 1fr;
   }
 
@@ -370,12 +584,21 @@ body.groups-body.role-teacher .groups-layout {
   .filters-card {
     grid-template-columns: 1fr;
   }
+
+  .requests-card {
+    position: static;
+    top: auto;
+  }
 }
 
 @media (max-width: 760px) {
   .section-title {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .groups-hero__stats {
+    grid-template-columns: 1fr;
   }
 
   .dep-node > summary {

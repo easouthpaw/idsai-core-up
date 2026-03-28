@@ -44,6 +44,10 @@
   const statPreparingProjectsEl = document.getElementById("statPreparingProjects");
   const statWorkingProjectsEl = document.getElementById("statWorkingProjects");
   const statCompletedProjectsEl = document.getElementById("statCompletedProjects");
+  const dashPulseUsersEl = document.getElementById("dashPulseUsers");
+  const dashPulseProjectsEl = document.getElementById("dashPulseProjects");
+  const dashPulseAttentionEl = document.getElementById("dashPulseAttention");
+  const adminFocusListEl = document.getElementById("adminFocusList");
 
   const projTotalEl = document.getElementById("projTotal");
   const projPreparingEl = document.getElementById("projPreparing");
@@ -83,6 +87,7 @@
   const observeCriteriaBodyEl = document.getElementById("observeCriteriaBody");
 
   const adminNameEl = document.getElementById("adminName");
+  const adminGreetingEl = document.getElementById("adminGreeting");
   const adminEmailEl = document.getElementById("adminEmail");
   const adminAvatarEl = document.getElementById("adminAvatar");
 
@@ -119,6 +124,24 @@
     const parts = text.split(/\s+/).filter(Boolean);
     if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
     return text.slice(0, 2).toUpperCase();
+  }
+
+  function capitalize(v) {
+    const text = String(v || "").trim();
+    if (!text) return "";
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  function greetingName(name, email) {
+    const rawName = String(name || "").trim();
+    if (rawName && !/(администратор|administrator|super_admin|admin console)/i.test(rawName)) {
+      return rawName.split(/\s+/).filter(Boolean)[0] || rawName;
+    }
+
+    const local = String(email || "").trim().split("@")[0] || "";
+    if (!local) return "друг";
+    if (/^admin$/i.test(local)) return "админ";
+    return capitalize(local.split(/[._-]/)[0]);
   }
 
   function renderAvatar(el, fallbackText, avatarURL) {
@@ -175,15 +198,18 @@
   }
 
   function hydrateProfile() {
-    const email = localStorage.getItem(LS_STUDENT_EMAIL) || "admin@idsai.local";
-    const name = localStorage.getItem(LS_STUDENT_NAME) || "Главный администратор";
-    const avatarURL = localStorage.getItem(LS_AVATAR_URL) || "";
+    const claims = auth.getCachedProfile() || {};
+    const email = claims.email || localStorage.getItem(LS_STUDENT_EMAIL) || "admin@idsai.local";
+    const name = claims.full_name || claims.name || localStorage.getItem(LS_STUDENT_NAME) || "Администратор";
+    const avatarURL = claims.avatar_url || localStorage.getItem(LS_AVATAR_URL) || "";
     const iv = initials(name || email);
+    const greeting = greetingName(name, email);
 
-    adminNameEl.textContent = name;
+    if (adminGreetingEl) adminGreetingEl.textContent = `Привет, ${greeting}!`;
+    adminNameEl.textContent = "Панель управления платформой";
     adminEmailEl.textContent = email;
     renderAvatar(adminAvatarEl, iv, avatarURL);
-    syncSidebar(auth.getCachedProfile() || {
+    syncSidebar(claims || {
       full_name: name,
       email,
       avatar_url: avatarURL,
@@ -411,6 +437,94 @@
     projPreparingEl.textContent = String(stats.preparing);
     projWorkingEl.textContent = String(stats.working);
     projCompletedEl.textContent = String(stats.completed);
+  }
+
+  function renderDashboardPulse(users, projects) {
+    const userList = Array.isArray(users) ? users : [];
+    const projectStats = computeProjectStats(projects);
+    const disabledUsers = userList.filter((user) => String(user.status || "").toUpperCase() === "DISABLED").length;
+    const activeUsers = Math.max(0, userList.length - disabledUsers);
+    const liveProjects = projectStats.preparing + projectStats.working;
+    const attention = disabledUsers + (Array.isArray(projects) ? projects.filter((project) => {
+      const status = String(project.status || "").toUpperCase();
+      return status === "REVIEW" || status === "GRADING";
+    }).length : 0);
+
+    if (dashPulseUsersEl) dashPulseUsersEl.textContent = String(activeUsers);
+    if (dashPulseProjectsEl) dashPulseProjectsEl.textContent = String(liveProjects);
+    if (dashPulseAttentionEl) dashPulseAttentionEl.textContent = String(attention);
+  }
+
+  function renderAdminFocus(users, projects) {
+    if (!adminFocusListEl) return;
+
+    const userList = Array.isArray(users) ? users : [];
+    const projectList = Array.isArray(projects) ? projects : [];
+
+    const disabledUsers = userList.filter((user) => String(user.status || "").toUpperCase() === "DISABLED");
+    const reviewProjects = projectList.filter((project) => {
+      const status = String(project.status || "").toUpperCase();
+      return status === "REVIEW" || status === "GRADING";
+    });
+    const preparingProjects = projectList.filter((project) => {
+      const status = String(project.status || "").toUpperCase();
+      return status === "DRAFT" || status === "RECRUITMENT";
+    });
+
+    const items = [];
+
+    if (disabledUsers.length) {
+      items.push({
+        tone: "danger",
+        title: "Пользователи требуют проверки",
+        text: `${disabledUsers.length} аккаунтов сейчас выключены или ограничены. Это первое место, где админ может быстро убрать блокер.`,
+        view: "users",
+        cta: "Открыть пользователей",
+      });
+    }
+
+    if (reviewProjects.length) {
+      items.push({
+        tone: "warning",
+        title: "Есть проекты в промежуточной фазе",
+        text: `${reviewProjects.length} проектов находятся в REVIEW или GRADING. Здесь чаще всего нужны точечные решения по статусам.`,
+        view: "projects",
+        cta: "Открыть проекты",
+      });
+    }
+
+    if (preparingProjects.length) {
+      items.push({
+        tone: "info",
+        title: "Подготовка проектов еще идет",
+        text: `${preparingProjects.length} проектов пока не вышли в стабильную рабочую фазу. Проверьте, не застрял ли запуск или набор.`,
+        view: "projects",
+        cta: "Смотреть поток",
+      });
+    }
+
+    if (!items.length) {
+      adminFocusListEl.innerHTML = `
+        <article class="admin-focus-empty">
+          <span class="material-symbols-outlined" aria-hidden="true">verified</span>
+          <strong>Система выглядит стабильно</strong>
+          <p>Срочных сигналов сейчас нет. Можно перейти к пользователям, проектам или структуре групп по плану.</p>
+        </article>
+      `;
+      return;
+    }
+
+    adminFocusListEl.innerHTML = items.slice(0, 4).map((item) => `
+      <article class="admin-focus-item admin-focus-item--${escapeHTML(item.tone)}">
+        <div class="admin-focus-item__body">
+          <strong>${escapeHTML(item.title)}</strong>
+          <p>${escapeHTML(item.text)}</p>
+        </div>
+        <div class="admin-focus-item__actions">
+          <button class="ghost-btn" type="button" data-dashboard-view="${escapeHTML(item.view)}">${escapeHTML(item.cta)}</button>
+        </div>
+      </article>
+    `).join("");
   }
 
   function renderActivity(users, projects, query) {
@@ -643,6 +757,8 @@
 
     renderUserStats(users);
     renderProjectStats(projects);
+    renderDashboardPulse(users, projects);
+    renderAdminFocus(users, projects);
     renderActivity(users, projects, state.dashboardSearch);
   }
 
@@ -1050,6 +1166,17 @@
 
     if (openProjectsViewBtnEl) {
       openProjectsViewBtnEl.addEventListener("click", () => setView("projects", false));
+    }
+
+    if (adminFocusListEl) {
+      adminFocusListEl.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const btn = target.closest("[data-dashboard-view]");
+        if (!(btn instanceof HTMLElement)) return;
+        event.preventDefault();
+        setView(btn.dataset.dashboardView || "dashboard", false);
+      });
     }
 
     userRoleTabs.forEach((btn) => {

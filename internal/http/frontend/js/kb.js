@@ -74,14 +74,23 @@
   }
 
   async function api(path, opts = {}) {
+    if (auth && typeof auth.requestJSON === "function") {
+      const { resp, data } = await auth.requestJSON(API + path, opts);
+      if (!resp.ok) {
+        throw new Error(data && typeof data === "object" && data.error ? data.error : `HTTP ${resp.status}`);
+      }
+      return resp.status === 204 ? null : data;
+    }
+
     const token = auth?.getToken?.();
     const headers = { ...(opts.headers || {}) };
+    const nextOpts = { ...opts };
     if (token) headers["Authorization"] = `Bearer ${token}`;
-    if (opts.body && typeof opts.body === "object" && !(opts.body instanceof FormData)) {
+    if (nextOpts.body && typeof nextOpts.body === "object" && !(nextOpts.body instanceof FormData)) {
       headers["Content-Type"] = "application/json";
-      opts.body = JSON.stringify(opts.body);
+      nextOpts.body = JSON.stringify(nextOpts.body);
     }
-    const res = await fetch(API + path, { ...opts, headers });
+    const res = await fetch(API + path, { ...nextOpts, headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || `HTTP ${res.status}`);
@@ -494,8 +503,9 @@
 
   async function init() {
     // Determine editor status
-    if (auth) {
-      const profile = await auth.fetchCurrentProfile?.();
+    if (auth && typeof auth.ensureSession === "function") {
+      const profile = await auth.ensureSession(undefined);
+      if (!profile) return;
       state.isEditor = profile?.is_admin || profile?.is_professor || false;
     }
 

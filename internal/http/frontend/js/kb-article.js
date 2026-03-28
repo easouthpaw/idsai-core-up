@@ -13,6 +13,8 @@
   const ui = {
     breadcrumbs: document.getElementById("articleBreadcrumbs"),
     title: document.getElementById("articleTitle"),
+    lead: document.getElementById("articleLead"),
+    readingTime: document.getElementById("articleReadingTime"),
     meta: document.getElementById("articleMeta"),
     tags: document.getElementById("articleTags"),
     actions: document.getElementById("articleActions"),
@@ -57,15 +59,43 @@
     return (name || "??").slice(0, 2).toUpperCase();
   }
 
+  function readingTime(content) {
+    const words = String(content || "")
+      .replace(/[`#>*_[\]\(\)\-]/g, " ")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean).length;
+    return Math.max(1, Math.round(words / 180));
+  }
+
+  function extractLead(content) {
+    const lines = String(content || "")
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    const lead = lines.find((line) => !/^#+\s/.test(line) && !/^[>*\-`]/.test(line));
+    return lead ? lead.slice(0, 180) : "Короткая статья из базы знаний IDSAI с заметками, примерами и быстрым входом в тему.";
+  }
+
   async function apiFetch(path, opts = {}) {
+    if (auth && typeof auth.requestJSON === "function") {
+      const { resp, data } = await auth.requestJSON(API + path, opts);
+      if (!resp.ok) {
+        throw new Error(data && typeof data === "object" && data.error ? data.error : `HTTP ${resp.status}`);
+      }
+      return resp.status === 204 ? null : data;
+    }
+
     const token = auth?.getToken?.();
     const headers = { ...(opts.headers || {}) };
+    const nextOpts = { ...opts };
     if (token) headers["Authorization"] = `Bearer ${token}`;
-    if (opts.body && typeof opts.body === "object") {
+    if (nextOpts.body && typeof nextOpts.body === "object") {
       headers["Content-Type"] = "application/json";
-      opts.body = JSON.stringify(opts.body);
+      nextOpts.body = JSON.stringify(nextOpts.body);
     }
-    const res = await fetch(API + path, { ...opts, headers });
+    const res = await fetch(API + path, { ...nextOpts, headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || `HTTP ${res.status}`);
@@ -171,13 +201,19 @@
 
     // Breadcrumbs
     ui.breadcrumbs.innerHTML = `
-      <a href="/dev/kb" style="color:var(--kb-accent);text-decoration:none;">База знаний</a>
-      <span style="color:var(--kb-muted);">·</span>
+      <a href="/dev/kb">База знаний</a>
+      <span aria-hidden="true">/</span>
       <strong>${escapeHTML(a.title)}</strong>
     `;
 
     // Title
     ui.title.textContent = a.title;
+    if (ui.lead) {
+      ui.lead.textContent = extractLead(a.content);
+    }
+    if (ui.readingTime) {
+      ui.readingTime.textContent = `Чтение ${readingTime(a.content)} мин`;
+    }
 
     // Meta
     const avatarContent = a.author_avatar
@@ -316,8 +352,9 @@
       return;
     }
 
-    if (auth) {
-      const profile = await auth.fetchCurrentProfile?.();
+    if (auth && typeof auth.ensureSession === "function") {
+      const profile = await auth.ensureSession(undefined);
+      if (!profile) return;
       state.isEditor = profile?.is_admin || profile?.is_professor || false;
     }
 
@@ -325,6 +362,9 @@
       state.article = await apiFetch(`/articles/${articleId}`);
     } catch (err) {
       ui.title.textContent = "Статья не найдена";
+      if (ui.lead) {
+        ui.lead.textContent = "Похоже, материал был удален или ссылка на него устарела.";
+      }
       ui.content.innerHTML = `<p style="color:var(--kb-muted);">Не удалось загрузить статью. ${escapeHTML(err.message)}</p>`;
       return;
     }

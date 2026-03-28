@@ -129,3 +129,29 @@ func TestDevGroupsRoute_Available(t *testing.T) {
 	require.Contains(t, w.Header().Get("Content-Type"), "text/html")
 	require.Contains(t, w.Body.String(), "IDSAI Corp. Groups")
 }
+
+func TestDevKBRoute_Available(t *testing.T) {
+	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/dev/kb", nil)
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Header().Get("Content-Type"), "text/html")
+	require.Contains(t, w.Body.String(), "IDSAI Corp. — База знаний")
+	require.Contains(t, w.Body.String(), "/dev/static/js/auth-session.js")
+}
+
+func TestDevKBArticleRoute_Available(t *testing.T) {
+	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/dev/kb/article?id=00000000-0000-0000-0000-000000000001", nil)
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Header().Get("Content-Type"), "text/html")
+	require.Contains(t, w.Body.String(), "IDSAI Corp. — Статья")
+	require.Contains(t, w.Body.String(), "/dev/static/js/auth-session.js")
+}

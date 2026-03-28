@@ -1,264 +1,24 @@
 (() => {
   const auth = window.IDSAIAuth;
-  const LS_ACCESS = "idsai_access_token";
-  const LS_REFRESH = "idsai_refresh_token";
-  const LS_USER = "idsai_rbac_user_id";
-  const LS_STUDENT_NAME = "idsai_student_name";
-  const LS_STUDENT_EMAIL = "idsai_student_email";
-  const LS_AVATAR_URL = "idsai_avatar_url";
-  const LS_IS_ADMIN = "idsai_is_admin";
-  const LS_IS_PROFESSOR = "idsai_is_professor";
 
-  const projectsBody = document.getElementById("projectsBody");
-  const reviewsBody = document.getElementById("reviewsBody");
-  const refreshBtn = document.getElementById("refreshBtn");
-  const statusEl = document.getElementById("pageStatus");
-  const logoutBtn = document.getElementById("logoutBtn");
+  const ui = {
+    profGreeting: document.getElementById("profGreeting"),
+    projectsBody: document.getElementById("projectsBody"),
+    focusList: document.getElementById("focusList"),
+    refreshBtn: document.getElementById("refreshBtn"),
+    pageStatus: document.getElementById("pageStatus"),
+    statTotal: document.getElementById("statTotal"),
+    statReview: document.getElementById("statReview"),
+    statActive: document.getElementById("statActive"),
+    statRecruitment: document.getElementById("statRecruitment"),
+  };
 
-  const statTotalEl = document.getElementById("statTotal");
-  const statReviewEl = document.getElementById("statReview");
-  const statActiveEl = document.getElementById("statActive");
-  const statRecruitmentEl = document.getElementById("statRecruitment");
-
-  let claims = null;
-  let projects = [];
-  let reviewInvites = [];
-
-  function decodePayload(token) {
-    const parts = String(token || "").split(".");
-    if (parts.length < 2) throw new Error("invalid JWT");
-    let payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const mod = payload.length % 4;
-    if (mod > 0) payload += "=".repeat(4 - mod);
-    return JSON.parse(atob(payload));
-  }
-
-  function clearSession() {
-    auth.clearClientState();
-  }
-
-  function ensureSession() {
-    const claims = auth.getCachedProfile();
-    if (!claims) {
-      window.location.href = "/dev/login";
-      return null;
-    }
-    if (claims.is_admin) {
-      window.location.href = "/dev/admin";
-      return null;
-    }
-    if (!claims.is_professor) {
-      window.location.href = "/dev/projects";
-      return null;
-    }
-    return claims;
-  }
-
-  function authHeaders(withJSON) {
-    const headers = {};
-    if (withJSON) headers["Content-Type"] = "application/json";
-    return headers;
-  }
-
-  function setStatus(msg, isError) {
-    if (!statusEl) return;
-    statusEl.textContent = msg || "";
-    statusEl.classList.toggle("err", Boolean(isError));
-  }
-
-  async function request(method, url, body) {
-    const { resp, data } = await auth.requestJSON(url, {
-      method,
-      headers: body ? { "Content-Type": "application/json" } : undefined,
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    if (!resp.ok) {
-      const errMsg = data && data.error ? data.error : `${method} ${url} failed (${resp.status})`;
-      throw new Error(errMsg);
-    }
-    return data;
-  }
-
-  async function loadProjects() {
-    const [mine, pub] = await Promise.all([
-      request("GET", "/v2/projects/my"),
-      request("GET", "/v2/projects/public"),
-    ]);
-    const map = new Map();
-    (Array.isArray(mine) ? mine : []).forEach((item) => map.set(item.id, item));
-    (Array.isArray(pub) ? pub : []).forEach((item) => map.set(item.id, item));
-    projects = Array.from(map.values()).sort((a, b) => {
-      const ad = new Date(a.updated_at || a.created_at || 0).getTime();
-      const bd = new Date(b.updated_at || b.created_at || 0).getTime();
-      return bd - ad;
-    });
-    return projects;
-  }
-
-  async function loadReviewInvites() {
-    const items = await request("GET", "/v2/professor/review-invites?limit=100");
-    reviewInvites = Array.isArray(items) ? items : [];
-    return reviewInvites;
-  }
-
-  function statusClass(status) {
-    const s = String(status || "").toUpperCase();
-    if (s === "REVIEW") return "review";
-    if (s === "ACTIVE") return "active";
-    if (s === "RECRUITMENT") return "recruitment";
-    if (s === "COMPLETED") return "active";
-    return "default";
-  }
-
-  function formatDate(v) {
-    if (!v) return "—";
-    try {
-      return new Date(v).toLocaleString();
-    } catch (_) {
-      return String(v);
-    }
-  }
-
-  function initials(name, email) {
-    const n = String(name || "").trim();
-    if (n) {
-      const parts = n.split(/\s+/).filter(Boolean);
-      if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-      return n.slice(0, 2).toUpperCase();
-    }
-    const e = String(email || "").trim();
-    return e ? e.slice(0, 2).toUpperCase() : "PR";
-  }
-
-  function renderAvatar(el, fallbackText, avatarURL) {
-    if (!el) return;
-    const url = String(avatarURL || "").trim();
-    if (url) {
-      el.classList.add("has-image");
-      el.innerHTML = `<img src="${escapeHTML(url)}" alt="Avatar" width="64" height="64" loading="lazy" />`;
-      return;
-    }
-    el.classList.remove("has-image");
-    el.textContent = fallbackText;
-  }
-
-  function bindProfile() {
-    const name = localStorage.getItem(LS_STUDENT_NAME) || "Преподаватель";
-    const email = localStorage.getItem(LS_STUDENT_EMAIL) || "professor@idsai.dev";
-    const avatarURL = localStorage.getItem(LS_AVATAR_URL) || "";
-    const avatar = document.getElementById("profAvatar");
-    const nameEl = document.getElementById("profName");
-    const emailEl = document.getElementById("profEmail");
-    renderAvatar(avatar, initials(name, email), avatarURL);
-    if (nameEl) nameEl.textContent = name;
-    if (emailEl) emailEl.textContent = email;
-  }
-
-  function updateStats(items) {
-    if (!statTotalEl) return;
-    const total = items.length;
-    const review = items.filter((x) => String(x.status || "").toUpperCase() === "REVIEW").length;
-    const active = items.filter((x) => String(x.status || "").toUpperCase() === "ACTIVE").length;
-    const recruitment = items.filter((x) => String(x.status || "").toUpperCase() === "RECRUITMENT").length;
-    statTotalEl.textContent = String(total);
-    statReviewEl.textContent = String(review);
-    statActiveEl.textContent = String(active);
-    statRecruitmentEl.textContent = String(recruitment);
-  }
-
-  function renderDashboard(items) {
-    if (!projectsBody) return;
-    if (!items.length) {
-      projectsBody.innerHTML = '<tr><td colspan="4">Пока нет доступных проектов.</td></tr>';
-      return;
-    }
-
-    projectsBody.innerHTML = items.map((p) => {
-      const s = String(p.status || "").toUpperCase();
-      const hasProfessor = Boolean(p.professor_id);
-      const canOpenRecruitment = s === "DRAFT" || s === "REVIEW" || s === "RECRUITMENT";
-      const canStart = s === "REVIEW" || s === "RECRUITMENT";
-      return `
-        <tr>
-          <td>
-            <strong>${escapeHTML(p.title || "Без названия")}</strong>
-            <div class="muted">${escapeHTML(p.description || "Описание не заполнено")}</div>
-          </td>
-          <td><span class="status-pill ${statusClass(s)}">${escapeHTML(s || "DRAFT")}</span></td>
-          <td>${escapeHTML(formatDate(p.updated_at || p.created_at))}</td>
-          <td>
-            <div class="actions">
-              <button class="action-btn" data-act="open" data-id="${escapeHTML(p.id)}">Открыть</button>
-              <button class="action-btn" data-act="recruitment" data-id="${escapeHTML(p.id)}" ${canOpenRecruitment ? "" : "disabled"}>Набор</button>
-              <button class="action-btn" data-act="attach" data-id="${escapeHTML(p.id)}" ${hasProfessor || s === "COMPLETED" || s === "ARCHIVE" ? "disabled" : ""}>Я преподаватель</button>
-              <button class="action-btn" data-act="criteria" data-id="${escapeHTML(p.id)}">Критерии</button>
-              <button class="action-btn" data-act="grade" data-id="${escapeHTML(p.id)}">Оценивание</button>
-              <button class="action-btn primary" data-act="start" data-id="${escapeHTML(p.id)}" ${canStart ? "" : "disabled"}>Старт</button>
-            </div>
-          </td>
-        </tr>
-      `;
-    }).join("");
-  }
-
-  function renderReviews(items) {
-    if (!reviewsBody) return;
-    const queue = Array.isArray(items) ? items : [];
-
-    if (!queue.length) {
-      reviewsBody.innerHTML = '<tr><td colspan="4">Нет заявок на ревью.</td></tr>';
-      return;
-    }
-
-    reviewsBody.innerHTML = queue.map((p) => {
-      const s = String(p.status || "").toUpperCase();
-      return `
-        <tr>
-          <td>
-            <strong>${escapeHTML(p.title || "Без названия")}</strong>
-            <div class="muted">${escapeHTML(p.description || "Описание не заполнено")}</div>
-          </td>
-          <td><span class="muted">${escapeHTML(p.group_id || "Общая группа")}</span></td>
-          <td><span class="status-pill ${statusClass(s)}">${escapeHTML(s)}</span></td>
-          <td>
-            <div class="actions">
-              <button class="action-btn primary" data-act="accept" data-id="${escapeHTML(p.id)}">Принять</button>
-              <button class="action-btn" data-act="reject" data-id="${escapeHTML(p.id)}">Отклонить</button>
-              <button class="action-btn" data-act="open" data-id="${escapeHTML(p.id)}">Подробнее</button>
-            </div>
-          </td>
-        </tr>
-      `;
-    }).join("");
-  }
-
-  async function actionRecruitment(projectID) {
-    await request("POST", `/v2/projects/${projectID}/recruitment/open`, {});
-    setStatus("Набор команды открыт.", false);
-  }
-
-  async function actionAttachProfessor(projectID) {
-    await request("POST", `/v2/projects/${projectID}/professor`, { professor_id: claims.sub });
-    setStatus("Вы прикреплены к проекту как преподаватель.", false);
-  }
-
-  function actionOpenCriteria(projectID) {
-    window.location.href = `/dev/professor/criteria?project_id=${encodeURIComponent(projectID)}`;
-  }
-
-  function actionOpenGrading(projectID) {
-    window.location.href = `/dev/professor/grading?project_id=${encodeURIComponent(projectID)}`;
-  }
-
-  async function actionStartProject(projectID) {
-    await request("POST", `/v2/projects/${projectID}/approve`, {});
-    setStatus("Проект запущен (ACTIVE).", false);
-  }
-
-  async function actionRespondProfessorInvite(projectID, accept) {
-    await request("POST", `/v2/projects/${projectID}/professor/respond`, { accept: Boolean(accept) });
-    setStatus(accept ? "Приглашение на ревью принято." : "Приглашение отклонено.", false);
-  }
+  const state = {
+    profile: null,
+    projects: [],
+    reviewInvites: [],
+    readiness: new Map(),
+  };
 
   function escapeHTML(value) {
     return String(value || "")
@@ -269,25 +29,418 @@
       .replaceAll("'", "&#039;");
   }
 
-  async function refreshPage() {
+  function capitalize(value) {
+    const text = String(value || "").trim();
+    if (!text) return "";
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  function greetingName(profile) {
+    const fullName = String(profile?.full_name || profile?.name || "").trim();
+    if (fullName) {
+      return fullName.split(/\s+/).filter(Boolean)[0] || fullName;
+    }
+    const email = String(profile?.email || "").trim();
+    const local = email.split("@")[0] || "";
+    return local ? capitalize(local.split(/[._-]/)[0]) : "коллега";
+  }
+
+  function setStatus(message, isError) {
+    if (!ui.pageStatus) return;
+    ui.pageStatus.textContent = message || "";
+    ui.pageStatus.classList.toggle("err", Boolean(isError));
+  }
+
+  function renderGreeting(profile) {
+    if (!ui.profGreeting) return;
+    ui.profGreeting.textContent = `Привет, ${greetingName(profile)}!`;
+  }
+
+  async function request(method, url, body, extra = {}) {
+    const options = { method, ...extra };
+    if (body !== undefined) {
+      options.body = body;
+    }
+    const { resp, data } = await auth.requestJSON(url, options);
+    if (!resp.ok) {
+      const err = new Error(data && data.error ? data.error : `${method} ${url} failed (${resp.status})`);
+      err.status = resp.status;
+      err.data = data;
+      throw err;
+    }
+    return data;
+  }
+
+  function formatDate(value) {
+    if (!value) return "—";
     try {
-      setStatus("Обновление данных...", false);
-      let items = [];
-      if (projectsBody || statTotalEl) {
-        items = await loadProjects();
-        updateStats(items);
-        renderDashboard(items);
+      return new Date(value).toLocaleString("ru-RU");
+    } catch (_) {
+      return String(value);
+    }
+  }
+
+  function statusCode(project) {
+    return String(project?.status || "DRAFT").toUpperCase();
+  }
+
+  function reviewCode(project) {
+    return String(project?.professor_review_status || "NONE").toUpperCase();
+  }
+
+  function isAssignedToMe(project) {
+    return Boolean(project?.professor_id) && String(project.professor_id) === String(state.profile?.sub || "");
+  }
+
+  function isCreatedByMe(project) {
+    return String(project?.created_by || "") === String(state.profile?.sub || "");
+  }
+
+  function isInvitePending(project) {
+    return isAssignedToMe(project) && reviewCode(project) === "PENDING";
+  }
+
+  function isAcceptedReviewer(project) {
+    return isAssignedToMe(project) && reviewCode(project) === "ACCEPTED";
+  }
+
+  function isRelevantProject(project) {
+    return isCreatedByMe(project) || isAssignedToMe(project) || reviewCode(project) === "PENDING" || statusCode(project) === "GRADING";
+  }
+
+  function statusMeta(status) {
+    const code = String(status || "DRAFT").toUpperCase();
+    if (code === "REVIEW") return { label: "Готов к ревью", tone: "review" };
+    if (code === "RECRUITMENT") return { label: "Набор команды", tone: "recruitment" };
+    if (code === "ACTIVE") return { label: "В работе", tone: "active" };
+    if (code === "GRADING") return { label: "На оценке", tone: "grading" };
+    if (code === "COMPLETED") return { label: "Завершен", tone: "done" };
+    if (code === "ARCHIVE") return { label: "Закрыт", tone: "default" };
+    return { label: "Подготовка", tone: "default" };
+  }
+
+  function professorMeta(project) {
+    if (isInvitePending(project)) {
+      return { label: "Ждет ваш ответ", tone: "review" };
+    }
+    if (isAcceptedReviewer(project)) {
+      return { label: "Ревью закреплено за вами", tone: "active" };
+    }
+    if (reviewCode(project) === "REJECTED") {
+      return { label: "Приглашение отклонено", tone: "default" };
+    }
+    if (project?.professor_id) {
+      return { label: "Назначен другой преподаватель", tone: "default" };
+    }
+    return { label: "Преподаватель пока не закреплен", tone: "default" };
+  }
+
+  function compactCheck(label, value, tone) {
+    return `<span class="prof-check prof-check--${escapeHTML(tone)}">${escapeHTML(label)}: ${escapeHTML(value)}</span>`;
+  }
+
+  function buildReadinessBadges(project) {
+    const ready = state.readiness.get(String(project.id || ""));
+    const items = [];
+
+    if (ready && typeof ready === "object") {
+      const memberTone = Number(ready.active_members || 0) >= Number(ready.required_members || 0) && Number(ready.required_members || 0) > 0 ? "done" : "current";
+      items.push(compactCheck("Команда", `${Number(ready.active_members || 0)}/${Number(ready.required_members || 0)}`, memberTone));
+
+      const professorTone = String(ready.professor_status || "NONE").toUpperCase() === "ACCEPTED"
+        ? "done"
+        : String(ready.professor_status || "NONE").toUpperCase() === "PENDING"
+          ? "current"
+          : "blocked";
+      items.push(compactCheck("Ревью", String(ready.professor_status || "NONE").toUpperCase(), professorTone));
+
+      const criteriaTone = Number(ready.criteria_count || 0) > 0 ? "done" : "blocked";
+      items.push(compactCheck("Критерии", String(ready.criteria_count || 0), criteriaTone));
+    } else {
+      const meta = professorMeta(project);
+      items.push(compactCheck("Роль", meta.label, meta.tone === "active" ? "done" : meta.tone === "review" ? "current" : "blocked"));
+    }
+
+    return items.join("");
+  }
+
+  function projectNarrative(project) {
+    const ready = state.readiness.get(String(project.id || ""));
+    const status = statusCode(project);
+
+    if (isInvitePending(project)) {
+      return "Команда ждет вашего решения. После принятия вы сможете вести критерии и финальное ревью.";
+    }
+    if (isAcceptedReviewer(project) && status === "GRADING") {
+      return "Проект уже передан на финальную проверку. Откройте оценивание и завершите ревью по критериям.";
+    }
+    if (isAcceptedReviewer(project) && (status === "DRAFT" || status === "REVIEW" || status === "RECRUITMENT")) {
+      if (ready && Number(ready.criteria_count || 0) === 0) {
+        return "До запуска не хватает критериев. Здесь главное действие преподавателя именно настройка чек-листа.";
       }
-      if (reviewsBody) {
-        const queue = await loadReviewInvites();
-        renderReviews(queue);
-        setStatus(`Загружено приглашений: ${queue.length}.`, false);
+      return "Проект еще готовится к активной фазе. Проверьте критерии и дождитесь готовности команды.";
+    }
+    if (isAcceptedReviewer(project) && status === "ACTIVE") {
+      return "Команда сейчас в работе. На этом этапе преподаватель сопровождает проект и ждет отправки на оценивание.";
+    }
+    if (status === "COMPLETED") {
+      return "Ревью завершено. Можно открыть оценивание, чтобы посмотреть итоговую картину и комментарии.";
+    }
+    if (isCreatedByMe(project)) {
+      return "Проект принадлежит вам. Управление набором, запуском и составом команды остается внутри карточки самого проекта.";
+    }
+    return "Проект доступен для просмотра, но преподавательские действия здесь пока не требуются.";
+  }
+
+  function projectPrimaryAction(project) {
+    const status = statusCode(project);
+    if (isInvitePending(project)) {
+      return { label: "Принять ревью", act: "accept", primary: true };
+    }
+    if (isAcceptedReviewer(project) && (status === "GRADING" || status === "COMPLETED")) {
+      return { label: status === "COMPLETED" ? "Открыть результат" : "Открыть оценивание", act: "grade", primary: true };
+    }
+    if (isAcceptedReviewer(project) && (status === "DRAFT" || status === "REVIEW" || status === "RECRUITMENT")) {
+      return { label: "Настроить критерии", act: "criteria", primary: true };
+    }
+    return { label: "Открыть проект", act: "open", primary: false };
+  }
+
+  function projectSecondaryActions(project) {
+    const status = statusCode(project);
+    const actions = [{ label: "Открыть", act: "open", primary: false }];
+
+    if (isInvitePending(project)) {
+      actions.unshift({ label: "Отклонить", act: "reject", primary: false, danger: true });
+      return actions;
+    }
+
+    if (isAcceptedReviewer(project) && (status === "DRAFT" || status === "REVIEW" || status === "RECRUITMENT")) {
+      actions.unshift({ label: "Критерии", act: "criteria", primary: false });
+      return actions;
+    }
+
+    if (isAcceptedReviewer(project) && (status === "GRADING" || status === "COMPLETED")) {
+      actions.unshift({ label: "Оценивание", act: "grade", primary: false });
+      return actions;
+    }
+
+    return actions;
+  }
+
+  function renderActionButton(action) {
+    const classes = ["action-btn"];
+    if (action.primary) classes.push("primary");
+    if (action.danger) classes.push("danger");
+    return `<button class="${classes.join(" ")}" data-act="${escapeHTML(action.act)}" data-id="${escapeHTML(action.id)}">${escapeHTML(action.label)}</button>`;
+  }
+
+  function relevantProjects() {
+    const base = state.projects.filter((project) => statusCode(project) !== "ARCHIVE");
+    const relevant = base.filter(isRelevantProject);
+    return relevant.length ? relevant : base.slice(0, 8);
+  }
+
+  function sortProjects(items) {
+    return [...items].sort((a, b) => {
+      const scoreA = (isInvitePending(a) ? 40 : 0) + (statusCode(a) === "GRADING" ? 20 : 0) + (isRelevantProject(a) ? 10 : 0);
+      const scoreB = (isInvitePending(b) ? 40 : 0) + (statusCode(b) === "GRADING" ? 20 : 0) + (isRelevantProject(b) ? 10 : 0);
+      if (scoreA !== scoreB) return scoreB - scoreA;
+      const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+      const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
+      return dateB - dateA;
+    });
+  }
+
+  async function loadProjects() {
+    const [mine, pub, invites] = await Promise.all([
+      request("GET", "/v2/projects/my"),
+      request("GET", "/v2/projects/public"),
+      request("GET", "/v2/professor/review-invites?limit=100"),
+    ]);
+
+    state.reviewInvites = Array.isArray(invites) ? invites : [];
+
+    const merged = new Map();
+    [mine, pub, state.reviewInvites].forEach((list) => {
+      (Array.isArray(list) ? list : []).forEach((item) => {
+        if (!item || !item.id) return;
+        merged.set(item.id, item);
+      });
+    });
+
+    state.projects = sortProjects(Array.from(merged.values()));
+  }
+
+  async function loadReadiness() {
+    state.readiness.clear();
+    const projects = relevantProjects().filter((project) => isAssignedToMe(project) || isCreatedByMe(project));
+    await Promise.all(projects.map(async (project) => {
+      try {
+        const readiness = await request("GET", `/v2/projects/${project.id}/readiness`, undefined, { skipAccessAlert: true });
+        state.readiness.set(String(project.id), readiness);
+      } catch (_) {
+        state.readiness.set(String(project.id), null);
+      }
+    }));
+  }
+
+  function updateStats(items) {
+    if (!ui.statTotal) return;
+    ui.statTotal.textContent = String(items.length);
+    ui.statReview.textContent = String(items.filter(isInvitePending).length);
+    ui.statActive.textContent = String(items.filter((project) => statusCode(project) === "ACTIVE").length);
+    ui.statRecruitment.textContent = String(items.filter((project) => {
+      const status = statusCode(project);
+      return status === "GRADING" || status === "REVIEW";
+    }).length);
+  }
+
+  function renderFocus(items) {
+    if (!ui.focusList) return;
+
+    const focus = [];
+    items.forEach((project) => {
+      const status = statusCode(project);
+      const ready = state.readiness.get(String(project.id || ""));
+
+      if (isInvitePending(project)) {
+        focus.push({
+          title: project.title || "Без названия",
+          text: "Нужно ответить на приглашение преподавателя-ревьюера.",
+          actions: [
+            { label: "Принять", act: "accept", id: project.id, primary: true },
+            { label: "Отклонить", act: "reject", id: project.id, danger: true },
+          ],
+        });
         return;
       }
-      setStatus(`Загружено проектов: ${items.length}.`, false);
-    } catch (err) {
-      setStatus(err.message || String(err), true);
+
+      if (isAcceptedReviewer(project) && ready && Number(ready.criteria_count || 0) === 0) {
+        focus.push({
+          title: project.title || "Без названия",
+          text: "У проекта еще нет критериев. Без них команда не выйдет в понятный ревью-поток.",
+          actions: [
+            { label: "Открыть критерии", act: "criteria", id: project.id, primary: true },
+          ],
+        });
+        return;
+      }
+
+      if (isAcceptedReviewer(project) && status === "GRADING") {
+        focus.push({
+          title: project.title || "Без названия",
+          text: "Команда завершила работу и отправила проект на итоговое оценивание.",
+          actions: [
+            { label: "Оценить сейчас", act: "grade", id: project.id, primary: true },
+          ],
+        });
+        return;
+      }
+
+      if (isAcceptedReviewer(project) && status === "ACTIVE") {
+        focus.push({
+          title: project.title || "Без названия",
+          text: "Проект в активной фазе. Здесь полезнее открыть карточку проекта и посмотреть динамику команды.",
+          actions: [
+            { label: "Открыть проект", act: "open", id: project.id, primary: false },
+          ],
+        });
+      }
+    });
+
+    if (!focus.length) {
+      ui.focusList.innerHTML = `
+        <article class="focus-empty">
+          <span class="material-symbols-outlined" aria-hidden="true">done_all</span>
+          <strong>Срочных действий нет</strong>
+          <p>Сейчас можно спокойно посмотреть каталог проектов или вернуться к заявкам на ревью.</p>
+        </article>
+      `;
+      return;
     }
+
+    ui.focusList.innerHTML = focus.slice(0, 4).map((item) => `
+      <article class="focus-item">
+        <div class="focus-item__body">
+          <strong>${escapeHTML(item.title)}</strong>
+          <p>${escapeHTML(item.text)}</p>
+        </div>
+        <div class="focus-item__actions">
+          ${item.actions.map(renderActionButton).join("")}
+        </div>
+      </article>
+    `).join("");
+  }
+
+  function renderProjects(items) {
+    if (!ui.projectsBody) return;
+    if (!items.length) {
+      ui.projectsBody.innerHTML = `
+        <article class="prof-project-card prof-project-card--empty">
+          <div class="prof-project-card__meta">
+            <strong>Проекты пока не найдены</strong>
+            <p>Когда появятся назначенные проекты или приглашения на ревью, они отобразятся здесь.</p>
+          </div>
+        </article>
+      `;
+      return;
+    }
+
+    ui.projectsBody.innerHTML = items.map((project) => {
+      const status = statusMeta(project.status);
+      const reviewer = professorMeta(project);
+      const primary = projectPrimaryAction(project);
+      primary.id = project.id;
+      const secondary = projectSecondaryActions(project)
+        .filter((action) => action.act !== primary.act)
+        .map((action) => ({ ...action, id: project.id }));
+
+      return `
+        <article class="prof-project-card">
+          <div class="prof-project-card__head">
+            <div class="prof-project-card__meta">
+              <div class="prof-project-card__labels">
+                <span class="status-pill ${escapeHTML(status.tone)}">${escapeHTML(status.label)}</span>
+                <span class="status-pill status-pill--subtle ${escapeHTML(reviewer.tone)}">${escapeHTML(reviewer.label)}</span>
+              </div>
+              <strong class="prof-project-card__title">${escapeHTML(project.title || "Без названия")}</strong>
+              <p class="prof-project-card__desc">${escapeHTML(project.description || "Описание проекта пока не заполнено.")}</p>
+            </div>
+            <div class="prof-project-card__aside">
+              <span class="prof-mini-label">Обновлен</span>
+              <strong>${escapeHTML(formatDate(project.updated_at || project.created_at))}</strong>
+            </div>
+          </div>
+
+          <div class="prof-project-card__narrative">
+            ${escapeHTML(projectNarrative(project))}
+          </div>
+
+          <div class="prof-project-card__checks">
+            ${buildReadinessBadges(project)}
+          </div>
+
+          <div class="prof-project-card__actions">
+            ${renderActionButton(primary)}
+            ${secondary.map(renderActionButton).join("")}
+          </div>
+        </article>
+      `;
+    }).join("");
+  }
+
+  async function actionRespondProfessorInvite(projectID, accept) {
+    await request("POST", `/v2/projects/${projectID}/professor/respond`, { accept: Boolean(accept) });
+    setStatus(accept ? "Приглашение на ревью принято." : "Приглашение на ревью отклонено.", false);
+  }
+
+  function actionOpenCriteria(projectID) {
+    window.location.href = `/dev/professor/criteria?project_id=${encodeURIComponent(projectID)}`;
+  }
+
+  function actionOpenGrading(projectID) {
+    window.location.href = `/dev/professor/grading?project_id=${encodeURIComponent(projectID)}`;
   }
 
   async function handleAction(act, projectID) {
@@ -297,22 +450,18 @@
         window.location.href = `/dev/projects/${projectID}`;
         return;
       }
+      if (act === "criteria") {
+        actionOpenCriteria(projectID);
+        return;
+      }
+      if (act === "grade") {
+        actionOpenGrading(projectID);
+        return;
+      }
       if (act === "accept") {
         await actionRespondProfessorInvite(projectID, true);
       } else if (act === "reject") {
         await actionRespondProfessorInvite(projectID, false);
-      } else if (act === "recruitment") {
-        await actionRecruitment(projectID);
-      } else if (act === "attach") {
-        await actionAttachProfessor(projectID);
-      } else if (act === "criteria") {
-        actionOpenCriteria(projectID);
-        return;
-      } else if (act === "grade") {
-        actionOpenGrading(projectID);
-        return;
-      } else if (act === "start") {
-        await actionStartProject(projectID);
       }
       await refreshPage();
     } catch (err) {
@@ -320,43 +469,48 @@
     }
   }
 
-  function attachTableListeners() {
-    if (projectsBody) {
-      projectsBody.addEventListener("click", (e) => {
-        const btn = e.target.closest("button[data-act][data-id]");
-        if (!btn) return;
-        handleAction(btn.dataset.act, btn.dataset.id);
+  function attachEvents() {
+    if (ui.refreshBtn) {
+      ui.refreshBtn.addEventListener("click", () => {
+        void refreshPage();
       });
     }
-    if (reviewsBody) {
-      reviewsBody.addEventListener("click", (e) => {
-        const btn = e.target.closest("button[data-act][data-id]");
+
+    [ui.projectsBody, ui.focusList].forEach((host) => {
+      if (!host) return;
+      host.addEventListener("click", (event) => {
+        const btn = event.target.closest("button[data-act][data-id]");
         if (!btn) return;
-        handleAction(btn.dataset.act, btn.dataset.id);
+        void handleAction(btn.dataset.act, btn.dataset.id);
       });
-    }
+    });
   }
 
-  function attachCommonActions() {
-    if (refreshBtn) {
-      refreshBtn.addEventListener("click", () => {
-        refreshPage();
-      });
-    }
-    if (logoutBtn) {
-      logoutBtn.addEventListener("click", () => {
-        auth.logout();
-      });
+  async function refreshPage() {
+    try {
+      setStatus("Обновляю контур преподавателя...", false);
+      await loadProjects();
+      await loadReadiness();
+
+      const projects = relevantProjects();
+      updateStats(projects);
+      renderFocus(projects);
+      renderProjects(projects);
+
+      const publicFallback = state.projects.length > projects.length;
+      const suffix = publicFallback ? " Публичный каталог вынесен в отдельный экран." : "";
+      setStatus(`Под контролем: ${projects.length}.${suffix}`, false);
+    } catch (err) {
+      setStatus(err.message || String(err), true);
     }
   }
 
   void (async () => {
-    claims = await auth.ensureSession("professor");
-    if (!claims) return;
+    state.profile = await auth.ensureSession("professor");
+    if (!state.profile) return;
 
-    bindProfile();
-    attachTableListeners();
-    attachCommonActions();
-    refreshPage();
+    renderGreeting(state.profile);
+    attachEvents();
+    await refreshPage();
   })();
 })();

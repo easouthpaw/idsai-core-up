@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"idsai-core-up/internal/http/middleware"
 	"idsai-core-up/internal/services/kb"
 
 	"github.com/gin-gonic/gin"
@@ -21,10 +22,14 @@ func NewKBHandler(svc *kb.Service) *KBHandler {
 	return &KBHandler{svc: svc}
 }
 
+func (h *KBHandler) isEditor(c *gin.Context) bool {
+	isAdmin, _ := middleware.IsAdminFromCtx(c)
+	isProfessor, _ := middleware.IsProfessorFromCtx(c)
+	return isAdmin || isProfessor
+}
+
 func (h *KBHandler) requireEditor(c *gin.Context) bool {
-	isAdmin, _ := c.Get("is_admin")
-	isProfessor, _ := c.Get("is_professor")
-	if isAdmin == true || isProfessor == true {
+	if h.isEditor(c) {
 		return true
 	}
 	c.JSON(http.StatusForbidden, gin.H{"error": "only professors and admins can manage the knowledge base"})
@@ -32,21 +37,15 @@ func (h *KBHandler) requireEditor(c *gin.Context) bool {
 }
 
 func (h *KBHandler) tenantID(c *gin.Context) uuid.UUID {
-	raw, _ := c.Get("tenant_id")
-	if id, ok := raw.(string); ok {
-		if parsed, err := uuid.Parse(id); err == nil {
-			return parsed
-		}
+	if id, ok := middleware.TenantIDFromCtx(c); ok {
+		return id
 	}
 	return uuid.Nil
 }
 
 func (h *KBHandler) userID(c *gin.Context) uuid.UUID {
-	raw, _ := c.Get("sub")
-	if id, ok := raw.(string); ok {
-		if parsed, err := uuid.Parse(id); err == nil {
-			return parsed
-		}
+	if id, ok := middleware.UserIDFromCtx(c); ok {
+		return id
 	}
 	return uuid.Nil
 }
@@ -183,9 +182,7 @@ func (h *KBHandler) ListArticles(c *gin.Context) {
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
 	// Non-editors only see published
-	isAdmin, _ := c.Get("is_admin")
-	isProfessor, _ := c.Get("is_professor")
-	if isAdmin != true && isProfessor != true {
+	if !h.isEditor(c) {
 		status = "PUBLISHED"
 	}
 
@@ -258,13 +255,9 @@ func (h *KBHandler) GetArticle(c *gin.Context) {
 	}
 
 	// Non-editors can't see drafts
-	if article.Status != "PUBLISHED" {
-		isAdmin, _ := c.Get("is_admin")
-		isProfessor, _ := c.Get("is_professor")
-		if isAdmin != true && isProfessor != true {
-			c.JSON(http.StatusNotFound, gin.H{"error": "article not found"})
-			return
-		}
+	if article.Status != "PUBLISHED" && !h.isEditor(c) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "article not found"})
+		return
 	}
 
 	c.JSON(http.StatusOK, article)

@@ -15,7 +15,6 @@ CREATE TABLE IF NOT EXISTS kb_categories (
     UNIQUE(tenant_id, parent_id, slug)
 );
 
--- Partial unique for root-level categories (parent_id IS NULL)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_kb_categories_root_slug
     ON kb_categories(tenant_id, slug)
     WHERE parent_id IS NULL;
@@ -51,6 +50,7 @@ CREATE INDEX IF NOT EXISTS idx_kb_articles_published  ON kb_articles(tenant_id, 
     WHERE status = 'PUBLISHED';
 
 -- Auto-update search_vector on insert/update
+-- +goose statementbegin
 CREATE OR REPLACE FUNCTION kb_articles_search_trigger() RETURNS trigger AS $$
 BEGIN
     NEW.search_vector :=
@@ -59,6 +59,7 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+-- +goose statementend
 
 DROP TRIGGER IF EXISTS trg_kb_articles_search ON kb_articles;
 CREATE TRIGGER trg_kb_articles_search
@@ -93,7 +94,7 @@ CREATE INDEX IF NOT EXISTS idx_kb_article_tags_tag ON kb_article_tags(tag_id);
 DROP TABLE IF EXISTS kb_article_tags;
 DROP TABLE IF EXISTS kb_tags;
 DROP TRIGGER IF EXISTS trg_kb_articles_search ON kb_articles;
-DROP FUNCTION IF EXISTS kb_articles_search_trigger;
+DROP FUNCTION IF EXISTS kb_articles_search_trigger();
 DROP TABLE IF EXISTS kb_articles;
 DROP INDEX IF EXISTS idx_kb_categories_root_slug;
 DROP TABLE IF EXISTS kb_categories;

@@ -18,76 +18,93 @@
     <aside data-role-sidebar data-sidebar-active="kb"></aside>
 
     <div class="content-shell">
-      <!-- Topbar -->
-      <header class="topbar">
-        <div class="topbar-inner" style="display:flex;align-items:center;gap:16px;height:100%;padding:0 24px;">
-          <nav id="articleBreadcrumbs" class="breadcrumbs" style="display:flex;align-items:center;gap:8px;font:600 14px/1 'Inter',sans-serif;">
-            <a href="/dev/kb" style="color:var(--kb-accent);text-decoration:none;">База знаний</a>
+      <header class="topbar kb-topbar">
+        <div class="kb-topbar__inner">
+          <a class="kb-topbar__back" href="/dev/kb">
+            <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+            К базе знаний
+          </a>
+          <nav id="articleBreadcrumbs" class="breadcrumbs kb-breadcrumbs">
+            <a href="/dev/kb">База знаний</a>
           </nav>
-          <div style="flex:1;"></div>
+          <div class="kb-topbar__spacer"></div>
           <div id="notificationsPopup"></div>
         </div>
       </header>
 
-      <!-- Article layout -->
       <div class="kb-article-layout">
-        <!-- Main -->
-        <main>
-          <div class="kb-article-header">
-            <h1 id="articleTitle">Загрузка…</h1>
-            <div id="articleMeta" class="kb-article-header__meta"></div>
-            <div id="articleTags" class="kb-article-header__tags"></div>
-            <div id="articleActions" class="kb-article-actions" style="display:none;">
-              <button id="editArticleBtn" class="kb-btn kb-btn--outline" type="button">
-                <span class="material-symbols-outlined" aria-hidden="true">edit</span>
-                Редактировать
-              </button>
-              <button id="deleteArticleBtn" class="kb-btn kb-btn--danger" type="button">
-                <span class="material-symbols-outlined" aria-hidden="true">delete</span>
-                Удалить
-              </button>
+        <main class="kb-article-main">
+          <section class="kb-article-hero">
+            <div class="kb-article-hero__eyebrow">
+              <span class="kb-mini-chip">Knowledge base</span>
+              <span id="articleReadingTime" class="kb-inline-stat">Чтение 1 мин</span>
             </div>
-          </div>
+            <div class="kb-article-header">
+              <p id="articleLead" class="kb-article-lead"></p>
+              <div class="kb-article-header__row">
+                <div>
+                  <h1 id="articleTitle">Загрузка…</h1>
+                  <div id="articleMeta" class="kb-article-header__meta"></div>
+                </div>
+                <div id="articleActions" class="kb-article-actions" style="display:none;">
+                  <button id="editArticleBtn" class="kb-btn kb-btn--outline" type="button">
+                    <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                    Редактировать
+                  </button>
+                  <button id="deleteArticleBtn" class="kb-btn kb-btn--danger" type="button">
+                    <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                    Удалить
+                  </button>
+                </div>
+              </div>
+              <div id="articleTags" class="kb-article-header__tags"></div>
+            </div>
+          </section>
 
-          <!-- View mode -->
-          <div id="articleContent" class="kb-markdown"></div>
+          <section class="kb-article-content-shell">
+            <div class="kb-article-content-head">
+              <div>
+                <strong>Материал</strong>
+                <p>Документация, заметки и разборы в Markdown.</p>
+              </div>
+            </div>
+            <div id="articleContent" class="kb-markdown"></div>
 
-          <!-- Edit mode -->
-          <div id="articleEditor" class="kb-editor-container" style="display:none;">
-            <div class="kb-editor-fields">
-              <div class="kb-editor-field">
-                <label for="editTitle">Заголовок</label>
-                <input id="editTitle" type="text" />
+            <div id="articleEditor" class="kb-editor-container" style="display:none;">
+              <div class="kb-editor-fields">
+                <div class="kb-editor-field">
+                  <label for="editTitle">Заголовок</label>
+                  <input id="editTitle" type="text" />
+                </div>
+                <div class="kb-editor-field">
+                  <label for="editTags">Теги (через запятую)</label>
+                  <input id="editTags" type="text" />
+                </div>
+                <div class="kb-editor-field" style="grid-column: 1 / -1;">
+                  <label for="editStatus">Статус</label>
+                  <select id="editStatus">
+                    <option value="DRAFT">Черновик</option>
+                    <option value="PUBLISHED">Опубликовать</option>
+                  </select>
+                </div>
               </div>
-              <div class="kb-editor-field">
-                <label for="editTags">Теги (через запятую)</label>
-                <input id="editTags" type="text" />
+              <div class="kb-editor-tabs">
+                <button class="kb-editor-tab is-active" data-tab="write" type="button">Редактор</button>
+                <button class="kb-editor-tab" data-tab="preview" type="button">Предпросмотр</button>
               </div>
-              <div class="kb-editor-field" style="grid-column: 1 / -1;">
-                <label for="editStatus">Статус</label>
-                <select id="editStatus">
-                  <option value="DRAFT">Черновик</option>
-                  <option value="PUBLISHED">Опубликовать</option>
-                </select>
+              <textarea id="editContent" class="kb-editor-textarea"></textarea>
+              <div id="editPreview" class="kb-markdown" style="display:none;"></div>
+              <div class="kb-article-editor-actions">
+                <button id="saveEditBtn" class="kb-btn kb-btn--primary" type="button">
+                  <span class="material-symbols-outlined" aria-hidden="true">save</span>
+                  Сохранить
+                </button>
+                <button id="cancelEditBtn" class="kb-btn kb-btn--outline" type="button">Отмена</button>
               </div>
             </div>
-            <div class="kb-editor-tabs">
-              <button class="kb-editor-tab is-active" data-tab="write" type="button">Редактор</button>
-              <button class="kb-editor-tab" data-tab="preview" type="button">Предпросмотр</button>
-            </div>
-            <textarea id="editContent" class="kb-editor-textarea"></textarea>
-            <div id="editPreview" class="kb-markdown" style="display:none;"></div>
-            <div style="display:flex;gap:10px;">
-              <button id="saveEditBtn" class="kb-btn kb-btn--primary" type="button">
-                <span class="material-symbols-outlined" aria-hidden="true">save</span>
-                Сохранить
-              </button>
-              <button id="cancelEditBtn" class="kb-btn kb-btn--outline" type="button">Отмена</button>
-            </div>
-          </div>
+          </section>
         </main>
 
-        <!-- TOC -->
         <aside id="tocSidebar" class="kb-toc">
           <h4>На этой странице</h4>
           <div id="tocList" class="kb-toc-list"></div>
@@ -96,11 +113,11 @@
     </div>
   </div>
 
-  <script src="/dev/static/js/auth.js"></script>
-  <script src="/dev/static/js/role-sidebar.js"></script>
-  <script src="/dev/static/js/notifications-popup.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/highlight.min.js"></script>
-  <script src="/dev/static/js/kb-article.js"></script>
+  <script src="/dev/static/js/auth-session.js" defer></script>
+  <script src="/dev/static/js/role-sidebar.js" defer></script>
+  <script src="/dev/static/js/notifications-popup.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/highlight.min.js" defer></script>
+  <script src="/dev/static/js/kb-article.js" defer></script>
 </body>
 </html>

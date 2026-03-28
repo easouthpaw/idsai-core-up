@@ -21,62 +21,119 @@
   ></aside>
 
   <main class="prof-main">
-    <header class="prof-header">
-      <div>
-        <p class="crumb">Добро пожаловать</p>
-        <h1>Дашборд преподавателя</h1>
+    <header class="prof-hero">
+      <div class="prof-hero__copy">
+        <p class="crumb">Professor workspace</p>
+        <p class="prof-hero__kicker">Review cockpit</p>
+        <h1 id="profGreeting">Привет!</h1>
+        <p id="profHeroTitle" class="prof-hero__title">Контур преподавателя</p>
+        <p id="profHeroSubtitle" class="head-sub">
+          Только те проекты, где вам нужно принять решение, настроить критерии или завершить ревью.
+          Без лишних кнопок и статусов, которые не помогают работать.
+        </p>
       </div>
-      <div class="head-actions">
+      <div class="prof-hero__panel">
         <a class="ghost-btn" href="/dev/professor/reviews">Заявки на ревью</a>
-        <a class="primary-btn" href="/dev/projects">Новый проект</a>
+        <a class="primary-btn" href="/dev/projects?tab=community">Каталог проектов</a>
+        <div class="prof-hero__note">
+          <span class="material-symbols-outlined" aria-hidden="true">admin_panel_settings</span>
+          Назначение преподавателя, старт и набор команды остаются в контуре проекта.
+          На этом экране только преподавательские решения.
+        </div>
       </div>
     </header>
 
-    <section class="stats-grid">
-      <article class="stat-card">
-        <p>Всего проектов</p>
+    <section class="stats-grid stats-grid--dashboard">
+      <article class="stat-card stat-card--accent">
+        <span class="stat-card__icon material-symbols-outlined" aria-hidden="true">topic</span>
+        <p>Под наблюдением</p>
         <strong id="statTotal">0</strong>
+        <small>Проекты, которые реально требуют вашего внимания.</small>
       </article>
       <article class="stat-card">
-        <p>Ожидают проверки</p>
+        <span class="stat-card__icon material-symbols-outlined" aria-hidden="true">mark_email_unread</span>
+        <p>Нужно ответить</p>
         <strong id="statReview">0</strong>
+        <small>Новые приглашения и запросы на ревью.</small>
       </article>
       <article class="stat-card">
-        <p>Активные</p>
+        <span class="stat-card__icon material-symbols-outlined" aria-hidden="true">lan</span>
+        <p>Команды в работе</p>
         <strong id="statActive">0</strong>
+        <small>Проекты уже запущены и идут к сдаче.</small>
       </article>
       <article class="stat-card">
-        <p>С recruitment</p>
+        <span class="stat-card__icon material-symbols-outlined" aria-hidden="true">grading</span>
+        <p>На оценке</p>
         <strong id="statRecruitment">0</strong>
+        <small>Проекты, где можно открыть оценивание.</small>
       </article>
     </section>
 
-    <section class="cycle-card">
-      <h2>Цикл проекта преподавателя</h2>
-      <p>
-        Набор команды -> прикрепление преподавателя -> критерии оценки -> старт проекта.
-      </p>
+    <section class="prof-overview-grid">
+      <article class="prof-panel">
+        <div class="prof-panel__head">
+          <div>
+            <h2>Ближайшие действия</h2>
+            <p>Сначала то, что двигает проект вперед уже сегодня.</p>
+          </div>
+        </div>
+        <div id="focusList" class="focus-list">
+          <article class="focus-empty">
+            <span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span>
+            <strong>Собираю контекст...</strong>
+            <p>Загружаю приглашения, назначенные проекты и этапы ревью.</p>
+          </article>
+        </div>
+      </article>
+
+      <article class="prof-panel">
+        <div class="prof-panel__head">
+          <div>
+            <h2>Как теперь работает преподаватель</h2>
+            <p>Четкая последовательность вместо набора несвязанных кнопок.</p>
+          </div>
+        </div>
+        <div class="prof-flow">
+          <article class="prof-flow__item">
+            <span class="material-symbols-outlined" aria-hidden="true">outgoing_mail</span>
+            <strong>1. Ответить на приглашение</strong>
+            <p>Преподаватель принимает или отклоняет ревью, а не назначает себя вручную.</p>
+          </article>
+          <article class="prof-flow__item">
+            <span class="material-symbols-outlined" aria-hidden="true">rule_settings</span>
+            <strong>2. Настроить критерии</strong>
+            <p>До старта проекта преподаватель задает чек-лист и логику оценки.</p>
+          </article>
+          <article class="prof-flow__item">
+            <span class="material-symbols-outlined" aria-hidden="true">monitoring</span>
+            <strong>3. Сопровождать команду</strong>
+            <p>Во время ACTIVE преподаватель следит за проектом, но не оценивает преждевременно.</p>
+          </article>
+          <article class="prof-flow__item">
+            <span class="material-symbols-outlined" aria-hidden="true">task_alt</span>
+            <strong>4. Завершить ревью</strong>
+            <p>На этапе GRADING выставляется итог и фиксируются комментарии по критериям.</p>
+          </article>
+        </div>
+      </article>
     </section>
 
-    <section id="projects" class="table-card">
-      <div class="table-head">
-        <h2>Проекты под контролем</h2>
+    <section id="projects" class="prof-panel prof-projects-panel">
+      <div class="prof-panel__head">
+        <div>
+          <h2>Проекты под вашим контуром</h2>
+          <p>Карточки показывают только релевантные действия для текущего состояния проекта.</p>
+        </div>
         <button id="refreshBtn" class="ghost-btn" type="button">Обновить</button>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Проект</th>
-              <th>Статус</th>
-              <th>Обновлён</th>
-              <th>Действия</th>
-            </tr>
-          </thead>
-          <tbody id="projectsBody">
-            <tr><td colspan="4">Загрузка...</td></tr>
-          </tbody>
-        </table>
+      <div id="projectsBody" class="prof-project-list">
+        <article class="prof-project-card prof-project-card--loading">
+          <div class="prof-project-card__meta">
+            <strong>Загрузка проектов...</strong>
+            <p>Проверяю приглашения, статусы и доступные преподавателю действия.</p>
+          </div>
+        </article>
       </div>
       <p id="pageStatus" class="page-status" aria-live="polite"></p>
     </section>

@@ -20,58 +20,81 @@
     class="role-sidebar"
   ></aside>
 
-  <main class="prof-main">
-    <header class="prof-header">
-      <div>
-        <p class="crumb">Оценка проекта</p>
-        <h1 id="projectTitle">Project</h1>
-        <p id="projectMeta" class="hint">Team: -</p>
+  <main class="prof-main grading-main">
+    <header class="grading-hero">
+      <div class="grading-hero__copy">
+        <p class="crumb">Professor review studio</p>
+        <h1 id="projectTitle">Оценивание проекта</h1>
+        <p id="projectMeta" class="head-sub">Выберите проект и продолжайте ревью по критериям.</p>
       </div>
-      <div class="head-actions">
+      <div class="grading-hero__actions">
+        <label class="grading-project-switch" for="projectSelect">
+          <span>Проект</span>
+          <select id="projectSelect"></select>
+        </label>
         <a id="openCriteriaBtn" class="ghost-btn" href="#">Редактировать критерии</a>
         <span id="projectStatusBadge" class="status-pill default">DRAFT</span>
       </div>
     </header>
 
-    <section class="table-card grading-shell">
-      <div class="grade-layout">
-        <div>
-          <h2>Чек-лист проекта</h2>
-          <p class="hint">Оценка и комментарии сохраняются в профиль преподавателя.</p>
-          <div id="gradingList" class="grading-list"></div>
+    <section class="grading-stage-panel">
+      <div class="grading-stage-panel__copy">
+        <strong id="gradingStageTitle">Статус проверки</strong>
+        <p id="gradingStageText">После выбора проекта здесь появятся подсказки, что преподавателю делать на этом этапе.</p>
+      </div>
+      <div id="gradingSignalChips" class="grading-stage-panel__chips"></div>
+    </section>
+
+    <section class="grading-shell grading-shell--studio">
+      <aside class="grading-summary-card">
+        <div class="grading-summary-card__head">
+          <div>
+            <h2>Сводка ревью</h2>
+            <p>Покрытие, итоговый балл и статус завершения по текущему проекту.</p>
+          </div>
         </div>
 
-        <aside class="grading-summary">
-          <h3>Результат ревью</h3>
-          <div class="summary-grid">
-            <div class="summary-item">
-              <small>Покрытие</small>
-              <strong id="summaryCoverage">0%</strong>
-            </div>
-            <div class="summary-item">
-              <small>Выполнено</small>
-              <strong id="summaryMet">0/0</strong>
-            </div>
-            <div class="summary-item">
-              <small>Баллы</small>
-              <strong id="summaryScore">0/100</strong>
-            </div>
+        <div class="summary-grid summary-grid--studio">
+          <div class="summary-item summary-item--coverage">
+            <small>Покрытие</small>
+            <strong id="summaryCoverage">0%</strong>
           </div>
-          <p class="hint">Оценивание доступно в статусах REVIEW и GRADING. После публикации проект переходит в COMPLETED.</p>
-        </aside>
-      </div>
+          <div class="summary-item">
+            <small>Выполнено</small>
+            <strong id="summaryMet">0/0</strong>
+          </div>
+          <div class="summary-item">
+            <small>Баллы</small>
+            <strong id="summaryScore">0/100</strong>
+          </div>
+        </div>
 
-      <div class="grading-actions">
-        <p id="pageStatus" class="page-status" aria-live="polite"></p>
-        <div class="grading-progress">
+        <div class="grading-progress grading-progress--card">
           <span>Прогресс проверки</span>
           <div class="grading-progress-track">
             <i id="gradingProgressFill"></i>
           </div>
           <strong id="gradingProgressText">0%</strong>
         </div>
-        <button id="publishGradingBtn" class="ghost-btn" type="button">Завершить оценивание</button>
-        <button id="saveGradingBtn" class="primary-btn" type="button">Сохранить оценку</button>
+
+        <div id="gradingChecklistIntro" class="grading-guide-list"></div>
+        <p id="pageStatus" class="page-status" aria-live="polite"></p>
+
+        <div class="grading-summary-actions">
+          <button id="publishGradingBtn" class="ghost-btn" type="button">Завершить оценивание</button>
+          <button id="saveGradingBtn" class="primary-btn" type="button">Сохранить оценку</button>
+        </div>
+      </aside>
+
+      <div class="grading-workspace">
+        <section class="grading-workspace__intro">
+          <div>
+            <h2>Лист проверки</h2>
+            <p class="hint">Отмечайте каждый критерий и оставляйте комментарий только там, где он действительно помогает команде.</p>
+          </div>
+        </section>
+
+        <div id="gradingList" class="grading-list"></div>
       </div>
     </section>
   </main>

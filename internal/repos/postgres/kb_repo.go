@@ -3,16 +3,35 @@ package postgres
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
+	"idsai-core-up/internal/domain"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var ErrKBNotFound = fmt.Errorf("kb: not found")
+var (
+	ErrKBNotFound             = domain.ErrKBNotFound
+	ErrKBCategorySlugConflict = domain.ErrKBCategorySlugConflict
+	ErrKBArticleSlugConflict  = domain.ErrKBArticleSlugConflict
+)
+
+func isUniqueViolation(err error, names ...string) bool {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "23505" {
+		return false
+	}
+	for _, name := range names {
+		if pgErr.ConstraintName == name {
+			return true
+		}
+	}
+	return false
+}
 
 // KBRepo is the Knowledge Base repository.
 type KBRepo struct {
@@ -25,55 +44,15 @@ func NewKBRepo(pool *pgxpool.Pool) *KBRepo {
 
 // ── Category types ──────────────────────────────────────────
 
-type KBCategory struct {
-	ID        uuid.UUID  `json:"id"`
-	TenantID  uuid.UUID  `json:"tenant_id"`
-	ParentID  *uuid.UUID `json:"parent_id"`
-	Title     string     `json:"title"`
-	Slug      string     `json:"slug"`
-	SortOrder int        `json:"sort_order"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
-}
+type KBCategory = domain.KBCategory
 
 // ── Article types ───────────────────────────────────────────
 
-type KBArticle struct {
-	ID           uuid.UUID  `json:"id"`
-	TenantID     uuid.UUID  `json:"tenant_id"`
-	CategoryID   uuid.UUID  `json:"category_id"`
-	AuthorID     uuid.UUID  `json:"author_id"`
-	Title        string     `json:"title"`
-	Slug         string     `json:"slug"`
-	Content      string     `json:"content"`
-	Status       string     `json:"status"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
-	PublishedAt  *time.Time `json:"published_at"`
-	AuthorName   string     `json:"author_name"`
-	AuthorAvatar string     `json:"author_avatar"`
-	CategoryPath string     `json:"category_path"`
-	Tags         []string   `json:"tags"`
-}
+type KBArticle = domain.KBArticle
 
-type KBArticleListItem struct {
-	ID          uuid.UUID  `json:"id"`
-	CategoryID  uuid.UUID  `json:"category_id"`
-	AuthorID    uuid.UUID  `json:"author_id"`
-	Title       string     `json:"title"`
-	Slug        string     `json:"slug"`
-	Status      string     `json:"status"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	PublishedAt *time.Time `json:"published_at"`
-	AuthorName  string     `json:"author_name"`
-	Tags        []string   `json:"tags"`
-}
+type KBArticleListItem = domain.KBArticleListItem
 
-type KBTag struct {
-	ID   uuid.UUID `json:"id"`
-	Name string    `json:"name"`
-}
+type KBTag = domain.KBTag
 
 // ── Category CRUD ───────────────────────────────────────────
 
@@ -86,6 +65,9 @@ func (r *KBRepo) CreateCategory(ctx context.Context, tenantID uuid.UUID, parentI
 		RETURNING id, tenant_id, parent_id, title, slug, sort_order, created_at, updated_at`,
 		tenantID, parentID, title, slug, sortOrder, now,
 	).Scan(&cat.ID, &cat.TenantID, &cat.ParentID, &cat.Title, &cat.Slug, &cat.SortOrder, &cat.CreatedAt, &cat.UpdatedAt)
+	if isUniqueViolation(err, "kb_categories_tenant_id_parent_id_slug_key", "idx_kb_categories_root_slug") {
+		return KBCategory{}, ErrKBCategorySlugConflict
+	}
 	return cat, err
 }
 
@@ -100,6 +82,9 @@ func (r *KBRepo) UpdateCategory(ctx context.Context, tenantID, categoryID uuid.U
 	).Scan(&cat.ID, &cat.TenantID, &cat.ParentID, &cat.Title, &cat.Slug, &cat.SortOrder, &cat.CreatedAt, &cat.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return KBCategory{}, ErrKBNotFound
+	}
+	if isUniqueViolation(err, "kb_categories_tenant_id_parent_id_slug_key", "idx_kb_categories_root_slug") {
+		return KBCategory{}, ErrKBCategorySlugConflict
 	}
 	return cat, err
 }
@@ -162,6 +147,9 @@ func (r *KBRepo) CreateArticle(ctx context.Context, tenantID, categoryID, author
 		RETURNING id`,
 		tenantID, categoryID, authorID, title, slug, content, status, now, publishedAt,
 	).Scan(&id)
+	if isUniqueViolation(err, "kb_articles_tenant_id_category_id_slug_key") {
+		return uuid.Nil, ErrKBArticleSlugConflict
+	}
 	return id, err
 }
 
@@ -173,6 +161,9 @@ func (r *KBRepo) UpdateArticle(ctx context.Context, tenantID, articleID uuid.UUI
 		tenantID, articleID, title, slug, content, status, publishedAt,
 	)
 	if err != nil {
+		if isUniqueViolation(err, "kb_articles_tenant_id_category_id_slug_key") {
+			return ErrKBArticleSlugConflict
+		}
 		return err
 	}
 	if tag.RowsAffected() == 0 {
@@ -198,7 +189,7 @@ func (r *KBRepo) GetArticleByID(ctx context.Context, tenantID, articleID uuid.UU
 		SELECT a.id, a.tenant_id, a.category_id, a.author_id, a.title, a.slug, a.content, a.status,
 		       a.created_at, a.updated_at, a.published_at,
 		       COALESCE(p.full_name, u.email, '') AS author_name,
-		       COALESCE(p.avatar_key, '') AS author_avatar
+		       COALESCE(u.avatar_key, '') AS author_avatar
 		FROM kb_articles a
 		JOIN users u ON u.id = a.author_id
 		LEFT JOIN user_profiles p ON p.user_id = a.author_id

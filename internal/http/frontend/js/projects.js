@@ -31,6 +31,7 @@
   const paneCommunityEl = document.getElementById("paneCommunity");
   const toolbarMineEl = document.getElementById("toolbarMine");
   const toolbarCommunityEl = document.getElementById("toolbarCommunity");
+  const heroGreetingEl = document.getElementById("heroGreeting");
   const tabTitleEl = document.getElementById("tabTitle");
   const tabSubtitleEl = document.getElementById("tabSubtitle");
   const tabCounterEl = document.getElementById("tabCounter");
@@ -116,6 +117,22 @@
     return e ? e.slice(0, 2).toUpperCase() : "ST";
   }
 
+  function capitalize(value) {
+    const text = String(value || "").trim();
+    if (!text) return "";
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  function greetingName(profile) {
+    const fullName = String(profile?.full_name || profile?.name || localStorage.getItem(LS_STUDENT_NAME) || "").trim();
+    if (fullName) {
+      return fullName.split(/\s+/).filter(Boolean)[0] || fullName;
+    }
+    const email = String(profile?.email || localStorage.getItem(LS_STUDENT_EMAIL) || "").trim();
+    const local = email.split("@")[0] || "";
+    return local ? capitalize(local.split(/[._-]/)[0]) : "друг";
+  }
+
   function renderAvatar(el, fallbackText, avatarURL) {
     if (!el) return;
     const url = String(avatarURL || "").trim();
@@ -152,6 +169,9 @@
 
   function bindProfile(profile) {
     syncSidebar(profile || auth.getCachedProfile(), activeTab);
+    if (heroGreetingEl) {
+      heroGreetingEl.textContent = `Привет, ${greetingName(profile || auth.getCachedProfile())}!`;
+    }
   }
 
   function escapeHTML(value) {

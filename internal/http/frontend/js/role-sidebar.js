@@ -115,6 +115,27 @@
     return navItems.filter((item) => !item.permission || auth.canCached(item.permission, scope));
   }
 
+  function bindSidebarLogout(container) {
+    if (!(container instanceof HTMLElement)) {
+      return;
+    }
+
+    const logoutBtn = container.querySelector("#logoutBtn");
+    if (!(logoutBtn instanceof HTMLElement) || logoutBtn.dataset.bound === "1") {
+      return;
+    }
+
+    logoutBtn.dataset.bound = "1";
+    logoutBtn.addEventListener("click", (event) => {
+      event.preventDefault();
+      if (auth && typeof auth.logout === "function") {
+        void auth.logout();
+        return;
+      }
+      window.location.href = "/dev/login";
+    });
+  }
+
   function sidebarFrame(role, activeKey, profile, navItems, inlineViews, scope) {
     const isAdmin = role === ROLE_ADMIN;
     const isTeacher = role === ROLE_TEACHER;
@@ -247,17 +268,20 @@
     if (role === ROLE_ADMIN) {
       container.className = "role-sidebar role-sidebar--admin";
       container.innerHTML = buildAdminSidebar(active || "dashboard", profile, inlineViews, scope);
+      bindSidebarLogout(container);
       return { role, active: active || "dashboard" };
     }
 
     if (role === ROLE_TEACHER) {
       container.className = "role-sidebar role-sidebar--teacher";
       container.innerHTML = buildTeacherSidebar(active || "dashboard", profile, scope);
+      bindSidebarLogout(container);
       return { role, active: active || "dashboard" };
     }
 
     container.className = "role-sidebar role-sidebar--student";
     container.innerHTML = buildStudentSidebar(active || "profile", profile, scope);
+    bindSidebarLogout(container);
 
     return { role, active: active || "profile" };
   }

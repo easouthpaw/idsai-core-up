@@ -11,6 +11,10 @@
     refreshBtn: document.getElementById("refreshBtn"),
     pageStatus: document.getElementById("pageStatus"),
     treeRoot: document.getElementById("treeRoot"),
+    metricDepartments: document.getElementById("metricDepartments"),
+    metricGroups: document.getElementById("metricGroups"),
+    metricStudents: document.getElementById("metricStudents"),
+    metricShown: document.getElementById("metricShown"),
 
     adminRequestsSection: document.getElementById("adminRequestsSection"),
     requestStatusFilter: document.getElementById("requestStatusFilter"),
@@ -116,7 +120,13 @@
     ui.treeRoot.innerHTML = "";
 
     if (!departments.length) {
-      ui.treeRoot.innerHTML = "<p>По выбранным фильтрам данных нет.</p>";
+      ui.treeRoot.innerHTML = `
+        <article class="tree-empty">
+          <span class="material-symbols-outlined" aria-hidden="true">account_tree</span>
+          <strong>По выбранным фильтрам данных нет</strong>
+          <p>Попробуйте снять часть ограничений или обновить структуру кафедр и групп.</p>
+        </article>
+      `;
       return;
     }
 
@@ -126,37 +136,69 @@
       depDetails.open = true;
 
       const depSummary = document.createElement("summary");
-      depSummary.textContent = String(department.name || department.code || "Кафедра");
+      const groups = Array.isArray(department.groups) ? department.groups : [];
+      const studentCount = groups.reduce((sum, group) => sum + Number(group.total_students || (Array.isArray(group.students) ? group.students.length : 0) || 0), 0);
+      depSummary.innerHTML = `
+        <div class="dep-summary__main">
+          <small>${escapeHTML(String(department.code || "DEP").toUpperCase())}</small>
+          <strong>${escapeHTML(String(department.name || department.code || "Кафедра"))}</strong>
+        </div>
+        <div class="dep-summary__stats">
+          <span>${escapeHTML(String(groups.length))} групп</span>
+          <span>${escapeHTML(String(studentCount))} студентов</span>
+        </div>
+      `;
       depDetails.appendChild(depSummary);
 
       const groupsList = document.createElement("div");
       groupsList.className = "groups-list";
 
-      const groups = Array.isArray(department.groups) ? department.groups : [];
       if (!groups.length) {
-        const empty = document.createElement("p");
-        empty.textContent = "Группы не найдены";
+        const empty = document.createElement("article");
+        empty.className = "group-empty";
+        empty.innerHTML = `
+          <span class="material-symbols-outlined" aria-hidden="true">groups</span>
+          <div>
+            <strong>Группы не найдены</strong>
+            <p>Для этой кафедры пока нет привязанных академических групп.</p>
+          </div>
+        `;
         groupsList.appendChild(empty);
       }
 
       groups.forEach((group) => {
         const groupDetails = document.createElement("details");
         groupDetails.className = "group-node";
+        groupDetails.open = groups.length <= 2;
 
         const summary = document.createElement("summary");
+        const students = Array.isArray(group.students) ? group.students : [];
         summary.innerHTML = `
-          <strong>${escapeHTML(group.group_code || "—")}</strong>
-          <span>Студентов: ${escapeHTML(group.total_students)}</span>
+          <div class="group-summary__main">
+            <strong>${escapeHTML(group.group_code || "—")}</strong>
+            <span>${students.length ? "Список студентов доступен ниже" : "В этой группе пока нет студентов"}</span>
+          </div>
+          <div class="group-summary__stats">
+            <span>${escapeHTML(String(group.total_students || students.length || 0))} студентов</span>
+          </div>
         `;
         groupDetails.appendChild(summary);
 
         const studentsList = document.createElement("ul");
         studentsList.className = "students-list";
 
-        const students = Array.isArray(group.students) ? group.students : [];
         if (!students.length) {
           const empty = document.createElement("li");
-          empty.textContent = "В этой группе пока нет студентов";
+          empty.className = "student-row student-row--empty";
+          empty.innerHTML = `
+            <div class="student-empty">
+              <span class="material-symbols-outlined" aria-hidden="true">school</span>
+              <div>
+                <strong>Пока пусто</strong>
+                <p>В этой группе еще нет студентов.</p>
+              </div>
+            </div>
+          `;
           studentsList.appendChild(empty);
         }
 
@@ -176,7 +218,7 @@
               <strong><a href="${escapeHTML(profileURL(student.user_id))}">${escapeHTML(student.full_name || "—")}</a></strong>
               <p>${escapeHTML(student.email || "—")}</p>
             </div>
-            <div>${escapeHTML(roleLabel(student.role || student.role_code))}</div>
+            <div class="student-role">${escapeHTML(roleLabel(student.role || student.role_code))}</div>
           `;
           studentsList.appendChild(li);
         });
@@ -188,6 +230,29 @@
       depDetails.appendChild(groupsList);
       ui.treeRoot.appendChild(depDetails);
     });
+  }
+
+  function updateMetrics(tree) {
+    const departments = Array.isArray(tree) ? tree : [];
+    const departmentsCount = departments.length;
+    let groupsCount = 0;
+    let studentsCount = 0;
+
+    departments.forEach((department) => {
+      const groups = Array.isArray(department.groups) ? department.groups : [];
+      groupsCount += groups.length;
+      groups.forEach((group) => {
+        studentsCount += Array.isArray(group.students) ? group.students.length : Number(group.total_students || 0);
+      });
+    });
+
+    const hasFilter = Boolean(String(ui.departmentFilter.value || "").trim() || String(ui.searchInput.value || "").trim());
+    const shownCount = hasFilter ? groupsCount : departmentsCount;
+
+    if (ui.metricDepartments) ui.metricDepartments.textContent = String(departmentsCount);
+    if (ui.metricGroups) ui.metricGroups.textContent = String(groupsCount);
+    if (ui.metricStudents) ui.metricStudents.textContent = String(studentsCount);
+    if (ui.metricShown) ui.metricShown.textContent = String(shownCount);
   }
 
   function requestStatusLabel(status) {
@@ -212,7 +277,15 @@
     ui.requestsList.innerHTML = "";
 
     if (!list.length) {
-      ui.requestsList.innerHTML = "<p>Заявок нет.</p>";
+      ui.requestsList.innerHTML = `
+        <article class="requests-empty">
+          <span class="material-symbols-outlined" aria-hidden="true">mark_email_read</span>
+          <div>
+            <strong>Новых заявок нет</strong>
+            <p>Сейчас нет переводов, которые требуют решения администратора.</p>
+          </div>
+        </article>
+      `;
       return;
     }
 
@@ -258,6 +331,7 @@
     const data = await requestJSON(`/v2/auth/groups/tree?${params.toString()}`, { method: "GET" });
     const tree = Array.isArray(data.departments) ? data.departments : [];
     state.tree = tree;
+    updateMetrics(tree);
     renderTree(tree);
     setStatus(`Кафедр: ${tree.length}`, false);
   }
