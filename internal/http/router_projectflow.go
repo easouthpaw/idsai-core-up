@@ -11,7 +11,7 @@ import (
 func registerProjectFlowRoutes(
 	v2 *gin.RouterGroup,
 	authMW gin.HandlerFunc,
-	rbacSvc *rbac.Service,
+	rbacSvc rbac.Authorizer,
 	projectFlowH *handlers.ProjectFlowHandler,
 ) {
 	if projectFlowH == nil {

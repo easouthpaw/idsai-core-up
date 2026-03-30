@@ -28,7 +28,7 @@ type RoleGrantor interface {
 }
 
 type Service struct {
-	authz          *rbac.Service
+	authz          rbac.Authorizer
 	grantor        RoleGrantor
 	projectsRepo   ProjectsRepository
 	stacksRepo     StacksRepository
@@ -43,7 +43,7 @@ type Service struct {
 }
 
 func NewService(
-	authz *rbac.Service,
+	authz rbac.Authorizer,
 	grantor RoleGrantor,
 	projectsRepo ProjectsRepository,
 	stacksRepo StacksRepository,

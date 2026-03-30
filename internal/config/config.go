@@ -41,6 +41,9 @@ type Config struct {
 	StorageBucket             string
 	StorageUseSSL             bool
 	StoragePublicBaseURL      string
+	RedisAddr                 string
+	RedisPassword             string
+	RedisDB                   int
 }
 
 func Load() Config {
@@ -78,6 +81,9 @@ func Load() Config {
 		StorageBucket:             getenv("MINIO_BUCKET", "idsai-media"),
 		StorageUseSSL:             getenvBool("MINIO_USE_SSL", false),
 		StoragePublicBaseURL:      getenv("MINIO_PUBLIC_BASE_URL", ""),
+		RedisAddr:                 getenv("REDIS_ADDR", "localhost:6379"),
+		RedisPassword:             getenv("REDIS_PASSWORD", ""),
+		RedisDB:                   getenvInt("REDIS_DB", 0),
 	}
 }
 

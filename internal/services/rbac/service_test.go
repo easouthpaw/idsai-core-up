@@ -38,7 +38,7 @@ func (f *fakeRepo) ListPermissionCodes(ctx context.Context, userID uuid.UUID, sc
 
 func TestService_Can_InvalidScope_SystemWithID(t *testing.T) {
 	repo := &fakeRepo{}
-	svc := rbac.NewService(repo)
+	svc := rbac.NewService(repo, nil)
 
 	id := uuid.New()
 	ok, err := svc.Can(context.Background(), uuid.New(), "project.create", rbac.Scope{
@@ -53,7 +53,7 @@ func TestService_Can_InvalidScope_SystemWithID(t *testing.T) {
 
 func TestService_Can_InvalidScope_ProjectWithoutID(t *testing.T) {
 	repo := &fakeRepo{}
-	svc := rbac.NewService(repo)
+	svc := rbac.NewService(repo, nil)
 
 	ok, err := svc.Can(context.Background(), uuid.New(), "task.view", rbac.Scope{
 		Type: rbac.ScopeProject,
@@ -67,7 +67,7 @@ func TestService_Can_InvalidScope_ProjectWithoutID(t *testing.T) {
 
 func TestService_Can_DelegatesToRepo(t *testing.T) {
 	repo := &fakeRepo{retBool: true, retErr: nil}
-	svc := rbac.NewService(repo)
+	svc := rbac.NewService(repo, nil)
 
 	userID := uuid.New()
 	projectID := uuid.New()
@@ -89,7 +89,7 @@ func TestService_Can_DelegatesToRepo(t *testing.T) {
 
 func TestService_ListPermissionCodes_InvalidScope(t *testing.T) {
 	repo := &fakeRepo{}
-	svc := rbac.NewService(repo)
+	svc := rbac.NewService(repo, nil)
 
 	_, err := svc.ListPermissionCodes(context.Background(), uuid.New(), rbac.Scope{
 		Type: rbac.ScopeFaculty,
@@ -102,7 +102,7 @@ func TestService_ListPermissionCodes_InvalidScope(t *testing.T) {
 
 func TestService_ListPermissionCodes_DelegatesToRepo(t *testing.T) {
 	repo := &fakeRepo{retCodes: []string{"project.view", "task.view"}}
-	svc := rbac.NewService(repo)
+	svc := rbac.NewService(repo, nil)
 
 	userID := uuid.New()
 	projectID := uuid.New()

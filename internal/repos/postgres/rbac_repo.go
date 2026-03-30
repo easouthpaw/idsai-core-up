@@ -10,8 +10,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// CacheInvalidatorFunc is called after role mutations to clear cached permissions.
+type CacheInvalidatorFunc func(ctx context.Context, userID uuid.UUID)
+
 type RBACRepo struct {
-	db *pgxpool.Pool
+	db                 *pgxpool.Pool
+	cacheInvalidatorFn CacheInvalidatorFunc
 }
 
 const resolvedScopesCTE = `
@@ -118,6 +122,19 @@ func NewRBACRepo(db *pgxpool.Pool) *RBACRepo {
 	return &RBACRepo{db: db}
 }
 
+// SetCacheInvalidator sets the function called after role mutations to invalidate
+// the RBAC cache for the affected user. This is called from the module wiring layer.
+func (r *RBACRepo) SetCacheInvalidator(fn CacheInvalidatorFunc) {
+	r.cacheInvalidatorFn = fn
+}
+
+// invalidateCache calls the cache invalidator if one is set.
+func (r *RBACRepo) invalidateCache(ctx context.Context, userID uuid.UUID) {
+	if r.cacheInvalidatorFn != nil {
+		r.cacheInvalidatorFn(ctx, userID)
+	}
+}
+
 func (r *RBACRepo) HasPermission(ctx context.Context, userID uuid.UUID, permissionCode string, scope rbac.Scope, now time.Time) (bool, error) {
 	const q = resolvedScopesCTE + `
 SELECT EXISTS (
@@ -206,15 +223,22 @@ VALUES ($1, $2, $3, $4, NULL, $5)
 ON CONFLICT (tenant_id, user_id, role_id, scope_type) WHERE scope_id IS NULL
 DO UPDATE SET expires_at = EXCLUDED.expires_at;
 `, tenantID, userID, roleID, string(scope.Type), expiresAt)
-		return err
-	}
-
-	_, err = r.db.Exec(ctx, `
+		if err != nil {
+			return err
+		}
+	} else {
+		_, err = r.db.Exec(ctx, `
 INSERT INTO role_assignments(tenant_id, user_id, role_id, scope_type, scope_id, expires_at)
 VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (tenant_id, user_id, role_id, scope_type, scope_id) WHERE scope_id IS NOT NULL
 DO UPDATE SET expires_at = EXCLUDED.expires_at;
 `, tenantID, userID, roleID, string(scope.Type), scope.ID, expiresAt)
+		if err != nil {
+			return err
+		}
+	}
 
-	return err
+	// Atomically invalidate cache after role mutation
+	r.invalidateCache(ctx, userID)
+	return nil
 }

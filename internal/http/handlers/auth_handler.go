@@ -18,14 +18,14 @@ import (
 
 type AuthHandler struct {
 	svc   *auth.Service
-	authz *rbacsvc.Service
+	authz rbacsvc.Authorizer
 }
 
 func NewAuthHandler(svc *auth.Service) *AuthHandler {
 	return &AuthHandler{svc: svc}
 }
 
-func (h *AuthHandler) SetAuthorizer(authz *rbacsvc.Service) {
+func (h *AuthHandler) SetAuthorizer(authz rbacsvc.Authorizer) {
 	h.authz = authz
 }
 

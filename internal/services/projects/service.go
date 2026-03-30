@@ -129,16 +129,16 @@ func (s *Service) ListProjectsByCreator(ctx context.Context, createdBy uuid.UUID
 	return s.decorateProjectsMedia(items), nil
 }
 
-func (s *Service) ListProjectsByFaculty(ctx context.Context, facultyID uuid.UUID) ([]domain.Project, error) {
-	items, err := s.repo.ListByFaculty(ctx, facultyID)
+func (s *Service) ListProjectsByFaculty(ctx context.Context, facultyID uuid.UUID, userID uuid.UUID) ([]domain.Project, error) {
+	items, err := s.repo.ListByFaculty(ctx, facultyID, userID)
 	if err != nil {
 		return nil, err
 	}
 	return s.decorateProjectsMedia(items), nil
 }
 
-func (s *Service) ListPublicProjects(ctx context.Context) ([]domain.Project, error) {
-	items, err := s.repo.ListPublic(ctx)
+func (s *Service) ListPublicProjects(ctx context.Context, userID uuid.UUID) ([]domain.Project, error) {
+	items, err := s.repo.ListPublic(ctx, userID)
 	if err != nil {
 		return nil, err
 	}

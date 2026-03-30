@@ -23,6 +23,18 @@ func (f fakeAuthz) Can(ctx context.Context, userID uuid.UUID, permissionCode str
 	return f.allow, f.err
 }
 
+func (f fakeAuthz) CanAll(ctx context.Context, userID uuid.UUID, permissions []string, scope rbac.Scope) (bool, error) {
+	return f.allow, f.err
+}
+
+func (f fakeAuthz) CanWithAttributes(ctx context.Context, userID uuid.UUID, permissionCode string, scope rbac.Scope, attrs map[string]interface{}) (bool, error) {
+	return f.allow, f.err
+}
+
+func (f fakeAuthz) ListPermissionCodes(ctx context.Context, userID uuid.UUID, scope rbac.Scope) ([]string, error) {
+	return nil, f.err
+}
+
 func withUser(id uuid.UUID) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Set("userID", id)

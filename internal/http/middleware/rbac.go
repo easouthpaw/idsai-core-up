@@ -62,6 +62,83 @@ func RequirePermission(authz rbac.Authorizer, permission string, resolveScope Sc
 	}
 }
 
+// RequireAllPermissions checks that the user has ALL listed permissions in the scope.
+// This is the batch-check middleware for endpoints that require multiple permissions.
+func RequireAllPermissions(authz rbac.Authorizer, permissions []string, resolveScope ScopeResolver) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, ok := UserIDFromCtx(c)
+		if !ok {
+			rbacUnauthorizedCount.Add(1)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			return
+		}
+
+		scope, ok := resolveScope(c)
+		if !ok {
+			rbacBadScopeCount.Add(1)
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid scope"})
+			return
+		}
+
+		allowed, err := authz.CanAll(c.Request.Context(), userID, permissions, scope)
+		if err != nil {
+			rbacDeniedCount.Add(1)
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		if !allowed {
+			rbacDeniedCount.Add(1)
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			return
+		}
+
+		c.Next()
+	}
+}
+
+// AttrsResolver extracts runtime attributes from the request context for ABAC checks.
+type AttrsResolver func(c *gin.Context) map[string]interface{}
+
+// RequirePermissionWithAttrs performs an ABAC check: RBAC permission + attribute conditions.
+func RequirePermissionWithAttrs(
+	authz rbac.Authorizer,
+	permission string,
+	resolveScope ScopeResolver,
+	resolveAttrs AttrsResolver,
+) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, ok := UserIDFromCtx(c)
+		if !ok {
+			rbacUnauthorizedCount.Add(1)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			return
+		}
+
+		scope, ok := resolveScope(c)
+		if !ok {
+			rbacBadScopeCount.Add(1)
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid scope"})
+			return
+		}
+
+		attrs := resolveAttrs(c)
+		allowed, err := authz.CanWithAttributes(c.Request.Context(), userID, permission, scope, attrs)
+		if err != nil {
+			rbacDeniedCount.Add(1)
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		if !allowed {
+			rbacDeniedCount.Add(1)
+			logRBACDecision(c, http.StatusForbidden, userID, permission, scope, "abac_denied")
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			return
+		}
+
+		c.Next()
+	}
+}
+
 // Helpers
 func ProjectScopeFromParam(param string) ScopeResolver {
 	return func(c *gin.Context) (rbac.Scope, bool) {

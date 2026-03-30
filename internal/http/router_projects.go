@@ -12,7 +12,7 @@ import (
 func registerProjectsRoutes(
 	v2 *gin.RouterGroup,
 	authMW gin.HandlerFunc,
-	rbacSvc *rbac.Service,
+	rbacSvc rbac.Authorizer,
 	projectsSvc *projects.Service,
 	notifier handlers.NotificationPublisher,
 ) {

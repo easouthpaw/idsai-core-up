@@ -79,14 +79,14 @@ func (f fakeProjectsRepo) ListByCreator(ctx context.Context, createdBy uuid.UUID
 	return f.list, f.listErr
 }
 
-func (f fakeProjectsRepo) ListByFaculty(ctx context.Context, facultyID uuid.UUID) ([]domain.Project, error) {
+func (f fakeProjectsRepo) ListByFaculty(ctx context.Context, facultyID uuid.UUID, userID uuid.UUID) ([]domain.Project, error) {
 	if f.listFaculty != nil || f.listFacultyErr != nil {
 		return f.listFaculty, f.listFacultyErr
 	}
 	return f.list, f.listErr
 }
 
-func (f fakeProjectsRepo) ListPublic(ctx context.Context) ([]domain.Project, error) {
+func (f fakeProjectsRepo) ListPublic(ctx context.Context, userID uuid.UUID) ([]domain.Project, error) {
 	if f.listPublic != nil || f.listPublicErr != nil {
 		return f.listPublic, f.listPublicErr
 	}
@@ -429,7 +429,7 @@ func TestService_ListPublicProjects_ReturnsItems(t *testing.T) {
 	repo := fakeProjectsRepo{listPublic: items}
 	svc := projects.NewService(repo, &fakeGrantor{})
 
-	got, err := svc.ListPublicProjects(context.Background())
+	got, err := svc.ListPublicProjects(context.Background(), uuid.New())
 	require.NoError(t, err)
 	require.Len(t, got, 1)
 	require.Equal(t, "Public One", got[0].Title)
@@ -449,7 +449,7 @@ func TestService_ListProjectsByFaculty_ReturnsItems(t *testing.T) {
 	repo := fakeProjectsRepo{listFaculty: items}
 	svc := projects.NewService(repo, &fakeGrantor{})
 
-	got, err := svc.ListProjectsByFaculty(context.Background(), facultyID)
+	got, err := svc.ListProjectsByFaculty(context.Background(), facultyID, uuid.New())
 	require.NoError(t, err)
 	require.Len(t, got, 1)
 	require.Equal(t, "Faculty One", got[0].Title)

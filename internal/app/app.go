@@ -2,10 +2,12 @@ package app
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"idsai-core-up/internal/config"
 	"idsai-core-up/internal/db"
+	"idsai-core-up/internal/infra/cache"
 	httpx "idsai-core-up/internal/http"
 	"idsai-core-up/internal/http/handlers"
 	"idsai-core-up/internal/infra/alerts"
@@ -15,9 +17,10 @@ import (
 )
 
 type App struct {
-	Cfg  config.Config
-	DB   *pgxpool.Pool
-	HTTP *gin.Engine
+	Cfg   config.Config
+	DB    *pgxpool.Pool
+	HTTP  *gin.Engine
+	redis *cache.RedisClient
 }
 
 func New(ctx context.Context, cfg config.Config) (*App, error) {
@@ -45,7 +48,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 
 	router := httpx.NewRouter(
 		pool,
-		modules.rbacSvc,
+		modules.rbacAuthorizer,
 		modules.projectsSvc,
 		modules.projectFlowHandler,
 		modules.authHandler,
@@ -57,5 +60,15 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		cfg.JWTSecret,
 	)
 
-	return &App{Cfg: cfg, DB: pool, HTTP: router}, nil
+	return &App{Cfg: cfg, DB: pool, HTTP: router, redis: modules.redisClient}, nil
+}
+
+// Close performs graceful shutdown of resources.
+func (a *App) Close() {
+	if a.redis != nil {
+		if err := a.redis.Close(); err != nil {
+			log.Printf("[WARN] redis: close error: %v", err)
+		}
+	}
+	a.DB.Close()
 }

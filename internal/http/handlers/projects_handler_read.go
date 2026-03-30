@@ -105,13 +105,18 @@ func (h *ProjectsHandler) ListMine(c *gin.Context) {
 // @Failure 500 {object} map[string]string
 // @Router /projects/faculty [get]
 func (h *ProjectsHandler) ListFaculty(c *gin.Context) {
+	userID, ok := middleware.UserIDFromCtx(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
 	facultyID, ok := middleware.FacultyIDFromCtx(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 
-	items, err := h.svc.ListProjectsByFaculty(c.Request.Context(), facultyID)
+	items, err := h.svc.ListProjectsByFaculty(c.Request.Context(), facultyID, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -133,7 +138,9 @@ func (h *ProjectsHandler) ListFaculty(c *gin.Context) {
 // @Failure 500 {object} map[string]string
 // @Router /projects/public [get]
 func (h *ProjectsHandler) ListPublic(c *gin.Context) {
-	items, err := h.svc.ListPublicProjects(c.Request.Context())
+	userID, _ := middleware.UserIDFromCtx(c)
+
+	items, err := h.svc.ListPublicProjects(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

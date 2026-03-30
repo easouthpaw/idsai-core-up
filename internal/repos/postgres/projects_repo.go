@@ -375,7 +375,7 @@ ORDER BY p.created_at DESC;
 	return projects, nil
 }
 
-func (r *ProjectsRepo) ListByFaculty(ctx context.Context, facultyID uuid.UUID) ([]domain.Project, error) {
+func (r *ProjectsRepo) ListByFaculty(ctx context.Context, facultyID uuid.UUID, userID uuid.UUID) ([]domain.Project, error) {
 	tenantID, err := tenantIDFromContext(ctx)
 	if err != nil {
 		return nil, err
@@ -406,9 +406,25 @@ LEFT JOIN users u ON u.id = p.created_by
 LEFT JOIN user_profiles up ON up.user_id = p.created_by
 WHERE p.tenant_id = $1
   AND p.faculty_id = $2
+  AND (
+    p.is_public = TRUE
+    OR p.created_by = $3
+    OR EXISTS (
+      SELECT 1 FROM project_members pm
+      WHERE pm.project_id = p.id AND pm.tenant_id = p.tenant_id
+        AND pm.user_id = $3 AND pm.status = 'ACTIVE'
+    )
+    OR EXISTS (
+      SELECT 1 FROM role_assignments ra
+      JOIN roles r ON r.id = ra.role_id
+      WHERE ra.user_id = $3 AND ra.tenant_id = p.tenant_id
+        AND ra.scope_type = 'PROJECT' AND ra.scope_id = p.id
+        AND r.code IN ('PROJECT_PROFESSOR', 'TEAM_LEAD', 'CO_LEAD')
+    )
+  )
 ORDER BY p.updated_at DESC, p.created_at DESC;
 `
-	rows, err := r.db.Query(ctx, q, tenantID, facultyID)
+	rows, err := r.db.Query(ctx, q, tenantID, facultyID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -457,7 +473,7 @@ ORDER BY p.updated_at DESC, p.created_at DESC;
 	return items, nil
 }
 
-func (r *ProjectsRepo) ListPublic(ctx context.Context) ([]domain.Project, error) {
+func (r *ProjectsRepo) ListPublic(ctx context.Context, userID uuid.UUID) ([]domain.Project, error) {
 	tenantID, err := tenantIDFromContext(ctx)
 	if err != nil {
 		return nil, err
@@ -487,10 +503,18 @@ FROM projects p
 LEFT JOIN users u ON u.id = p.created_by
 LEFT JOIN user_profiles up ON up.user_id = p.created_by
 WHERE p.tenant_id = $1
-  AND p.is_public = TRUE
+  AND (
+    p.is_public = TRUE
+    OR p.created_by = $2
+    OR EXISTS (
+      SELECT 1 FROM project_members pm
+      WHERE pm.project_id = p.id AND pm.tenant_id = p.tenant_id
+        AND pm.user_id = $2 AND pm.status = 'ACTIVE'
+    )
+  )
 ORDER BY p.created_at DESC;
 `
-	rows, err := r.db.Query(ctx, q, tenantID)
+	rows, err := r.db.Query(ctx, q, tenantID, userID)
 	if err != nil {
 		return nil, err
 	}

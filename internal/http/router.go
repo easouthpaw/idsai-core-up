@@ -14,7 +14,7 @@ import (
 
 func NewRouter(
 	pool *pgxpool.Pool,
-	rbacSvc *rbac.Service,
+	rbacSvc rbac.Authorizer,
 	projectsSvc *projects.Service,
 	projectFlowH *handlers.ProjectFlowHandler,
 	authHandler *handlers.AuthHandler,

@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func registerAdminRoutes(v2 *gin.RouterGroup, authMW gin.HandlerFunc, rbacSvc *rbac.Service, adminHandler *handlers.AdminHandler) {
+func registerAdminRoutes(v2 *gin.RouterGroup, authMW gin.HandlerFunc, rbacSvc rbac.Authorizer, adminHandler *handlers.AdminHandler) {
 	if adminHandler == nil {
 		return
 	}

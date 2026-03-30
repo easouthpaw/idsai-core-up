@@ -15,7 +15,7 @@ type Output struct {
 	Handler *handlers.ProjectFlowHandler
 }
 
-func New(pool *pgxpool.Pool, authorizer *rbac.Service, grantor projectflow.RoleGrantor) Output {
+func New(pool *pgxpool.Pool, authorizer rbac.Authorizer, grantor projectflow.RoleGrantor) Output {
 	repo := postgres.NewProjectFlowRepo(pool)
 	svc := projectflow.NewService(
 		authorizer,

@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func registerAuthRoutes(v2 *gin.RouterGroup, authMW gin.HandlerFunc, rbacSvc *rbac.Service, authHandler *handlers.AuthHandler) {
+func registerAuthRoutes(v2 *gin.RouterGroup, authMW gin.HandlerFunc, rbacSvc rbac.Authorizer, authHandler *handlers.AuthHandler) {
 	if authHandler == nil {
 		return
 	}

@@ -24,8 +24,8 @@ type Repository interface {
 	SetProjectImage(ctx context.Context, projectID uuid.UUID, imageKey string, updatedAt time.Time) error
 	ClearProjectImage(ctx context.Context, projectID uuid.UUID) error
 	ListByCreator(ctx context.Context, createdBy uuid.UUID) ([]domain.Project, error)
-	ListByFaculty(ctx context.Context, facultyID uuid.UUID) ([]domain.Project, error)
-	ListPublic(ctx context.Context) ([]domain.Project, error)
+	ListByFaculty(ctx context.Context, facultyID uuid.UUID, userID uuid.UUID) ([]domain.Project, error)
+	ListPublic(ctx context.Context, userID uuid.UUID) ([]domain.Project, error)
 	FindGroupIDByCode(ctx context.Context, facultyID uuid.UUID, code string) (uuid.UUID, error)
 	ListGroupsByFaculty(ctx context.Context, facultyID uuid.UUID) ([]Group, error)
 }
