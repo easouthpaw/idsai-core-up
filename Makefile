@@ -5,7 +5,6 @@ GOOSE := go run github.com/pressly/goose/v3/cmd/goose@latest
 .PHONY: run up migrate migrate-all migrate-status
 
 run:
-	docker run -d --name redis -p 6379:6379 redis:7
 	DATABASE_URL="$(DB_URL)" go run $(APP)
 
 up:

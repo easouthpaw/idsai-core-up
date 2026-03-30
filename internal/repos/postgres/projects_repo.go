@@ -201,6 +201,8 @@ func (r *ProjectsRepo) GetProjectReviewSummary(ctx context.Context, projectID uu
 SELECT
   COUNT(c.id) AS total,
   COALESCE(SUM(CASE WHEN r.is_met = TRUE THEN 1 ELSE 0 END), 0) AS met,
+  COALESCE(SUM(CASE WHEN c.id IS NOT NULL THEN GREATEST(c.weight, 1) ELSE 0 END), 0) AS weight_total,
+  COALESCE(SUM(CASE WHEN r.is_met = TRUE THEN GREATEST(c.weight, 1) ELSE 0 END), 0) AS weight_met,
   MAX(r.updated_at) AS reviewed_at,
   COALESCE(NULLIF(TRIM(up.full_name), ''), split_part(COALESCE(u.email, ''), '@', 1), 'Преподаватель') AS reviewer
 FROM projects p
@@ -217,12 +219,14 @@ GROUP BY reviewer;
 `
 
 	var (
-		total      int
-		met        int
-		reviewedAt *time.Time
-		reviewer   string
+		total       int
+		met         int
+		weightTotal int
+		weightMet   int
+		reviewedAt  *time.Time
+		reviewer    string
 	)
-	if err := r.db.QueryRow(ctx, q, tenantID, projectID).Scan(&total, &met, &reviewedAt, &reviewer); err != nil {
+	if err := r.db.QueryRow(ctx, q, tenantID, projectID).Scan(&total, &met, &weightTotal, &weightMet, &reviewedAt, &reviewer); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
@@ -234,9 +238,9 @@ GROUP BY reviewer;
 
 	score := "0.0"
 	passPercent := 0
-	if total > 0 {
-		passPercent = int(math.Round(float64(met*100) / float64(total)))
-		score = fmt.Sprintf("%.1f", float64(met*5)/float64(total))
+	if weightTotal > 0 {
+		passPercent = int(math.Round(float64(weightMet*100) / float64(weightTotal)))
+		score = fmt.Sprintf("%.1f", float64(weightMet*5)/float64(weightTotal))
 	}
 
 	return &projects.ReviewSummary{

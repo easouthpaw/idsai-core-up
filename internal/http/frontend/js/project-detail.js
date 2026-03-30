@@ -964,6 +964,11 @@
     return map;
   }
 
+  function criterionWeightValue(criterion) {
+    const weight = Number(criterion && criterion.weight ? criterion.weight : 0);
+    return weight > 0 ? weight : 1;
+  }
+
   function reviewSummaryData() {
     const criteria = Array.isArray(state.criteria) ? state.criteria : [];
     const grading = gradingByCriterion();
@@ -990,16 +995,21 @@
     let met = 0;
     let missed = 0;
     let reviewed = 0;
+    let weightTotal = 0;
+    let weightMet = 0;
     let latest = null;
     const comments = [];
 
     criteria.forEach((criterion) => {
+      const weight = criterionWeightValue(criterion);
+      weightTotal += weight;
       const id = String(criterion.id || "");
       const item = grading.get(id);
       if (!item) return;
       if (item.isMet === true) {
         met += 1;
         reviewed += 1;
+        weightMet += weight;
       } else if (item.isMet === false) {
         missed += 1;
         reviewed += 1;
@@ -1018,8 +1028,8 @@
     });
 
     const total = criteria.length;
-    const passPercent = total > 0 ? Math.round((met * 100) / total) : 0;
-    const score = total > 0 ? ((met * 5) / total).toFixed(1) : "0.0";
+    const passPercent = weightTotal > 0 ? Math.round((weightMet * 100) / weightTotal) : 0;
+    const score = weightTotal > 0 ? ((weightMet * 5) / weightTotal).toFixed(1) : "0.0";
     const reviewer = state.professorSummary?.full_name || state.professorSummary?.email || "Преподаватель";
 
     let overall = "Комментарий преподавателя пока не добавлен.";
