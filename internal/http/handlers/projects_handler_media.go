@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"idsai-core-up/internal/domain"
+	"idsai-core-up/internal/http/dto"
 	"idsai-core-up/internal/http/middleware"
 	"idsai-core-up/internal/infra/images"
 	"idsai-core-up/internal/services/projects"
@@ -55,7 +56,7 @@ func (h *ProjectsHandler) UploadImage(c *gin.Context) {
 		writeProjectMediaError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, projectToResponse(project))
+	c.JSON(http.StatusOK, dto.ProjectResponseFromDomain(project))
 }
 
 func (h *ProjectsHandler) DeleteImage(c *gin.Context) {
@@ -76,7 +77,7 @@ func (h *ProjectsHandler) DeleteImage(c *gin.Context) {
 		writeProjectMediaError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, projectToResponse(project))
+	c.JSON(http.StatusOK, dto.ProjectResponseFromDomain(project))
 }
 
 func writeProjectMediaError(c *gin.Context, err error) {

@@ -113,63 +113,63 @@ type Session struct {
 }
 
 type Department struct {
-	ID        uuid.UUID `json:"id"`
-	FacultyID uuid.UUID `json:"faculty_id"`
-	Code      string    `json:"code"`
-	Name      string    `json:"name"`
-	ShortCode string    `json:"short_code"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        uuid.UUID
+	FacultyID uuid.UUID
+	Code      string
+	Name      string
+	ShortCode string
+	CreatedAt time.Time
 }
 
 type StudentGroup struct {
-	ID           uuid.UUID `json:"id"`
-	DepartmentID uuid.UUID `json:"department_id"`
-	GroupCode    string    `json:"group_code"`
-	GroupNumber  int       `json:"group_number"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID           uuid.UUID
+	DepartmentID uuid.UUID
+	GroupCode    string
+	GroupNumber  int
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 type GroupChangeRequest struct {
-	ID               uuid.UUID  `json:"id"`
-	StudentID        uuid.UUID  `json:"student_id"`
-	StudentName      string     `json:"student_name"`
-	StudentEmail     string     `json:"student_email"`
-	CurrentGroupID   uuid.UUID  `json:"current_group_id"`
-	CurrentGroupCode string     `json:"current_group_code"`
-	RequestedGroupID uuid.UUID  `json:"requested_group_id"`
-	RequestedCode    string     `json:"requested_group_code"`
-	Status           string     `json:"status"`
-	AdminComment     string     `json:"admin_comment,omitempty"`
-	CreatedAt        time.Time  `json:"created_at"`
-	ReviewedAt       *time.Time `json:"reviewed_at,omitempty"`
-	ReviewedBy       *uuid.UUID `json:"reviewed_by,omitempty"`
-	ReviewedByName   string     `json:"reviewed_by_name,omitempty"`
+	ID               uuid.UUID
+	StudentID        uuid.UUID
+	StudentName      string
+	StudentEmail     string
+	CurrentGroupID   uuid.UUID
+	CurrentGroupCode string
+	RequestedGroupID uuid.UUID
+	RequestedCode    string
+	Status           string
+	AdminComment     string
+	CreatedAt        time.Time
+	ReviewedAt       *time.Time
+	ReviewedBy       *uuid.UUID
+	ReviewedByName   string
 }
 
 type GroupStudent struct {
-	UserID    uuid.UUID `json:"user_id"`
-	FullName  string    `json:"full_name"`
-	Email     string    `json:"email"`
-	AvatarURL string    `json:"avatar_url,omitempty"`
-	Status    string    `json:"status"`
-	Role      string    `json:"role"`
+	UserID    uuid.UUID
+	FullName  string
+	Email     string
+	AvatarURL string
+	Status    string
+	Role      string
 }
 
 type GroupNode struct {
-	ID            uuid.UUID      `json:"id"`
-	GroupCode     string         `json:"group_code"`
-	GroupNumber   int            `json:"group_number"`
-	TotalStudents int            `json:"total_students"`
-	Students      []GroupStudent `json:"students"`
+	ID            uuid.UUID
+	GroupCode     string
+	GroupNumber   int
+	TotalStudents int
+	Students      []GroupStudent
 }
 
 type DepartmentGroupsTree struct {
-	ID        uuid.UUID   `json:"id"`
-	Code      string      `json:"code"`
-	Name      string      `json:"name"`
-	ShortCode string      `json:"short_code"`
-	Groups    []GroupNode `json:"groups"`
+	ID        uuid.UUID
+	Code      string
+	Name      string
+	ShortCode string
+	Groups    []GroupNode
 }
 
 type Repository interface {
@@ -245,17 +245,8 @@ type NotificationPublisher interface {
 }
 
 type Tokens struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-}
-
-type AccessClaims struct {
-	TenantID     string `json:"tenant_id"`
-	FacultyID    string `json:"faculty_id"`
-	DepartmentID string `json:"department_id"`
-	IsAdmin      bool   `json:"is_admin"`
-	IsProfessor  bool   `json:"is_professor"`
-	jwt.RegisteredClaims
+	AccessToken  string
+	RefreshToken string
 }
 
 func NewService(repo Repository, cfg Config) *Service {
@@ -1155,19 +1146,17 @@ func (s *Service) findUsableAuthToken(ctx context.Context, purpose, rawToken str
 func (s *Service) issueTokens(ctx context.Context, tenantID, userID, facultyID, deptID uuid.UUID, isAdmin bool, isProfessor bool) (Tokens, error) {
 	now := time.Now().UTC()
 
-	claims := AccessClaims{
-		TenantID:     tenantID.String(),
-		FacultyID:    facultyID.String(),
-		DepartmentID: deptID.String(),
-		IsAdmin:      isAdmin,
-		IsProfessor:  isProfessor,
-		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   userID.String(),
-			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(now.Add(s.accessTTL)),
-			Issuer:    TokenIssuer,
-			ID:        uuid.NewString(),
-		},
+	claims := jwt.MapClaims{
+		"tenant_id":     tenantID.String(),
+		"faculty_id":    facultyID.String(),
+		"department_id": deptID.String(),
+		"is_admin":      isAdmin,
+		"is_professor":  isProfessor,
+		"sub":           userID.String(),
+		"iat":           now.Unix(),
+		"exp":           now.Add(s.accessTTL).Unix(),
+		"iss":           TokenIssuer,
+		"jti":           uuid.NewString(),
 	}
 
 	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

@@ -14,6 +14,90 @@
     groupsByDepartment: new Map(),
   };
 
+  function showConfirmDialog(options) {
+    if (auth && typeof auth.showConfirmDialog === "function") {
+      return auth.showConfirmDialog(options);
+    }
+    return Promise.resolve(window.confirm(String((options && options.message) || "")));
+  }
+
+  function showFormDialog(options) {
+    if (auth && typeof auth.showFormDialog === "function") {
+      return auth.showFormDialog(options);
+    }
+    return Promise.resolve(null);
+  }
+
+  function passwordPolicyError(password, minLength = 8) {
+    const raw = String(password || "");
+    if (raw.length < minLength) {
+      return `Пароль должен быть не короче ${minLength} символов.`;
+    }
+    if (!/[A-Za-zА-Яа-яЁё]/.test(raw) || !/\d/.test(raw)) {
+      return "Пароль должен содержать буквы и цифры.";
+    }
+    return "";
+  }
+
+  async function collectPasswordResetValues(options = {}) {
+    const requireCode = Boolean(options.requireCode);
+    const email = String(options.email || "").trim();
+    return showFormDialog({
+      title: requireCode ? "Подтвердите код сброса" : "Придумайте новый пароль",
+      message: requireCode
+        ? `Мы отправили 6-значный код на ${email || "ваш email"}. Введите его и задайте новый пароль.`
+        : "Введите новый пароль для аккаунта. После подтверждения можно будет сразу войти с ним.",
+      confirmText: "Обновить пароль",
+      fields: [
+        ...(requireCode ? [{
+          name: "code",
+          label: "Код из письма",
+          type: "text",
+          value: "",
+          placeholder: "123456",
+          required: true,
+          inputmode: "numeric",
+          pattern: "\\d{6}",
+          maxLength: 6,
+          autocomplete: "one-time-code",
+        }] : []),
+        {
+          name: "password",
+          label: "Новый пароль",
+          type: "password",
+          value: "",
+          placeholder: "Минимум 8 символов",
+          required: true,
+          autocomplete: "new-password",
+        },
+        {
+          name: "password2",
+          label: "Повторите пароль",
+          type: "password",
+          value: "",
+          placeholder: "Повторите новый пароль",
+          required: true,
+          autocomplete: "new-password",
+        },
+      ],
+      validate(values) {
+        if (requireCode && !/^\d{6}$/.test(String(values.code || "").trim())) {
+          return "Код должен содержать ровно 6 цифр.";
+        }
+        const password = String(values.password || "");
+        const password2 = String(values.password2 || "");
+        const policyError = passwordPolicyError(password, 8);
+        if (policyError) {
+          return policyError;
+        }
+        if (password !== password2) {
+          return "Пароли не совпадают.";
+        }
+        return "";
+      },
+    });
+  }
+
   function setStatus(msg, ok) {
     statusEl.textContent = msg;
     statusEl.className = "status " + (ok ? "ok" : "err");
@@ -143,7 +227,11 @@
       if (out.resp.status === 403 && out.data && out.data.code === "email_verification_required") {
         setStatus("Подтвердите email перед входом.", false);
         showJSON(out.data);
-        if (window.confirm("Email еще не подтвержден. Отправить письмо повторно?")) {
+        if (await showConfirmDialog({
+          title: "Email еще не подтвержден",
+          message: "Мы можем повторно отправить письмо подтверждения на этот адрес прямо сейчас.",
+          confirmText: "Отправить письмо",
+        })) {
           await resendVerification(email);
         }
         return;
@@ -215,9 +303,30 @@
 
   async function requestPasswordReset() {
     const suggestedEmail = document.getElementById("loginEmail").value.trim();
-    const email = window.prompt("Введите email для сброса пароля:", suggestedEmail);
-    if (email === null) return;
-    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const values = await showFormDialog({
+      title: "Сброс пароля",
+      message: "Введите email, на который нужно отправить код для смены пароля.",
+      confirmText: "Отправить код",
+      fields: [{
+        name: "email",
+        label: "Email",
+        type: "email",
+        value: suggestedEmail,
+        placeholder: "you@example.com",
+        required: true,
+        autocomplete: "email",
+      }],
+      validate(form) {
+        const email = String(form.email || "").trim().toLowerCase();
+        if (!email) {
+          return "Email обязателен для сброса пароля.";
+        }
+        return "";
+      },
+    });
+    if (!values) return;
+
+    const normalizedEmail = String(values.email || "").trim().toLowerCase();
     if (!normalizedEmail) {
       setStatus("Email обязателен для сброса пароля.", false);
       return;
@@ -236,12 +345,12 @@
   }
 
   async function confirmPasswordResetFromCookie() {
-    const password = window.prompt("Введите новый пароль (минимум 8 символов, буквы и цифры):", "");
-    if (password === null) return;
-    const password2 = window.prompt("Повторите новый пароль:", "");
-    if (password2 === null) return;
-    if (password !== password2) {
-      setStatus("Пароли не совпадают.", false);
+    const values = await collectPasswordResetValues({ requireCode: false });
+    if (!values) return;
+
+    const password = String(values.password || "");
+    if (!password) {
+      setStatus("Новый пароль не был задан.", false);
       return;
     }
 
@@ -259,20 +368,13 @@
   }
 
   async function confirmPasswordResetByCode(email) {
-    const code = window.prompt("Введите 6-значный код из письма:", "");
-    if (code === null) return;
-    const normalizedCode = String(code || "").trim();
-    if (!/^\d{6}$/.test(normalizedCode)) {
-      setStatus("Код должен содержать ровно 6 цифр.", false);
-      return;
-    }
+    const values = await collectPasswordResetValues({ requireCode: true, email });
+    if (!values) return;
 
-    const password = window.prompt("Введите новый пароль (минимум 8 символов, буквы и цифры):", "");
-    if (password === null) return;
-    const password2 = window.prompt("Повторите новый пароль:", "");
-    if (password2 === null) return;
-    if (password !== password2) {
-      setStatus("Пароли не совпадают.", false);
+    const normalizedCode = String(values.code || "").trim();
+    const password = String(values.password || "");
+    if (!normalizedCode || !password) {
+      setStatus("Нужно указать код и новый пароль.", false);
       return;
     }
 

@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	"idsai-core-up/internal/http/dto"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -26,9 +28,9 @@ func (h *HealthHandler) Get(c *gin.Context) {
 		defer cancel()
 
 		if err := h.db.Ping(ctx); err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "db_down", "error": err.Error()})
+			c.JSON(http.StatusServiceUnavailable, dto.HealthStatusResponse{Status: "db_down", Error: err.Error()})
 			return
 		}
 	}
-	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	c.JSON(http.StatusOK, dto.HealthStatusResponse{Status: "ok"})
 }

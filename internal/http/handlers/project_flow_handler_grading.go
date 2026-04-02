@@ -3,29 +3,13 @@ package handlers
 import (
 	"errors"
 	"net/http"
-	"strings"
 
+	"idsai-core-up/internal/http/dto"
 	"idsai-core-up/internal/http/middleware"
 	"idsai-core-up/internal/services/projectflow"
 
 	"github.com/gin-gonic/gin"
 )
-
-type createCriterionReq struct {
-	Title       string `json:"title" binding:"required"`
-	Description string `json:"description"`
-	Weight      int    `json:"weight"`
-}
-
-type gradingItemReq struct {
-	CriterionID string `json:"criterion_id" binding:"required"`
-	IsMet       *bool  `json:"is_met"`
-	Comment     string `json:"comment"`
-}
-
-type upsertGradingReq struct {
-	Items []gradingItemReq `json:"items"`
-}
 
 func (h *ProjectFlowHandler) CreateCriterion(c *gin.Context) {
 	uid, ok := parseUserID(c)
@@ -37,7 +21,7 @@ func (h *ProjectFlowHandler) CreateCriterion(c *gin.Context) {
 		return
 	}
 
-	var req createCriterionReq
+	var req dto.CreateCriterionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
@@ -48,7 +32,7 @@ func (h *ProjectFlowHandler) CreateCriterion(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, item)
+	c.JSON(http.StatusCreated, dto.ProjectFlowCriterionResponseFromService(item))
 }
 
 func (h *ProjectFlowHandler) ListCriteria(c *gin.Context) {
@@ -61,7 +45,7 @@ func (h *ProjectFlowHandler) ListCriteria(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, items)
+	c.JSON(http.StatusOK, dto.ProjectFlowCriterionResponsesFromService(items))
 }
 
 func (h *ProjectFlowHandler) GetGrading(c *gin.Context) {
@@ -78,7 +62,7 @@ func (h *ProjectFlowHandler) GetGrading(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"items": items})
+	c.JSON(http.StatusOK, dto.GradingItemsResponse{Items: dto.ProjectFlowCriterionGradeResponsesFromService(items)})
 }
 
 func (h *ProjectFlowHandler) UpsertGrading(c *gin.Context) {
@@ -91,27 +75,20 @@ func (h *ProjectFlowHandler) UpsertGrading(c *gin.Context) {
 		return
 	}
 
-	var req upsertGradingReq
+	var req dto.UpsertGradingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
 
-	payload := make([]projectflow.CriterionGrade, 0, len(req.Items))
-	for _, item := range req.Items {
-		payload = append(payload, projectflow.CriterionGrade{
-			CriterionID: strings.TrimSpace(item.CriterionID),
-			IsMet:       item.IsMet,
-			Comment:     strings.TrimSpace(item.Comment),
-		})
-	}
+	payload := dto.CriterionGradesFromRequest(req.Items)
 
 	items, err := h.svc.UpsertGrading(c.Request.Context(), uid, pid, payload)
 	if err != nil {
 		handleFlowErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"items": items})
+	c.JSON(http.StatusOK, dto.GradingItemsResponse{Items: dto.ProjectFlowCriterionGradeResponsesFromService(items)})
 }
 
 func (h *ProjectFlowHandler) Readiness(c *gin.Context) {
@@ -124,7 +101,7 @@ func (h *ProjectFlowHandler) Readiness(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, item)
+	c.JSON(http.StatusOK, dto.ProjectFlowReadinessResponseFromService(item))
 }
 
 func (h *ProjectFlowHandler) ApproveProject(c *gin.Context) {
@@ -144,9 +121,9 @@ func (h *ProjectFlowHandler) ApproveProject(c *gin.Context) {
 	p, ready, err := h.svc.ApproveProject(c.Request.Context(), uid, pid)
 	if err != nil {
 		if errors.Is(err, projectflow.ErrProjectNotReady) {
-			c.JSON(http.StatusConflict, gin.H{
-				"error":     err.Error(),
-				"readiness": ready,
+			c.JSON(http.StatusConflict, dto.ProjectReadinessConflictResponse{
+				Error:     err.Error(),
+				Readiness: dto.ProjectFlowReadinessResponseFromService(ready),
 			})
 			return
 		}
@@ -167,7 +144,10 @@ func (h *ProjectFlowHandler) ApproveProject(c *gin.Context) {
 		true,
 	))
 
-	c.JSON(http.StatusOK, gin.H{"project": projectToResponse(p), "readiness": ready})
+	c.JSON(http.StatusOK, dto.ApproveProjectResponse{
+		Project:   dto.ProjectResponseFromDomain(p),
+		Readiness: dto.ProjectFlowReadinessResponseFromService(ready),
+	})
 }
 
 func (h *ProjectFlowHandler) SubmitProjectForGrading(c *gin.Context) {
@@ -221,7 +201,7 @@ func (h *ProjectFlowHandler) SubmitProjectForGrading(c *gin.Context) {
 		))
 	}
 
-	c.JSON(http.StatusOK, gin.H{"project": projectToResponse(p)})
+	c.JSON(http.StatusOK, dto.ProjectEnvelopeResponse{Project: dto.ProjectResponseFromDomain(p)})
 }
 
 func (h *ProjectFlowHandler) PublishProjectGrading(c *gin.Context) {
@@ -275,5 +255,5 @@ func (h *ProjectFlowHandler) PublishProjectGrading(c *gin.Context) {
 		))
 	}
 
-	c.JSON(http.StatusOK, gin.H{"project": projectToResponse(p)})
+	c.JSON(http.StatusOK, dto.ProjectEnvelopeResponse{Project: dto.ProjectResponseFromDomain(p)})
 }

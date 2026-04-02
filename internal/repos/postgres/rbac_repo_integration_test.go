@@ -13,8 +13,44 @@ import (
 	"idsai-core-up/internal/services/rbac"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 )
+
+func seedProjectScopeFixture(t *testing.T, ctx context.Context, pool *pgxpool.Pool, emailPrefix string) (uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID) {
+	t.Helper()
+
+	tenantID := uuid.New()
+	facultyID := uuid.New()
+	userID := uuid.New()
+	projectID := uuid.New()
+
+	_, err := pool.Exec(ctx, `
+INSERT INTO tenants(id, code, name, status)
+VALUES ($1, $2, $3, 'ACTIVE');
+`, tenantID, "RBAC_T_"+tenantID.String()[:8], "RBAC Tenant")
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `
+INSERT INTO faculties(id, tenant_id, code, name)
+VALUES ($1, $2, $3, $4);
+`, facultyID, tenantID, "RBAC_F_"+facultyID.String()[:8], "RBAC Faculty")
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `
+INSERT INTO users(id, tenant_id, email, password_hash, status)
+VALUES ($1, $2, $3, 'integration-hash', 'ACTIVE');
+`, userID, tenantID, emailPrefix+"-"+userID.String()+"@example.local")
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `
+INSERT INTO projects(id, tenant_id, title, description, status, is_public, created_by, faculty_id, visibility)
+VALUES ($1, $2, 'RBAC Integration Project', 'demo', 'ACTIVE', FALSE, $3, $4, 'FACULTY');
+`, projectID, tenantID, userID, facultyID)
+	require.NoError(t, err)
+
+	return tenantID, facultyID, userID, projectID
+}
 
 func TestRBACRepo_Integration_HasPermission_ProjectScope(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")
@@ -27,24 +63,19 @@ func TestRBACRepo_Integration_HasPermission_ProjectScope(t *testing.T) {
 
 	repo := postgres.NewRBACRepo(pool)
 
-	userID := uuid.New()
-	projectID := uuid.New()
-	_, err = pool.Exec(ctx, `
-INSERT INTO users(id, email, password_hash, status)
-VALUES ($1, $2, 'integration-hash', 'ACTIVE');
-`, userID, "rbac-project-"+userID.String()+"@example.local")
-	require.NoError(t, err)
+	tenantID, _, userID, projectID := seedProjectScopeFixture(t, ctx, pool, "rbac-project")
 
 	// Assign TEAM_LEAD role in PROJECT scope to user
 	_, err = pool.Exec(ctx, `
-INSERT INTO role_assignments(user_id, role_id, scope_type, scope_id)
+INSERT INTO role_assignments(tenant_id, user_id, role_id, scope_type, scope_id)
 VALUES (
   $1,
+  $2,
   (SELECT id FROM roles WHERE code='TEAM_LEAD'),
   'PROJECT',
-  $2
+  $3
 );
-`, userID, projectID)
+`, tenantID, userID, projectID)
 	require.NoError(t, err)
 
 	now := time.Now()
@@ -85,25 +116,20 @@ func TestRBACRepo_Integration_ExpiredAssignmentDenied(t *testing.T) {
 
 	repo := postgres.NewRBACRepo(pool)
 
-	userID := uuid.New()
-	projectID := uuid.New()
-	_, err = pool.Exec(ctx, `
-INSERT INTO users(id, email, password_hash, status)
-VALUES ($1, $2, 'integration-hash', 'ACTIVE');
-`, userID, "rbac-expired-"+userID.String()+"@example.local")
-	require.NoError(t, err)
+	tenantID, _, userID, projectID := seedProjectScopeFixture(t, ctx, pool, "rbac-expired")
 
 	// Expired assignment
 	_, err = pool.Exec(ctx, `
-INSERT INTO role_assignments(user_id, role_id, scope_type, scope_id, expires_at)
+INSERT INTO role_assignments(tenant_id, user_id, role_id, scope_type, scope_id, expires_at)
 VALUES (
   $1,
+  $2,
   (SELECT id FROM roles WHERE code='MEMBER'),
   'PROJECT',
-  $2,
-  $3
+  $3,
+  $4
 );
-`, userID, projectID, time.Now().Add(-1*time.Hour))
+`, tenantID, userID, projectID, time.Now().Add(-1*time.Hour))
 	require.NoError(t, err)
 
 	ok, err := repo.HasPermission(ctx, userID, "task.close", rbac.Scope{
@@ -125,13 +151,7 @@ func TestRBACRepo_Integration_GrantRoleByCode_AllowsPermission(t *testing.T) {
 
 	repo := postgres.NewRBACRepo(pool)
 
-	userID := uuid.New()
-	projectID := uuid.New()
-	_, err = pool.Exec(ctx, `
-INSERT INTO users(id, email, password_hash, status)
-VALUES ($1, $2, 'integration-hash', 'ACTIVE');
-`, userID, "rbac-grant-"+userID.String()+"@example.local")
-	require.NoError(t, err)
+	_, _, userID, projectID := seedProjectScopeFixture(t, ctx, pool, "rbac-grant")
 	scope := rbac.Scope{Type: rbac.ScopeProject, ID: &projectID}
 
 	// grant TEAM_LEAD in this project
@@ -214,13 +234,7 @@ func TestRBACRepo_Integration_GrantRoleByCode_UpsertDoesNotDuplicate(t *testing.
 
 	repo := postgres.NewRBACRepo(pool)
 
-	userID := uuid.New()
-	projectID := uuid.New()
-	_, err = pool.Exec(ctx, `
-INSERT INTO users(id, email, password_hash, status)
-VALUES ($1, $2, 'integration-hash', 'ACTIVE');
-`, userID, "rbac-upsert-"+userID.String()+"@example.local")
-	require.NoError(t, err)
+	_, _, userID, projectID := seedProjectScopeFixture(t, ctx, pool, "rbac-upsert")
 
 	scope := rbac.Scope{Type: rbac.ScopeProject, ID: &projectID}
 	firstExpiry := time.Now().Add(2 * time.Hour).UTC()
@@ -240,10 +254,10 @@ WHERE user_id = $1
   AND role_id = (SELECT id FROM roles WHERE code = 'TEAM_LEAD')
   AND scope_type = 'PROJECT'
   AND scope_id = $2;
-`, userID, projectID).Scan(&count, &expiresAt)
+	`, userID, projectID).Scan(&count, &expiresAt)
 	require.NoError(t, err)
 	require.Equal(t, 1, count)
-	require.True(t, expiresAt.Equal(secondExpiry))
+	require.WithinDuration(t, secondExpiry, expiresAt, time.Millisecond)
 }
 
 func TestRBACRepo_Integration_ProjectRolesHaveProjectView(t *testing.T) {
@@ -257,7 +271,6 @@ func TestRBACRepo_Integration_ProjectRolesHaveProjectView(t *testing.T) {
 
 	repo := postgres.NewRBACRepo(pool)
 
-	projectID := uuid.New()
 	now := time.Now()
 
 	cases := []struct {
@@ -271,14 +284,8 @@ func TestRBACRepo_Integration_ProjectRolesHaveProjectView(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			userID := uuid.New()
-			_, err = pool.Exec(ctx, `
-INSERT INTO users(id, email, password_hash, status)
-VALUES ($1, $2, 'integration-hash', 'ACTIVE');
-`, userID, "rbac-project-view-"+tc.roleCode+"-"+userID.String()+"@example.local")
-			require.NoError(t, err)
-
-			scope := rbac.Scope{Type: rbac.ScopeProject, ID: &projectID}
+			_, _, userID, seededProjectID := seedProjectScopeFixture(t, ctx, pool, "rbac-project-view-"+tc.roleCode)
+			scope := rbac.Scope{Type: rbac.ScopeProject, ID: &seededProjectID}
 			require.NoError(t, repo.GrantRoleByCode(ctx, userID, tc.roleCode, scope, nil))
 
 			ok, err := repo.HasPermission(ctx, userID, "project.view", scope, now)

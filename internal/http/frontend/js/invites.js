@@ -148,6 +148,13 @@
     return data;
   }
 
+  function confirmAction(options) {
+    if (auth && typeof auth.showConfirmDialog === "function") {
+      return auth.showConfirmDialog(options);
+    }
+    return Promise.resolve(window.confirm(String((options && options.message) || "")));
+  }
+
   function syncSidebar(profile) {
     const host = document.querySelector("[data-role-sidebar]");
     if (!host || !roleSidebar || typeof roleSidebar.renderSidebar !== "function") {
@@ -354,7 +361,12 @@
       }
       const accept = action === "accept";
       const actionLabel = accept ? "принять" : "отклонить";
-      if (!window.confirm(`Подтвердите действие: ${actionLabel} заявку?`)) {
+      if (!await confirmAction({
+        title: accept ? "Принять заявку" : "Отклонить заявку",
+        message: `Подтвердите действие: ${actionLabel} заявку участника в проект.`,
+        confirmText: accept ? "Принять заявку" : "Отклонить заявку",
+        danger: !accept,
+      })) {
         return;
       }
       const allButtons = Array.from(card.querySelectorAll("button[data-action]"));
@@ -384,7 +396,12 @@
 
     const accept = action === "accept";
     const actionLabel = accept ? "принять" : "отклонить";
-    if (!window.confirm(`Подтвердите действие: ${actionLabel} приглашение?`)) {
+    if (!await confirmAction({
+      title: accept ? "Принять приглашение" : "Отклонить приглашение",
+      message: `Подтвердите действие: ${actionLabel} приглашение в проект.`,
+      confirmText: accept ? "Принять приглашение" : "Отклонить приглашение",
+      danger: !accept,
+    })) {
       return;
     }
 

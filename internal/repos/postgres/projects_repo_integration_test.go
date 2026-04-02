@@ -117,3 +117,65 @@ VALUES
 	_, err = repo.GetByID(ctxA, projectB)
 	require.ErrorIs(t, err, projects.ErrNotFound)
 }
+
+func TestProjectsRepo_Integration_ListByCreator_IncludesActiveMemberProjects(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	require.NotEmpty(t, dsn)
+
+	ctx := context.Background()
+	pool, err := db.NewPool(ctx, dsn)
+	require.NoError(t, err)
+	defer pool.Close()
+
+	repo := postgres.NewProjectsRepo(pool)
+
+	var facultyID uuid.UUID
+	var tenantID uuid.UUID
+	err = pool.QueryRow(ctx, `SELECT id, tenant_id FROM faculties WHERE code='IDSAI_ENU'`).Scan(&facultyID, &tenantID)
+	require.NoError(t, err)
+
+	creatorID := uuid.New()
+	memberID := uuid.New()
+
+	_, err = pool.Exec(ctx, `
+INSERT INTO users(id, tenant_id, email, password_hash, status)
+VALUES
+  ($1, $2, $3, 'integration-hash', 'ACTIVE'),
+  ($4, $2, $5, 'integration-hash', 'ACTIVE');
+`,
+		creatorID, tenantID, fmt.Sprintf("creator-%s@example.local", creatorID.String()),
+		memberID, fmt.Sprintf("member-%s@example.local", memberID.String()),
+	)
+	require.NoError(t, err)
+
+	creatorCtx := requestctx.WithIdentity(ctx, creatorID, tenantID, facultyID, uuid.New())
+	projectID, err := repo.Create(creatorCtx, "Shared Project", "team flow", facultyID, "FACULTY", nil, creatorID)
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `
+INSERT INTO project_members(tenant_id, project_id, user_id, status, joined_at)
+VALUES ($1, $2, $3, 'ACTIVE', now())
+ON CONFLICT (project_id, user_id)
+DO UPDATE SET status = 'ACTIVE', joined_at = now();
+`, tenantID, projectID, memberID)
+	require.NoError(t, err)
+
+	memberCtx := requestctx.WithIdentity(ctx, memberID, tenantID, facultyID, uuid.New())
+	items, err := repo.ListByCreator(memberCtx, memberID)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.Equal(t, projectID, items[0].ID)
+
+	_, err = pool.Exec(ctx, `
+UPDATE project_members
+SET status = 'REMOVED', joined_at = NULL
+WHERE tenant_id = $1
+  AND project_id = $2
+  AND user_id = $3;
+`, tenantID, projectID, memberID)
+	require.NoError(t, err)
+
+	items, err = repo.ListByCreator(memberCtx, memberID)
+	require.NoError(t, err)
+	require.Empty(t, items)
+}

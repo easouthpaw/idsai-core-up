@@ -5,17 +5,11 @@ import (
 	"strings"
 	"time"
 
+	"idsai-core-up/internal/http/dto"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
-
-type createTaskReq struct {
-	Title          string  `json:"title" binding:"required"`
-	Description    string  `json:"description"`
-	PositionID     string  `json:"position_id" binding:"required"`
-	AssigneeUserID *string `json:"assignee_user_id,omitempty"`
-	DueAt          *string `json:"due_at,omitempty"` // RFC3339
-}
 
 func (h *ProjectFlowHandler) CreateTask(c *gin.Context) {
 	uid, ok := parseUserID(c)
@@ -27,7 +21,7 @@ func (h *ProjectFlowHandler) CreateTask(c *gin.Context) {
 		return
 	}
 
-	var req createTaskReq
+	var req dto.CreateTaskRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
@@ -63,7 +57,7 @@ func (h *ProjectFlowHandler) CreateTask(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, item)
+	c.JSON(http.StatusCreated, dto.ProjectFlowTaskResponseFromService(item))
 }
 
 func (h *ProjectFlowHandler) ListTasks(c *gin.Context) {
@@ -80,7 +74,7 @@ func (h *ProjectFlowHandler) ListTasks(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, items)
+	c.JSON(http.StatusOK, dto.ProjectFlowTaskResponsesFromService(items))
 }
 
 func (h *ProjectFlowHandler) ListTaskActivities(c *gin.Context) {
@@ -109,11 +103,7 @@ func (h *ProjectFlowHandler) ListTaskActivities(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"items": items})
-}
-
-type updateTaskStatusReq struct {
-	Status string `json:"status" binding:"required"`
+	c.JSON(http.StatusOK, dto.ListTaskActivitiesResponse{Items: dto.ProjectFlowTaskActivityResponsesFromService(items)})
 }
 
 func (h *ProjectFlowHandler) UpdateTaskStatus(c *gin.Context) {
@@ -130,7 +120,7 @@ func (h *ProjectFlowHandler) UpdateTaskStatus(c *gin.Context) {
 		return
 	}
 
-	var req updateTaskStatusReq
+	var req dto.UpdateTaskStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
@@ -141,11 +131,7 @@ func (h *ProjectFlowHandler) UpdateTaskStatus(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, item)
-}
-
-type assignTaskReq struct {
-	AssigneeUserID string `json:"assignee_user_id" binding:"required"`
+	c.JSON(http.StatusOK, dto.ProjectFlowTaskResponseFromService(item))
 }
 
 func (h *ProjectFlowHandler) AssignTask(c *gin.Context) {
@@ -162,7 +148,7 @@ func (h *ProjectFlowHandler) AssignTask(c *gin.Context) {
 		return
 	}
 
-	var req assignTaskReq
+	var req dto.AssignTaskRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
@@ -178,7 +164,7 @@ func (h *ProjectFlowHandler) AssignTask(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, item)
+	c.JSON(http.StatusOK, dto.ProjectFlowTaskResponseFromService(item))
 }
 
 func (h *ProjectFlowHandler) ClaimTask(c *gin.Context) {
@@ -199,12 +185,7 @@ func (h *ProjectFlowHandler) ClaimTask(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"status": "claimed"})
-}
-
-type completeTaskReq struct {
-	Comment     string   `json:"comment"`
-	Attachments []string `json:"attachments"`
+	c.JSON(http.StatusOK, dto.ClaimTaskResponse{Status: "claimed"})
 }
 
 func (h *ProjectFlowHandler) CompleteTask(c *gin.Context) {
@@ -221,7 +202,7 @@ func (h *ProjectFlowHandler) CompleteTask(c *gin.Context) {
 		return
 	}
 
-	var req completeTaskReq
+	var req dto.CompleteTaskRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
@@ -232,5 +213,5 @@ func (h *ProjectFlowHandler) CompleteTask(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, item)
+	c.JSON(http.StatusOK, dto.ProjectFlowTaskResponseFromService(item))
 }

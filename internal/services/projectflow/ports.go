@@ -41,6 +41,7 @@ type MembersRepository interface {
 	CountActiveMembersWithPosition(ctx context.Context, projectID uuid.UUID) (int, error)
 	ApproveProjectMember(ctx context.Context, projectID, memberUserID uuid.UUID, positionID *uuid.UUID) (Member, error)
 	RejectProjectMemberApplication(ctx context.Context, projectID, memberUserID uuid.UUID) (Member, error)
+	RemoveProjectMember(ctx context.Context, projectID, memberUserID uuid.UUID) (Member, error)
 	SetActiveMemberPosition(ctx context.Context, projectID, memberUserID, positionID uuid.UUID) (Member, error)
 	GetInvitedMemberPosition(ctx context.Context, projectID, userID uuid.UUID) (*uuid.UUID, error)
 	RespondMemberInvite(ctx context.Context, projectID, userID uuid.UUID, accept bool) (Member, error)

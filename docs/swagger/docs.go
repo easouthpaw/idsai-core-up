@@ -207,7 +207,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.createProjectRequest"
+                            "$ref": "#/definitions/dto.CreateProjectRequest"
                         }
                     }
                 ],
@@ -215,10 +215,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/dto.CreateProjectResponse"
                         }
                     },
                     "400": {
@@ -275,7 +272,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/handlers.groupOptionResponse"
+                                "$ref": "#/definitions/dto.GroupOptionResponse"
                             }
                         }
                     },
@@ -324,7 +321,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/handlers.projectResponse"
+                                "$ref": "#/definitions/dto.ProjectResponse"
                             }
                         }
                     },
@@ -387,7 +384,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.projectResponse"
+                            "$ref": "#/definitions/dto.ProjectResponse"
                         }
                     },
                     "400": {
@@ -441,7 +438,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.createProjectRequest": {
+        "dto.CreateProjectRequest": {
             "type": "object",
             "required": [
                 "title"
@@ -466,7 +463,15 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.groupOptionResponse": {
+        "dto.CreateProjectResponse": {
+            "type": "object",
+            "properties": {
+                "project_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.GroupOptionResponse": {
             "type": "object",
             "properties": {
                 "code": {
@@ -515,7 +520,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.projectResponse": {
+        "dto.ProjectResponse": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -616,8 +621,8 @@ var SwaggerInfo = &swag.Spec{
 	Host:             "",
 	BasePath:         "/",
 	Schemes:          []string{},
-		Title:            "IDSAI Corp. API",
-		Description:      "Core platform for IDSAI Corp. projects (RBAC-driven).",
+	Title:            "IDSAI Corp. API",
+	Description:      "Core platform for IDSAI Corp. projects (RBAC-driven).",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

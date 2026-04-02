@@ -11,18 +11,18 @@ import (
 
 // AccessCatalogItem describes an assignable delegated project role.
 type AccessCatalogItem struct {
-	Code            string   `json:"code"`
-	Name            string   `json:"name"`
-	Description     string   `json:"description"`
-	PermissionCodes []string `json:"permission_codes"`
+	Code            string
+	Name            string
+	Description     string
+	PermissionCodes []string
 }
 
 // MemberAccess describes a member's access state in a project.
 type MemberAccess struct {
-	UserID                   string   `json:"user_id"`
-	RoleCodes                []string `json:"role_codes"`
-	ManagedRoleCodes         []string `json:"managed_role_codes"`
-	EffectivePermissionCodes []string `json:"effective_permission_codes"`
+	UserID                   string
+	RoleCodes                []string
+	ManagedRoleCodes         []string
+	EffectivePermissionCodes []string
 }
 
 // AssignableRoles is the static catalog of delegated roles that can be managed via the access API.

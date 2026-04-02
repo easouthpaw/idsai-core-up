@@ -200,7 +200,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.createProjectRequest"
+                            "$ref": "#/definitions/dto.CreateProjectRequest"
                         }
                     }
                 ],
@@ -208,10 +208,7 @@
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/dto.CreateProjectResponse"
                         }
                     },
                     "400": {
@@ -268,7 +265,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/handlers.groupOptionResponse"
+                                "$ref": "#/definitions/dto.GroupOptionResponse"
                             }
                         }
                     },
@@ -317,7 +314,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/handlers.projectResponse"
+                                "$ref": "#/definitions/dto.ProjectResponse"
                             }
                         }
                     },
@@ -380,7 +377,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.projectResponse"
+                            "$ref": "#/definitions/dto.ProjectResponse"
                         }
                     },
                     "400": {
@@ -434,7 +431,7 @@
                 }
             }
         },
-        "handlers.createProjectRequest": {
+        "dto.CreateProjectRequest": {
             "type": "object",
             "required": [
                 "title"
@@ -459,7 +456,15 @@
                 }
             }
         },
-        "handlers.groupOptionResponse": {
+        "dto.CreateProjectResponse": {
+            "type": "object",
+            "properties": {
+                "project_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.GroupOptionResponse": {
             "type": "object",
             "properties": {
                 "code": {
@@ -508,7 +513,7 @@
                 }
             }
         },
-        "handlers.projectResponse": {
+        "dto.ProjectResponse": {
             "type": "object",
             "properties": {
                 "created_at": {

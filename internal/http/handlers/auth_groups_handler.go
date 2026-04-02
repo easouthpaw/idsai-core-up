@@ -5,33 +5,12 @@ import (
 	"strconv"
 	"strings"
 
+	"idsai-core-up/internal/http/dto"
 	"idsai-core-up/internal/http/middleware"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
-
-type listDepartmentsResp struct {
-	Departments any `json:"departments"`
-}
-
-type listGroupsResp struct {
-	Groups any `json:"groups"`
-}
-
-type submitGroupChangeRequestReq struct {
-	DepartmentCode string `json:"department_code" binding:"required"`
-	GroupCode      string `json:"group_code" binding:"required"`
-}
-
-type listGroupChangeRequestsResp struct {
-	Requests any `json:"requests"`
-}
-
-type reviewGroupChangeRequestReq struct {
-	Action  string `json:"action" binding:"required"`
-	Comment string `json:"comment"`
-}
 
 func (h *AuthHandler) ListDepartments(c *gin.Context) {
 	authResponseNoStore(c)
@@ -42,7 +21,7 @@ func (h *AuthHandler) ListDepartments(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, listDepartmentsResp{Departments: items})
+	c.JSON(http.StatusOK, dto.ListDepartmentsResponse{Departments: dto.DepartmentResponsesFromService(items)})
 }
 
 func (h *AuthHandler) ListDepartmentGroups(c *gin.Context) {
@@ -55,7 +34,7 @@ func (h *AuthHandler) ListDepartmentGroups(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, listGroupsResp{Groups: items})
+	c.JSON(http.StatusOK, dto.ListDepartmentGroupsResponse{Groups: dto.StudentGroupResponsesFromService(items)})
 }
 
 func (h *AuthHandler) SettingsSubmitGroupChangeRequest(c *gin.Context) {
@@ -72,7 +51,7 @@ func (h *AuthHandler) SettingsSubmitGroupChangeRequest(c *gin.Context) {
 		return
 	}
 
-	var req submitGroupChangeRequestReq
+	var req dto.SubmitGroupChangeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
@@ -90,7 +69,7 @@ func (h *AuthHandler) SettingsSubmitGroupChangeRequest(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, item)
+	c.JSON(http.StatusCreated, dto.GroupChangeRequestResponseFromService(item))
 }
 
 func (h *AuthHandler) SettingsListGroupChangeRequests(c *gin.Context) {
@@ -120,7 +99,7 @@ func (h *AuthHandler) SettingsListGroupChangeRequests(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, listGroupChangeRequestsResp{Requests: items})
+	c.JSON(http.StatusOK, dto.ListGroupChangeRequestsResponse{Requests: dto.GroupChangeRequestResponsesFromService(items)})
 }
 
 func (h *AuthHandler) ListDepartmentGroupsTree(c *gin.Context) {
@@ -147,7 +126,7 @@ func (h *AuthHandler) ListDepartmentGroupsTree(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, listDepartmentsResp{Departments: items})
+	c.JSON(http.StatusOK, dto.ListDepartmentGroupsTreeResponse{Departments: dto.DepartmentGroupsTreeResponsesFromService(items)})
 }
 
 func (h *AuthHandler) AdminListGroupChangeRequests(c *gin.Context) {
@@ -174,7 +153,7 @@ func (h *AuthHandler) AdminListGroupChangeRequests(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, listGroupChangeRequestsResp{Requests: items})
+	c.JSON(http.StatusOK, dto.ListGroupChangeRequestsResponse{Requests: dto.GroupChangeRequestResponsesFromService(items)})
 }
 
 func (h *AuthHandler) AdminReviewGroupChangeRequest(c *gin.Context) {
@@ -197,7 +176,7 @@ func (h *AuthHandler) AdminReviewGroupChangeRequest(c *gin.Context) {
 		return
 	}
 
-	var req reviewGroupChangeRequestReq
+	var req dto.ReviewGroupChangeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
@@ -216,5 +195,5 @@ func (h *AuthHandler) AdminReviewGroupChangeRequest(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, item)
+	c.JSON(http.StatusOK, dto.GroupChangeRequestResponseFromService(item))
 }

@@ -5,6 +5,14 @@
   const API = "/v2/kb";
   const PAGE_SIZE = 20;
 
+  function notify(message, kind = "info") {
+    if (auth && typeof auth.showAlert === "function") {
+      auth.showAlert(message, kind);
+      return;
+    }
+    window.alert(String(message || ""));
+  }
+
   const state = {
     isEditor: false,
     categories: [],
@@ -316,7 +324,7 @@
       closeCategoryModal();
       await loadCategories();
     } catch (err) {
-      alert("Ошибка: " + err.message);
+      notify("Ошибка: " + err.message, "error");
     }
   }
 
@@ -350,7 +358,7 @@
       .filter(Boolean);
 
     if (!title || !categoryId) {
-      alert("Заполните заголовок и выберите категорию");
+      notify("Заполните заголовок и выберите категорию", "warning");
       return;
     }
 
@@ -362,7 +370,7 @@
       closeArticleModal();
       window.location.href = `/dev/kb/article?id=${article.id}`;
     } catch (err) {
-      alert("Ошибка: " + err.message);
+      notify("Ошибка: " + err.message, "error");
     }
   }
 
@@ -370,12 +378,12 @@
 
   async function handleMdUpload(file) {
     if (!state.activeCategoryId && state.categories.length > 0) {
-      alert("Выберите категорию для загрузки");
+      notify("Выберите категорию для загрузки", "warning");
       return;
     }
     const categoryId = state.activeCategoryId || (state.categories[0]?.id || "");
     if (!categoryId) {
-      alert("Создайте категорию перед загрузкой");
+      notify("Создайте категорию перед загрузкой", "warning");
       return;
     }
 
@@ -388,7 +396,7 @@
       const article = await api("/articles/upload", { method: "POST", body: form });
       window.location.href = `/dev/kb/article?id=${article.id}`;
     } catch (err) {
-      alert("Ошибка загрузки: " + err.message);
+      notify("Ошибка загрузки: " + err.message, "error");
     }
   }
 

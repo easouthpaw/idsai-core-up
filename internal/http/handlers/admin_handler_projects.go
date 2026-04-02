@@ -5,20 +5,13 @@ import (
 	"net/http"
 	"strings"
 
+	"idsai-core-up/internal/http/dto"
 	"idsai-core-up/internal/http/middleware"
 	"idsai-core-up/internal/services/admin"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
-
-type listProjectsResp struct {
-	Projects []admin.Project `json:"projects"`
-}
-
-type setProjectStatusReq struct {
-	Status string `json:"status"`
-}
 
 func (h *AdminHandler) ListProjects(c *gin.Context) {
 	status := c.Query("status")
@@ -34,7 +27,7 @@ func (h *AdminHandler) ListProjects(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, listProjectsResp{Projects: projects})
+	c.JSON(http.StatusOK, dto.ListProjectsResponse{Projects: dto.AdminProjectResponsesFromService(projects)})
 }
 
 func (h *AdminHandler) SetProjectStatus(c *gin.Context) {
@@ -44,7 +37,7 @@ func (h *AdminHandler) SetProjectStatus(c *gin.Context) {
 		return
 	}
 
-	var req setProjectStatusReq
+	var req dto.SetProjectStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
@@ -146,5 +139,5 @@ func (h *AdminHandler) ObserveProject(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, ob)
+	c.JSON(http.StatusOK, dto.AdminProjectObservationResponseFromService(ob))
 }

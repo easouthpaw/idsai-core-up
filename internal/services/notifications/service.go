@@ -16,14 +16,14 @@ var (
 )
 
 type Notification struct {
-	ID        string          `json:"id"`
-	Type      string          `json:"type"`
-	Title     string          `json:"title"`
-	Body      string          `json:"body"`
-	Payload   json.RawMessage `json:"payload"`
-	IsRead    bool            `json:"is_read"`
-	CreatedAt time.Time       `json:"created_at"`
-	ReadAt    *time.Time      `json:"read_at,omitempty"`
+	ID        string
+	Type      string
+	Title     string
+	Body      string
+	Payload   json.RawMessage
+	IsRead    bool
+	CreatedAt time.Time
+	ReadAt    *time.Time
 }
 
 type CreateInput struct {

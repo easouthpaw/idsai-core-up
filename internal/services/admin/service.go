@@ -32,89 +32,89 @@ var (
 )
 
 type User struct {
-	ID             uuid.UUID `json:"id"`
-	FullName       string    `json:"full_name"`
-	Email          string    `json:"email"`
-	RoleCode       string    `json:"role_code"`
-	Status         string    `json:"status"`
-	FacultyCode    string    `json:"faculty_code"`
-	DepartmentCode string    `json:"department_code"`
+	ID             uuid.UUID
+	FullName       string
+	Email          string
+	RoleCode       string
+	Status         string
+	FacultyCode    string
+	DepartmentCode string
 }
 
 type Project struct {
-	ID             uuid.UUID `json:"id"`
-	Title          string    `json:"title"`
-	Description    string    `json:"description"`
-	Status         string    `json:"status"`
-	Visibility     string    `json:"visibility"`
-	IsPublic       bool      `json:"is_public"`
-	CreatedBy      uuid.UUID `json:"created_by"`
-	AuthorName     string    `json:"author_name"`
-	AuthorEmail    string    `json:"author_email"`
-	FacultyCode    string    `json:"faculty_code"`
-	DepartmentCode string    `json:"department_code"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID             uuid.UUID
+	Title          string
+	Description    string
+	Status         string
+	Visibility     string
+	IsPublic       bool
+	CreatedBy      uuid.UUID
+	AuthorName     string
+	AuthorEmail    string
+	FacultyCode    string
+	DepartmentCode string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 type ProjectPosition struct {
-	ID       uuid.UUID `json:"id"`
-	Code     string    `json:"code"`
-	Name     string    `json:"name"`
-	Capacity int       `json:"capacity"`
+	ID       uuid.UUID
+	Code     string
+	Name     string
+	Capacity int
 }
 
 type ProjectMember struct {
-	UserID       uuid.UUID  `json:"user_id"`
-	FullName     string     `json:"full_name"`
-	Email        string     `json:"email"`
-	RoleCode     string     `json:"role_code"`
-	Status       string     `json:"status"`
-	PositionCode string     `json:"position_code"`
-	PositionName string     `json:"position_name"`
-	JoinedAt     *time.Time `json:"joined_at,omitempty"`
-	RespondedAt  *time.Time `json:"responded_at,omitempty"`
+	UserID       uuid.UUID
+	FullName     string
+	Email        string
+	RoleCode     string
+	Status       string
+	PositionCode string
+	PositionName string
+	JoinedAt     *time.Time
+	RespondedAt  *time.Time
 }
 
 type ProjectTask struct {
-	ID             uuid.UUID  `json:"id"`
-	Title          string     `json:"title"`
-	Status         string     `json:"status"`
-	PositionCode   string     `json:"position_code"`
-	AssigneeUserID *uuid.UUID `json:"assignee_user_id,omitempty"`
-	AssigneeName   string     `json:"assignee_name"`
-	DueAt          *time.Time `json:"due_at,omitempty"`
-	UpdatedAt      time.Time  `json:"updated_at"`
+	ID             uuid.UUID
+	Title          string
+	Status         string
+	PositionCode   string
+	AssigneeUserID *uuid.UUID
+	AssigneeName   string
+	DueAt          *time.Time
+	UpdatedAt      time.Time
 }
 
 type ProjectCriterion struct {
-	ID        uuid.UUID  `json:"id"`
-	Title     string     `json:"title"`
-	Weight    int        `json:"weight"`
-	CreatedBy uuid.UUID  `json:"created_by"`
-	CreatedAt time.Time  `json:"created_at"`
-	IsMet     *bool      `json:"is_met,omitempty"`
-	Comment   string     `json:"comment,omitempty"`
-	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+	ID        uuid.UUID
+	Title     string
+	Weight    int
+	CreatedBy uuid.UUID
+	CreatedAt time.Time
+	IsMet     *bool
+	Comment   string
+	UpdatedAt *time.Time
 }
 
 type ProjectObservationSummary struct {
-	MembersTotal   int `json:"members_total"`
-	MembersActive  int `json:"members_active"`
-	MembersApplied int `json:"members_applied"`
-	MembersInvited int `json:"members_invited"`
-	TasksTotal     int `json:"tasks_total"`
-	TasksDone      int `json:"tasks_done"`
-	CriteriaTotal  int `json:"criteria_total"`
+	MembersTotal   int
+	MembersActive  int
+	MembersApplied int
+	MembersInvited int
+	TasksTotal     int
+	TasksDone      int
+	CriteriaTotal  int
 }
 
 type ProjectObservation struct {
-	Project   Project                   `json:"project"`
-	Positions []ProjectPosition         `json:"positions"`
-	Members   []ProjectMember           `json:"members"`
-	Tasks     []ProjectTask             `json:"tasks"`
-	Criteria  []ProjectCriterion        `json:"criteria"`
-	Summary   ProjectObservationSummary `json:"summary"`
+	Project   Project
+	Positions []ProjectPosition
+	Members   []ProjectMember
+	Tasks     []ProjectTask
+	Criteria  []ProjectCriterion
+	Summary   ProjectObservationSummary
 }
 
 type CreateUserInput struct {

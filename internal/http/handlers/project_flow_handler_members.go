@@ -6,20 +6,12 @@ import (
 	"net/http"
 	"strings"
 
+	"idsai-core-up/internal/http/dto"
 	"idsai-core-up/internal/http/middleware"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
-
-type inviteMemberReq struct {
-	UserID  string `json:"user_id" binding:"required"`
-	Comment string `json:"comment"`
-}
-
-type applyMemberReq struct {
-	Comment string `json:"comment"`
-}
 
 func (h *ProjectFlowHandler) InviteMember(c *gin.Context) {
 	uid, ok := parseUserID(c)
@@ -36,7 +28,7 @@ func (h *ProjectFlowHandler) InviteMember(c *gin.Context) {
 		return
 	}
 
-	var req inviteMemberReq
+	var req dto.InviteMemberRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
@@ -66,7 +58,7 @@ func (h *ProjectFlowHandler) InviteMember(c *gin.Context) {
 		true,
 	))
 
-	c.JSON(http.StatusOK, item)
+	c.JSON(http.StatusOK, dto.ProjectFlowMemberResponseFromService(item))
 }
 
 func (h *ProjectFlowHandler) ApplyMember(c *gin.Context) {
@@ -79,7 +71,7 @@ func (h *ProjectFlowHandler) ApplyMember(c *gin.Context) {
 		return
 	}
 
-	var req applyMemberReq
+	var req dto.ApplyMemberRequest
 	if err := c.ShouldBindJSON(&req); err != nil && !errors.Is(err, io.EOF) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
@@ -90,11 +82,7 @@ func (h *ProjectFlowHandler) ApplyMember(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, item)
-}
-
-type respondInviteReq struct {
-	Accept bool `json:"accept"`
+	c.JSON(http.StatusCreated, dto.ProjectFlowMemberResponseFromService(item))
 }
 
 func (h *ProjectFlowHandler) RespondMemberInvite(c *gin.Context) {
@@ -107,7 +95,7 @@ func (h *ProjectFlowHandler) RespondMemberInvite(c *gin.Context) {
 		return
 	}
 
-	var req respondInviteReq
+	var req dto.RespondInviteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
@@ -118,7 +106,7 @@ func (h *ProjectFlowHandler) RespondMemberInvite(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, item)
+	c.JSON(http.StatusOK, dto.ProjectFlowMemberResponseFromService(item))
 }
 
 func (h *ProjectFlowHandler) ListMembers(c *gin.Context) {
@@ -131,11 +119,7 @@ func (h *ProjectFlowHandler) ListMembers(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, items)
-}
-
-type approveMemberReq struct {
-	PositionID string `json:"position_id"`
+	c.JSON(http.StatusOK, dto.ProjectFlowMemberResponsesFromService(items))
 }
 
 func (h *ProjectFlowHandler) ApproveMember(c *gin.Context) {
@@ -153,7 +137,7 @@ func (h *ProjectFlowHandler) ApproveMember(c *gin.Context) {
 		return
 	}
 
-	var req approveMemberReq
+	var req dto.ApproveMemberRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
@@ -188,7 +172,7 @@ func (h *ProjectFlowHandler) ApproveMember(c *gin.Context) {
 		))
 	}
 
-	c.JSON(http.StatusOK, item)
+	c.JSON(http.StatusOK, dto.ProjectFlowMemberResponseFromService(item))
 }
 
 func (h *ProjectFlowHandler) RejectMember(c *gin.Context) {
@@ -225,7 +209,44 @@ func (h *ProjectFlowHandler) RejectMember(c *gin.Context) {
 		))
 	}
 
-	c.JSON(http.StatusOK, item)
+	c.JSON(http.StatusOK, dto.ProjectFlowMemberResponseFromService(item))
+}
+
+func (h *ProjectFlowHandler) RemoveMember(c *gin.Context) {
+	uid, ok := parseUserID(c)
+	if !ok {
+		return
+	}
+	tenantID, hasTenant := middleware.TenantIDFromCtx(c)
+	pid, ok := parseProjectID(c)
+	if !ok {
+		return
+	}
+	memberID, ok := parseUserIDParam(c, "user_id")
+	if !ok {
+		return
+	}
+
+	item, err := h.svc.RemoveMember(c.Request.Context(), uid, pid, memberID)
+	if err != nil {
+		handleFlowErr(c, err)
+		return
+	}
+	if hasTenant && memberID != uid {
+		notifyBestEffort(h.notifier, c.Request.Context(), notifCreateInput(
+			tenantID,
+			memberID,
+			"project.member.removed",
+			"Вас убрали из команды проекта",
+			"Доступ к проекту и командным задачам был отозван.",
+			map[string]any{
+				"project_id": pid.String(),
+			},
+			true,
+		))
+	}
+
+	c.JSON(http.StatusOK, dto.ProjectFlowMemberResponseFromService(item))
 }
 
 func (h *ProjectFlowHandler) SetMemberPosition(c *gin.Context) {
@@ -242,7 +263,7 @@ func (h *ProjectFlowHandler) SetMemberPosition(c *gin.Context) {
 		return
 	}
 
-	var req approveMemberReq
+	var req dto.ApproveMemberRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
@@ -258,7 +279,7 @@ func (h *ProjectFlowHandler) SetMemberPosition(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, item)
+	c.JSON(http.StatusOK, dto.ProjectFlowMemberResponseFromService(item))
 }
 
 func (h *ProjectFlowHandler) ListIncomingInvites(c *gin.Context) {
@@ -273,7 +294,7 @@ func (h *ProjectFlowHandler) ListIncomingInvites(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"items": items})
+	c.JSON(http.StatusOK, dto.ListIncomingInvitesResponse{Items: dto.ProjectFlowIncomingInviteResponsesFromService(items)})
 }
 
 func (h *ProjectFlowHandler) ListOutgoingApplications(c *gin.Context) {
@@ -288,5 +309,5 @@ func (h *ProjectFlowHandler) ListOutgoingApplications(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"items": items})
+	c.JSON(http.StatusOK, dto.ListOutgoingApplicationsResponse{Items: dto.ProjectFlowOutgoingApplicationResponsesFromService(items)})
 }

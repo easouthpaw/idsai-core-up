@@ -5,8 +5,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
+	"idsai-core-up/internal/http/dto"
 	"idsai-core-up/internal/http/middleware"
 	"idsai-core-up/internal/security/passwords"
 	"idsai-core-up/internal/services/auth"
@@ -27,89 +27,6 @@ func NewAuthHandler(svc *auth.Service) *AuthHandler {
 
 func (h *AuthHandler) SetAuthorizer(authz rbacsvc.Authorizer) {
 	h.authz = authz
-}
-
-type registerReq struct {
-	Email          string `json:"email" binding:"required,email"`
-	Password       string `json:"password" binding:"required"`
-	FullName       string `json:"full_name"`
-	DepartmentCode string `json:"department_code" binding:"required"`
-	GroupCode      string `json:"group_code" binding:"required"`
-}
-
-type loginReq struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required"`
-}
-
-type refreshReq struct {
-	RefreshToken string `json:"refresh_token"`
-}
-
-type logoutReq struct {
-	RefreshToken string `json:"refresh_token"`
-}
-
-type resendVerificationReq struct {
-	Email string `json:"email" binding:"required,email"`
-}
-
-type passwordResetRequestReq struct {
-	Email string `json:"email" binding:"required,email"`
-}
-
-type passwordResetConfirmReq struct {
-	Token    string `json:"token"`
-	Email    string `json:"email"`
-	Code     string `json:"code"`
-	Password string `json:"password" binding:"required"`
-}
-
-type authStatusResp struct {
-	Status string `json:"status"`
-}
-
-type accessResp struct {
-	AccessToken  string `json:"access_token,omitempty"`
-	RefreshToken string `json:"refresh_token,omitempty"`
-	Status       string `json:"status,omitempty"`
-}
-
-type meResp struct {
-	UserID         string   `json:"user_id"`
-	TenantID       string   `json:"tenant_id"`
-	FacultyID      string   `json:"faculty_id"`
-	DepartmentID   string   `json:"department_id"`
-	DepartmentCode string   `json:"department_code"`
-	GroupID        string   `json:"group_id,omitempty"`
-	GroupCode      string   `json:"group_code,omitempty"`
-	GroupNumber    *int     `json:"group_number,omitempty"`
-	Email          string   `json:"email"`
-	PendingEmail   string   `json:"pending_email,omitempty"`
-	PendingStatus  string   `json:"pending_email_status,omitempty"`
-	FullName       string   `json:"full_name"`
-	AvatarURL      string   `json:"avatar_url,omitempty"`
-	Headline       string   `json:"headline,omitempty"`
-	About          string   `json:"about,omitempty"`
-	PreferredRole  string   `json:"preferred_role,omitempty"`
-	Semester       string   `json:"semester,omitempty"`
-	Availability   string   `json:"availability,omitempty"`
-	Goals          string   `json:"goals,omitempty"`
-	GithubURL      string   `json:"github_url,omitempty"`
-	Telegram       string   `json:"telegram,omitempty"`
-	PortfolioURL   string   `json:"portfolio_url,omitempty"`
-	Stacks         []string `json:"stacks,omitempty"`
-	Interests      []string `json:"interests,omitempty"`
-	UpdatedAt      string   `json:"updated_at,omitempty"`
-	IsAdmin        bool     `json:"is_admin"`
-	IsProfessor    bool     `json:"is_professor"`
-	EmailVerified  bool     `json:"email_verified"`
-}
-
-type capabilitiesResp struct {
-	ScopeType   string   `json:"scope_type"`
-	ScopeID     string   `json:"scope_id,omitempty"`
-	Permissions []string `json:"permissions"`
 }
 
 func tenantCodeFromHeader(c *gin.Context) string {
@@ -190,65 +107,6 @@ func writeAuthError(c *gin.Context, err error) {
 	}
 }
 
-func buildMeResp(u auth.User) meResp {
-	return buildProfileResp(u, true)
-}
-
-func buildPublicProfileResp(u auth.User) meResp {
-	return buildProfileResp(u, false)
-}
-
-func buildProfileResp(u auth.User, includePrivate bool) meResp {
-	groupID := ""
-	if u.GroupID != nil {
-		groupID = u.GroupID.String()
-	}
-	resp := meResp{
-		UserID:         u.ID.String(),
-		TenantID:       u.TenantID.String(),
-		FacultyID:      u.FacultyID.String(),
-		DepartmentID:   u.DepartmentID.String(),
-		DepartmentCode: strings.TrimSpace(u.DepartmentCode),
-		GroupID:        groupID,
-		GroupCode:      strings.TrimSpace(u.GroupCode),
-		GroupNumber:    u.GroupNumber,
-		Email:          u.Email,
-		FullName:       u.FullName,
-		AvatarURL:      strings.TrimSpace(u.AvatarURL),
-		Headline:       strings.TrimSpace(u.Headline),
-		About:          strings.TrimSpace(u.About),
-		PreferredRole:  strings.TrimSpace(u.PreferredRole),
-		Semester:       strings.TrimSpace(u.Semester),
-		Availability:   strings.TrimSpace(u.Availability),
-		Goals:          strings.TrimSpace(u.Goals),
-		GithubURL:      strings.TrimSpace(u.GithubURL),
-		Telegram:       strings.TrimSpace(u.Telegram),
-		PortfolioURL:   strings.TrimSpace(u.PortfolioURL),
-		Stacks:         append([]string(nil), u.Stacks...),
-		Interests:      append([]string(nil), u.Interests...),
-		UpdatedAt:      u.ProfileUpdatedAt.UTC().Format(time.RFC3339),
-		IsAdmin:        u.IsAdmin,
-		IsProfessor:    u.IsProfessor,
-		EmailVerified:  u.EmailVerifiedAt != nil,
-	}
-	if includePrivate {
-		resp.PendingEmail = strings.TrimSpace(u.PendingEmail)
-		resp.PendingStatus = pendingEmailStatus(u)
-	}
-	return resp
-}
-
-func pendingEmailStatus(u auth.User) string {
-	pending := strings.TrimSpace(u.PendingEmail)
-	if pending == "" {
-		return ""
-	}
-	if u.PendingEmailAt == nil {
-		return "pending_verification"
-	}
-	return "verification_sent"
-}
-
 func parseCapabilitiesScope(c *gin.Context) (rbacsvc.Scope, error) {
 	scopeType := strings.ToUpper(strings.TrimSpace(c.Query("scope_type")))
 	scopeID := strings.TrimSpace(c.Query("scope_id"))
@@ -310,7 +168,7 @@ func parseCapabilitiesScope(c *gin.Context) (rbacsvc.Scope, error) {
 func (h *AuthHandler) RegisterStudent(c *gin.Context) {
 	authResponseNoStore(c)
 
-	var req registerReq
+	var req dto.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
@@ -330,13 +188,13 @@ func (h *AuthHandler) RegisterStudent(c *gin.Context) {
 	}
 
 	clearSessionCookies(c)
-	c.JSON(http.StatusAccepted, authStatusResp{Status: "verification_required"})
+	c.JSON(http.StatusAccepted, dto.AuthStatusResponse{Status: "verification_required"})
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
 	authResponseNoStore(c)
 
-	var req loginReq
+	var req dto.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
@@ -349,7 +207,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	if wantsTokenMode(c) {
-		c.JSON(http.StatusOK, accessResp{
+		c.JSON(http.StatusOK, dto.AccessResponse{
 			AccessToken:  session.Tokens.AccessToken,
 			RefreshToken: session.Tokens.RefreshToken,
 			Status:       "authenticated",
@@ -358,13 +216,13 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	setSessionCookies(c, h.svc, session.Tokens)
-	c.JSON(http.StatusOK, buildMeResp(session.User))
+	c.JSON(http.StatusOK, dto.MeResponseFromUser(session.User))
 }
 
 func (h *AuthHandler) Refresh(c *gin.Context) {
 	authResponseNoStore(c)
 
-	var req refreshReq
+	var req dto.RefreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil && !errors.Is(err, io.EOF) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
@@ -388,7 +246,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 	}
 
 	if wantsTokenMode(c) {
-		c.JSON(http.StatusOK, accessResp{
+		c.JSON(http.StatusOK, dto.AccessResponse{
 			AccessToken:  session.Tokens.AccessToken,
 			RefreshToken: session.Tokens.RefreshToken,
 			Status:       "refreshed",
@@ -397,13 +255,13 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 	}
 
 	setSessionCookies(c, h.svc, session.Tokens)
-	c.JSON(http.StatusOK, authStatusResp{Status: "refreshed"})
+	c.JSON(http.StatusOK, dto.AuthStatusResponse{Status: "refreshed"})
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
 	authResponseNoStore(c)
 
-	var req logoutReq
+	var req dto.LogoutRequest
 	if err := c.ShouldBindJSON(&req); err != nil && !errors.Is(err, io.EOF) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
@@ -416,13 +274,13 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	_ = h.svc.Logout(c.Request.Context(), refreshToken)
 	clearSessionCookies(c)
 	clearPasswordResetCookie(c)
-	c.JSON(http.StatusOK, authStatusResp{Status: "logged_out"})
+	c.JSON(http.StatusOK, dto.AuthStatusResponse{Status: "logged_out"})
 }
 
 func (h *AuthHandler) ResendVerification(c *gin.Context) {
 	authResponseNoStore(c)
 
-	var req resendVerificationReq
+	var req dto.ResendVerificationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
@@ -433,13 +291,13 @@ func (h *AuthHandler) ResendVerification(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusAccepted, authStatusResp{Status: "verification_sent"})
+	c.JSON(http.StatusAccepted, dto.AuthStatusResponse{Status: "verification_sent"})
 }
 
 func (h *AuthHandler) RequestPasswordReset(c *gin.Context) {
 	authResponseNoStore(c)
 
-	var req passwordResetRequestReq
+	var req dto.PasswordResetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
@@ -450,7 +308,7 @@ func (h *AuthHandler) RequestPasswordReset(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusAccepted, authStatusResp{Status: "password_reset_sent"})
+	c.JSON(http.StatusAccepted, dto.AuthStatusResponse{Status: "password_reset_sent"})
 }
 
 func (h *AuthHandler) PasswordResetLanding(c *gin.Context) {
@@ -471,7 +329,7 @@ func (h *AuthHandler) PasswordResetLanding(c *gin.Context) {
 func (h *AuthHandler) PasswordResetConfirm(c *gin.Context) {
 	authResponseNoStore(c)
 
-	var req passwordResetConfirmReq
+	var req dto.PasswordResetConfirmRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
@@ -486,7 +344,7 @@ func (h *AuthHandler) PasswordResetConfirm(c *gin.Context) {
 		}
 		clearPasswordResetCookie(c)
 		clearSessionCookies(c)
-		c.JSON(http.StatusOK, authStatusResp{Status: "password_reset"})
+		c.JSON(http.StatusOK, dto.AuthStatusResponse{Status: "password_reset"})
 		return
 	}
 
@@ -501,7 +359,7 @@ func (h *AuthHandler) PasswordResetConfirm(c *gin.Context) {
 
 	clearPasswordResetCookie(c)
 	clearSessionCookies(c)
-	c.JSON(http.StatusOK, authStatusResp{Status: "password_reset"})
+	c.JSON(http.StatusOK, dto.AuthStatusResponse{Status: "password_reset"})
 }
 
 func (h *AuthHandler) VerifyEmail(c *gin.Context) {
@@ -535,7 +393,7 @@ func (h *AuthHandler) Me(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, buildMeResp(user))
+	c.JSON(http.StatusOK, dto.MeResponseFromUser(user))
 }
 
 func (h *AuthHandler) Capabilities(c *gin.Context) {
@@ -568,7 +426,7 @@ func (h *AuthHandler) Capabilities(c *gin.Context) {
 		return
 	}
 
-	resp := capabilitiesResp{
+	resp := dto.CapabilitiesResponse{
 		ScopeType:   string(scope.Type),
 		Permissions: permissions,
 	}

@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"idsai-core-up/internal/http/dto"
 	"idsai-core-up/internal/http/middleware"
 	"idsai-core-up/internal/services/notifications"
 
@@ -49,7 +50,7 @@ func (h *NotificationsHandler) List(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list notifications"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"items": items})
+	c.JSON(http.StatusOK, dto.ListNotificationsResponse{Items: dto.NotificationResponsesFromService(items)})
 }
 
 func (h *NotificationsHandler) UnreadCount(c *gin.Context) {
@@ -67,7 +68,7 @@ func (h *NotificationsHandler) UnreadCount(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to count notifications"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"unread": count})
+	c.JSON(http.StatusOK, dto.UnreadCountResponse{Unread: count})
 }
 
 func (h *NotificationsHandler) MarkRead(c *gin.Context) {
@@ -112,7 +113,7 @@ func (h *NotificationsHandler) MarkAllRead(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update notifications"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"updated": updated})
+	c.JSON(http.StatusOK, dto.NotificationsUpdatedResponse{Updated: updated})
 }
 
 func (h *NotificationsHandler) Delete(c *gin.Context) {
@@ -155,7 +156,7 @@ func (h *NotificationsHandler) Clear(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to clear notifications"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"deleted": deleted})
+	c.JSON(http.StatusOK, dto.NotificationsDeletedResponse{Deleted: deleted})
 }
 
 func (h *NotificationsHandler) ctxIDs(c *gin.Context) (uuid.UUID, uuid.UUID, bool) {

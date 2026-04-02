@@ -4,35 +4,13 @@ import (
 	"errors"
 	"net/http"
 
+	"idsai-core-up/internal/http/dto"
 	"idsai-core-up/internal/http/middleware"
 	"idsai-core-up/internal/services/admin"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
-
-type listUsersResp struct {
-	Users []admin.User `json:"users"`
-}
-
-type createUserReq struct {
-	Email          string `json:"email"`
-	Password       string `json:"password"`
-	FullName       string `json:"full_name"`
-	DepartmentCode string `json:"department_code"`
-}
-
-type setStatusReq struct {
-	Status string `json:"status"`
-}
-
-type setRoleReq struct {
-	Role string `json:"role"`
-}
-
-type resetPasswordReq struct {
-	Password string `json:"password"`
-}
 
 func (h *AdminHandler) ListUsers(c *gin.Context) {
 	role := c.Query("role")
@@ -48,7 +26,7 @@ func (h *AdminHandler) ListUsers(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, listUsersResp{Users: users})
+	c.JSON(http.StatusOK, dto.ListUsersResponse{Users: dto.AdminUserResponsesFromService(users)})
 }
 
 func (h *AdminHandler) CreateStudent(c *gin.Context) {
@@ -66,7 +44,7 @@ func (h *AdminHandler) SetStatus(c *gin.Context) {
 		return
 	}
 
-	var req setStatusReq
+	var req dto.SetStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
@@ -95,7 +73,7 @@ func (h *AdminHandler) SetRole(c *gin.Context) {
 		return
 	}
 
-	var req setRoleReq
+	var req dto.SetRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
@@ -115,7 +93,7 @@ func (h *AdminHandler) SetRole(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, user)
+	c.JSON(http.StatusOK, dto.AdminUserResponseFromService(user))
 }
 
 func (h *AdminHandler) ResetPassword(c *gin.Context) {
@@ -125,7 +103,7 @@ func (h *AdminHandler) ResetPassword(c *gin.Context) {
 		return
 	}
 
-	var req resetPasswordReq
+	var req dto.ResetPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
@@ -173,7 +151,7 @@ func (h *AdminHandler) DeleteUser(c *gin.Context) {
 }
 
 func (h *AdminHandler) createByRole(c *gin.Context, role string) {
-	var req createUserReq
+	var req dto.CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
@@ -203,5 +181,5 @@ func (h *AdminHandler) createByRole(c *gin.Context, role string) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, user)
+	c.JSON(http.StatusCreated, dto.AdminUserResponseFromService(user))
 }

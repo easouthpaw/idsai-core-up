@@ -227,6 +227,28 @@
     return auth.requestJSON(url, opts);
   }
 
+  function notify(message, kind = "info") {
+    if (auth && typeof auth.showAlert === "function") {
+      auth.showAlert(message, kind);
+      return;
+    }
+    window.alert(String(message || ""));
+  }
+
+  function confirmAction(options) {
+    if (auth && typeof auth.showConfirmDialog === "function") {
+      return auth.showConfirmDialog(options);
+    }
+    return Promise.resolve(window.confirm(String((options && options.message) || "")));
+  }
+
+  function promptForm(options) {
+    if (auth && typeof auth.showFormDialog === "function") {
+      return auth.showFormDialog(options);
+    }
+    return Promise.resolve(null);
+  }
+
   function handleAuthFail(status) {
     if (status === 401) {
       clearSession();
@@ -854,7 +876,7 @@
 
     if (!resp.ok) {
       if (handleAuthFail(resp.status)) return;
-      alert(data.error || `Ошибка смены статуса: ${resp.status}`);
+      notify(data.error || `Ошибка смены статуса: ${resp.status}`, "error");
       return;
     }
 
@@ -870,7 +892,7 @@
 
     if (!resp.ok) {
       if (handleAuthFail(resp.status)) return false;
-      alert(data.error || `Ошибка смены роли: ${resp.status}`);
+      notify(data.error || `Ошибка смены роли: ${resp.status}`, "error");
       return false;
     }
     return true;
@@ -885,7 +907,7 @@
 
     if (!resp.ok) {
       if (handleAuthFail(resp.status)) return false;
-      alert(data.error || `Ошибка сброса пароля: ${resp.status}`);
+      notify(data.error || `Ошибка сброса пароля: ${resp.status}`, "error");
       return false;
     }
     return true;
@@ -904,7 +926,7 @@
       if (!projectStatusModalEl.hidden) {
         projectModalStatusEl.textContent = message;
       } else {
-        alert(message);
+        notify(message, "error");
       }
       return false;
     }
@@ -920,7 +942,7 @@
 
     if (!resp.ok) {
       if (handleAuthFail(resp.status)) return false;
-      alert(data.error || `Ошибка удаления пользователя: ${resp.status}`);
+      notify(data.error || `Ошибка удаления пользователя: ${resp.status}`, "error");
       return false;
     }
 
@@ -935,7 +957,7 @@
 
     if (!resp.ok) {
       if (handleAuthFail(resp.status)) return false;
-      alert(data.error || `Ошибка удаления проекта: ${resp.status}`);
+      notify(data.error || `Ошибка удаления проекта: ${resp.status}`, "error");
       return false;
     }
 
@@ -1326,21 +1348,46 @@
 
       if (action === "reset-password") {
         const name = target.dataset.name || "пользователь";
-        const nextPassword = window.prompt(`Введите новый пароль для "${name}" (минимум 10 символов):`, "");
-        if (nextPassword === null) return;
-        if (String(nextPassword).trim().length < 10) {
-          alert("Пароль должен быть не короче 10 символов.");
+        const values = await promptForm({
+          title: "Сброс пароля",
+          message: `Введите новый пароль для пользователя "${name}".`,
+          confirmText: "Обновить пароль",
+          fields: [{
+            name: "password",
+            label: "Новый пароль",
+            type: "password",
+            value: "",
+            placeholder: "Минимум 10 символов",
+            required: true,
+            minLength: 10,
+            autocomplete: "new-password",
+          }],
+          validate(form) {
+            if (String(form.password || "").trim().length < 10) {
+              return "Пароль должен быть не короче 10 символов.";
+            }
+            return "";
+          },
+        });
+        if (!values) return;
+        const nextPassword = String(values.password || "");
+        if (!nextPassword) {
           return;
         }
         const ok = await resetUserPassword(userID, nextPassword);
         if (!ok) return;
-        alert("Пароль обновлен.");
+        notify("Пароль обновлен.", "success");
         return;
       }
 
       if (action === "delete-user") {
         const name = target.dataset.name || "пользователь";
-        if (!window.confirm(`Удалить пользователя "${name}"?`)) return;
+        if (!await confirmAction({
+          title: "Удалить пользователя",
+          message: `Пользователь "${name}" будет удален без возможности восстановления.`,
+          confirmText: "Удалить пользователя",
+          danger: true,
+        })) return;
         const ok = await deleteUser(userID);
         if (!ok) return;
         await reloadAll();
@@ -1361,13 +1408,18 @@
           if (!ob) return;
           openProjectObserveModal(ob);
         } catch (err) {
-          alert(err.message || "Ошибка наблюдения проекта");
+          notify(err.message || "Ошибка наблюдения проекта", "error");
         }
         return;
       }
 
       if (action === "delete") {
-        if (!window.confirm(`Удалить проект "${projectTitle || "без названия"}"?`)) return;
+        if (!await confirmAction({
+          title: "Удалить проект",
+          message: `Проект "${projectTitle || "без названия"}" будет удален без возможности восстановления.`,
+          confirmText: "Удалить проект",
+          danger: true,
+        })) return;
         const ok = await deleteProject(projectID);
         if (!ok) return;
         await reloadAll();

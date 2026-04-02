@@ -38,4 +38,3 @@ func TestKBHandlerContextIdentityUsesMiddlewareKeys(t *testing.T) {
 	require.Equal(t, tenantID, h.tenantID(c))
 	require.Equal(t, userID, h.userID(c))
 }
-

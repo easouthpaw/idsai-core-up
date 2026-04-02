@@ -4,6 +4,21 @@
   const auth = window.IDSAIAuth;
   const API = "/v2/kb";
 
+  function notify(message, kind = "info") {
+    if (auth && typeof auth.showAlert === "function") {
+      auth.showAlert(message, kind);
+      return;
+    }
+    window.alert(String(message || ""));
+  }
+
+  function confirmAction(options) {
+    if (auth && typeof auth.showConfirmDialog === "function") {
+      return auth.showConfirmDialog(options);
+    }
+    return Promise.resolve(window.confirm(String((options && options.message) || "")));
+  }
+
   const state = {
     isEditor: false,
     article: null,
@@ -282,7 +297,7 @@
       .filter(Boolean);
 
     if (!title) {
-      alert("Заголовок обязателен");
+      notify("Заголовок обязателен", "warning");
       return;
     }
 
@@ -294,17 +309,22 @@
       exitEditMode();
       render();
     } catch (err) {
-      alert("Ошибка: " + err.message);
+      notify("Ошибка: " + err.message, "error");
     }
   }
 
   async function deleteArticle() {
-    if (!confirm("Удалить статью? Это действие необратимо.")) return;
+    if (!await confirmAction({
+      title: "Удалить статью",
+      message: "Это действие необратимо. Статья будет удалена без возможности восстановления.",
+      confirmText: "Удалить статью",
+      danger: true,
+    })) return;
     try {
       await apiFetch(`/articles/${state.article.id}`, { method: "DELETE" });
       window.location.href = "/dev/kb";
     } catch (err) {
-      alert("Ошибка: " + err.message);
+      notify("Ошибка: " + err.message, "error");
     }
   }
 

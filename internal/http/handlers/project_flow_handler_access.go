@@ -3,6 +3,8 @@ package handlers
 import (
 	"net/http"
 
+	"idsai-core-up/internal/http/dto"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -23,7 +25,7 @@ func (h *ProjectFlowHandler) GetAccessCatalog(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"items": items})
+	c.JSON(http.StatusOK, dto.ListAccessCatalogResponse{Items: dto.ProjectFlowAccessCatalogItemResponsesFromService(items)})
 }
 
 // GetMemberAccess returns the access state for a specific member in the project.
@@ -47,7 +49,7 @@ func (h *ProjectFlowHandler) GetMemberAccess(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, access)
+	c.JSON(http.StatusOK, dto.ProjectFlowMemberAccessResponseFromService(access))
 }
 
 // ReplaceMemberAccess atomically replaces assignable roles for a member.
@@ -65,9 +67,7 @@ func (h *ProjectFlowHandler) ReplaceMemberAccess(c *gin.Context) {
 		return
 	}
 
-	var req struct {
-		ManagedRoleCodes []string `json:"managed_role_codes"`
-	}
+	var req dto.ReplaceMemberAccessRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
@@ -79,7 +79,7 @@ func (h *ProjectFlowHandler) ReplaceMemberAccess(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, access)
+	c.JSON(http.StatusOK, dto.ProjectFlowMemberAccessResponseFromService(access))
 }
 
 // MyPermissions returns the current user's effective permission codes in the project.
@@ -99,5 +99,5 @@ func (h *ProjectFlowHandler) MyPermissions(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"permissions": perms})
+	c.JSON(http.StatusOK, dto.MyPermissionsResponse{Permissions: perms})
 }

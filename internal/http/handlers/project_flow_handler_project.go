@@ -3,15 +3,11 @@ package handlers
 import (
 	"net/http"
 
+	"idsai-core-up/internal/http/dto"
 	"idsai-core-up/internal/http/middleware"
 
 	"github.com/gin-gonic/gin"
 )
-
-type updateProjectReq struct {
-	Title       *string `json:"title"`
-	Description *string `json:"description"`
-}
 
 func (h *ProjectFlowHandler) UpdateProject(c *gin.Context) {
 	uid, ok := parseUserID(c)
@@ -28,7 +24,7 @@ func (h *ProjectFlowHandler) UpdateProject(c *gin.Context) {
 		return
 	}
 
-	var req updateProjectReq
+	var req dto.UpdateProjectRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
@@ -53,7 +49,7 @@ func (h *ProjectFlowHandler) UpdateProject(c *gin.Context) {
 		true,
 	))
 
-	c.JSON(http.StatusOK, projectToResponse(p))
+	c.JSON(http.StatusOK, dto.ProjectResponseFromDomain(p))
 }
 
 func (h *ProjectFlowHandler) DeleteProject(c *gin.Context) {
@@ -73,10 +69,6 @@ func (h *ProjectFlowHandler) DeleteProject(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-type setStacksReq struct {
-	Stacks []string `json:"stacks"`
-}
-
 func (h *ProjectFlowHandler) SetStacks(c *gin.Context) {
 	uid, ok := parseUserID(c)
 	if !ok {
@@ -92,7 +84,7 @@ func (h *ProjectFlowHandler) SetStacks(c *gin.Context) {
 		return
 	}
 
-	var req setStacksReq
+	var req dto.SetStacksRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
@@ -117,7 +109,7 @@ func (h *ProjectFlowHandler) SetStacks(c *gin.Context) {
 		false,
 	))
 
-	c.JSON(http.StatusOK, items)
+	c.JSON(http.StatusOK, dto.ProjectStackResponsesFromService(items))
 }
 
 func (h *ProjectFlowHandler) ListStacks(c *gin.Context) {
@@ -130,7 +122,7 @@ func (h *ProjectFlowHandler) ListStacks(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, items)
+	c.JSON(http.StatusOK, dto.ProjectStackResponsesFromService(items))
 }
 
 func (h *ProjectFlowHandler) OpenRecruitment(c *gin.Context) {
@@ -147,13 +139,7 @@ func (h *ProjectFlowHandler) OpenRecruitment(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, projectToResponse(p))
-}
-
-type createPositionReq struct {
-	Code     string `json:"code"`
-	Name     string `json:"name"`
-	Capacity int    `json:"capacity"`
+	c.JSON(http.StatusOK, dto.ProjectResponseFromDomain(p))
 }
 
 func (h *ProjectFlowHandler) CreatePosition(c *gin.Context) {
@@ -166,7 +152,7 @@ func (h *ProjectFlowHandler) CreatePosition(c *gin.Context) {
 		return
 	}
 
-	var req createPositionReq
+	var req dto.CreatePositionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
@@ -177,7 +163,7 @@ func (h *ProjectFlowHandler) CreatePosition(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, item)
+	c.JSON(http.StatusCreated, dto.ProjectFlowPositionResponseFromService(item))
 }
 
 func (h *ProjectFlowHandler) ListPositions(c *gin.Context) {
@@ -190,7 +176,7 @@ func (h *ProjectFlowHandler) ListPositions(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, items)
+	c.JSON(http.StatusOK, dto.ProjectFlowPositionResponsesFromService(items))
 }
 
 func (h *ProjectFlowHandler) ListStudentCandidates(c *gin.Context) {
@@ -210,5 +196,5 @@ func (h *ProjectFlowHandler) ListStudentCandidates(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, items)
+	c.JSON(http.StatusOK, dto.ProjectFlowStudentCandidateResponsesFromService(items))
 }

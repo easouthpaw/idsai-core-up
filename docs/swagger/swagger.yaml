@@ -12,7 +12,7 @@ definitions:
       access_token:
         type: string
     type: object
-  handlers.createProjectRequest:
+  dto.CreateProjectRequest:
     properties:
       description:
         type: string
@@ -29,7 +29,12 @@ definitions:
     required:
     - title
     type: object
-  handlers.groupOptionResponse:
+  dto.CreateProjectResponse:
+    properties:
+      project_id:
+        type: string
+    type: object
+  dto.GroupOptionResponse:
     properties:
       code:
         type: string
@@ -61,7 +66,7 @@ definitions:
       user_id:
         type: string
     type: object
-  handlers.projectResponse:
+  dto.ProjectResponse:
     properties:
       created_at:
         type: string
@@ -248,16 +253,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/handlers.createProjectRequest'
+          $ref: '#/definitions/dto.CreateProjectRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/dto.CreateProjectResponse'
         "400":
           description: Bad Request
           schema:
@@ -298,7 +301,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/handlers.projectResponse'
+            $ref: '#/definitions/dto.ProjectResponse'
         "400":
           description: Bad Request
           schema:
@@ -335,7 +338,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/handlers.groupOptionResponse'
+              $ref: '#/definitions/dto.GroupOptionResponse'
             type: array
         "400":
           description: Bad Request
@@ -367,7 +370,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/handlers.projectResponse'
+              $ref: '#/definitions/dto.ProjectResponse'
             type: array
         "400":
           description: Bad Request

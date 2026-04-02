@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"idsai-core-up/internal/http/dto"
 	"idsai-core-up/internal/http/middleware"
 	"idsai-core-up/internal/infra/images"
 	"idsai-core-up/internal/services/auth"
@@ -13,35 +14,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
-
-type updateProfileReq struct {
-	FullName      string   `json:"full_name"`
-	Headline      string   `json:"headline"`
-	About         string   `json:"about"`
-	PreferredRole string   `json:"preferred_role"`
-	Semester      string   `json:"semester"`
-	Availability  string   `json:"availability"`
-	Goals         string   `json:"goals"`
-	GithubURL     string   `json:"github_url"`
-	Telegram      string   `json:"telegram"`
-	PortfolioURL  string   `json:"portfolio_url"`
-	Stacks        []string `json:"stacks"`
-	Interests     []string `json:"interests"`
-}
-
-type startEmailChangeReq struct {
-	Email string `json:"email" binding:"required,email"`
-}
-
-type confirmEmailChangeReq struct {
-	Token string `json:"token"`
-}
-
-type changePasswordReq struct {
-	CurrentPassword string `json:"current_password" binding:"required"`
-	NewPassword     string `json:"new_password" binding:"required"`
-	ConfirmPassword string `json:"confirm_password" binding:"required"`
-}
 
 func (h *AuthHandler) SettingsGet(c *gin.Context) {
 	authResponseNoStore(c)
@@ -56,7 +28,7 @@ func (h *AuthHandler) SettingsGet(c *gin.Context) {
 		writeAuthError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, buildMeResp(user))
+	c.JSON(http.StatusOK, dto.MeResponseFromUser(user))
 }
 
 func (h *AuthHandler) GetProfile(c *gin.Context) {
@@ -76,7 +48,7 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 		writeAuthError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, buildPublicProfileResp(user))
+	c.JSON(http.StatusOK, dto.PublicProfileResponseFromUser(user))
 }
 
 func (h *AuthHandler) SettingsUpdateProfile(c *gin.Context) {
@@ -87,7 +59,7 @@ func (h *AuthHandler) SettingsUpdateProfile(c *gin.Context) {
 		return
 	}
 
-	var req updateProfileReq
+	var req dto.UpdateProfileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
@@ -111,7 +83,7 @@ func (h *AuthHandler) SettingsUpdateProfile(c *gin.Context) {
 		writeAuthError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, buildMeResp(user))
+	c.JSON(http.StatusOK, dto.MeResponseFromUser(user))
 }
 
 func (h *AuthHandler) SettingsStartEmailChange(c *gin.Context) {
@@ -122,7 +94,7 @@ func (h *AuthHandler) SettingsStartEmailChange(c *gin.Context) {
 		return
 	}
 
-	var req startEmailChangeReq
+	var req dto.StartEmailChangeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
@@ -132,7 +104,7 @@ func (h *AuthHandler) SettingsStartEmailChange(c *gin.Context) {
 		writeAuthError(c, err)
 		return
 	}
-	c.JSON(http.StatusAccepted, authStatusResp{Status: "verification_sent"})
+	c.JSON(http.StatusAccepted, dto.AuthStatusResponse{Status: "verification_sent"})
 }
 
 func (h *AuthHandler) SettingsResendEmailChange(c *gin.Context) {
@@ -146,7 +118,7 @@ func (h *AuthHandler) SettingsResendEmailChange(c *gin.Context) {
 		writeAuthError(c, err)
 		return
 	}
-	c.JSON(http.StatusAccepted, authStatusResp{Status: "verification_sent"})
+	c.JSON(http.StatusAccepted, dto.AuthStatusResponse{Status: "verification_sent"})
 }
 
 func (h *AuthHandler) SettingsVerifyEmailChange(c *gin.Context) {
@@ -170,7 +142,7 @@ func (h *AuthHandler) SettingsConfirmEmailChange(c *gin.Context) {
 		return
 	}
 
-	var req confirmEmailChangeReq
+	var req dto.ConfirmEmailChangeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
@@ -193,7 +165,7 @@ func (h *AuthHandler) SettingsConfirmEmailChange(c *gin.Context) {
 		return
 	}
 	clearSessionCookies(c)
-	c.JSON(http.StatusOK, authStatusResp{Status: "email_confirmed"})
+	c.JSON(http.StatusOK, dto.AuthStatusResponse{Status: "email_confirmed"})
 }
 
 func (h *AuthHandler) SettingsChangePassword(c *gin.Context) {
@@ -204,7 +176,7 @@ func (h *AuthHandler) SettingsChangePassword(c *gin.Context) {
 		return
 	}
 
-	var req changePasswordReq
+	var req dto.ChangePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
@@ -219,7 +191,7 @@ func (h *AuthHandler) SettingsChangePassword(c *gin.Context) {
 		return
 	}
 	clearSessionCookies(c)
-	c.JSON(http.StatusOK, authStatusResp{Status: "password_changed"})
+	c.JSON(http.StatusOK, dto.AuthStatusResponse{Status: "password_changed"})
 }
 
 func (h *AuthHandler) SettingsUploadAvatar(c *gin.Context) {
@@ -269,7 +241,7 @@ func (h *AuthHandler) SettingsUploadAvatar(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, buildMeResp(user))
+	c.JSON(http.StatusOK, dto.MeResponseFromUser(user))
 }
 
 func (h *AuthHandler) SettingsDeleteAvatar(c *gin.Context) {
@@ -285,7 +257,7 @@ func (h *AuthHandler) SettingsDeleteAvatar(c *gin.Context) {
 		writeAuthError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, buildMeResp(user))
+	c.JSON(http.StatusOK, dto.MeResponseFromUser(user))
 }
 
 func settingsActorIDs(c *gin.Context) (tenantID uuid.UUID, userID uuid.UUID, ok bool) {

@@ -238,6 +238,35 @@ func (s *Service) RejectMemberApplication(ctx context.Context, userID, projectID
 	return m, nil
 }
 
+func (s *Service) RemoveMember(ctx context.Context, userID, projectID, memberUserID uuid.UUID) (Member, error) {
+	if err := s.requireProjectPermission(ctx, userID, "member.approve", projectID); err != nil {
+		return Member{}, err
+	}
+	p, err := s.projectByID(ctx, projectID)
+	if err != nil {
+		return Member{}, err
+	}
+	if memberUserID == p.CreatedBy {
+		return Member{}, ErrInvalidInput
+	}
+
+	m, err := s.membersRepo.RemoveProjectMember(ctx, projectID, memberUserID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return Member{}, ErrNotFound
+		}
+		return Member{}, err
+	}
+
+	for _, roleCode := range []string{"INVITED_MEMBER", "MEMBER", "CO_LEAD", "RECRUITER", "TASK_MANAGER"} {
+		if err := s.revokeProjectRole(ctx, memberUserID, roleCode, projectID); err != nil {
+			return Member{}, err
+		}
+	}
+
+	return m, nil
+}
+
 func (s *Service) SetMemberPosition(ctx context.Context, userID, projectID, memberUserID, positionID uuid.UUID) (Member, error) {
 	if err := s.requireProjectPermission(ctx, userID, "member.approve", projectID); err != nil {
 		return Member{}, err

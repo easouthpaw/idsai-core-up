@@ -432,6 +432,13 @@
     return data;
   }
 
+  function confirmAction(options) {
+    if (auth && typeof auth.showConfirmDialog === "function") {
+      return auth.showConfirmDialog(options);
+    }
+    return Promise.resolve(window.confirm(String((options && options.message) || "")));
+  }
+
   async function requestForm(method, url, formData) {
     const { resp, data } = await auth.requestJSON(url, {
       method,
@@ -1544,7 +1551,7 @@
     }
 
     const currentUser = String(localStorage.getItem(LS_USER) || "");
-    const canManageTeam = canViewWorkspace() && isCurrentUserLead();
+    const canManageTeam = hasProjectPermission("member.approve");
 
     filtered.forEach((m) => {
       const status = String(m.status || "").toUpperCase();
@@ -1559,6 +1566,7 @@
       const canApprove = canManageTeam && status === "APPLIED";
       const canRejectApplication = canManageTeam && status === "APPLIED";
       const canSetPosition = canManageTeam && status === "ACTIVE" && !isLeadRow && state.positions.length > 0;
+      const canRemoveMember = canManageTeam && !isLeadRow && (status === "ACTIVE" || status === "INVITED");
       const canRespondInvite = status === "INVITED" && String(m.user_id) === currentUser;
       const canManagePerms = status === "ACTIVE" && !isLeadRow && canManageAccess();
 
@@ -1582,6 +1590,7 @@
             `<button class="ghost-btn" data-member-action="accept-invite" ${canRespondInvite ? "" : "disabled"}>Принять</button>` +
             `<button class="ghost-btn" data-member-action="reject-invite" ${canRespondInvite ? "" : "disabled"}>Отклонить</button>` +
             `<button class="ghost-btn" data-member-action="permissions" ${canManagePerms ? "" : "disabled"}>Права</button>` +
+            `<button class="ghost-btn danger-btn" data-member-action="remove" ${canRemoveMember ? "" : "disabled"}>Удалить</button>` +
           `</div>` +
         `</td>`;
 
@@ -2463,7 +2472,12 @@
     if (!isCurrentUserCreator()) {
       throw new Error("Удалять проект может только его создатель.");
     }
-    const confirmed = window.confirm("Удалить проект без возможности восстановления?");
+    const confirmed = await confirmAction({
+      title: "Удалить проект",
+      message: "Проект будет удален без возможности восстановления. Это действие затронет команду, задачи и материалы проекта.",
+      confirmText: "Удалить проект",
+      danger: true,
+    });
     if (!confirmed) return;
 
     await request("DELETE", `/v2/projects/${state.projectID}`);
@@ -2535,6 +2549,22 @@
     if (action === "reject-application") {
       await request("POST", `/v2/projects/${state.projectID}/members/${userID}/reject`, {});
       setNotice(`Заявка участника ${shortID(userID)} отклонена.`, false);
+      await refreshData();
+      return;
+    }
+
+    if (action === "remove") {
+      const confirmed = await confirmAction({
+        title: "Удалить участника",
+        message: "Участник будет исключен из проекта. Если за ним были закреплены задачи, назначения будут сняты.",
+        confirmText: "Удалить участника",
+        danger: true,
+      });
+      if (!confirmed) {
+        return;
+      }
+      await request("DELETE", `/v2/projects/${state.projectID}/members/${userID}`);
+      setNotice(`Участник ${shortID(userID)} удален из проекта.`, false);
       await refreshData();
       return;
     }
@@ -2664,7 +2694,11 @@
   }
 
   async function onSubmitProjectForGrading() {
-    const confirmed = window.confirm("Отправить проект преподавателю на оценивание? После этого статус станет GRADING.");
+    const confirmed = await confirmAction({
+      title: "Отправить проект на оценивание",
+      message: "После подтверждения проект перейдет в статус GRADING и будет ждать финального решения преподавателя.",
+      confirmText: "Отправить на оценивание",
+    });
     if (!confirmed) return;
 
     await request("POST", `/v2/projects/${state.projectID}/grading/submit`, {});

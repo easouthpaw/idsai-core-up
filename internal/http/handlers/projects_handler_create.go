@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"idsai-core-up/internal/http/dto"
 	"idsai-core-up/internal/http/middleware"
 	"idsai-core-up/internal/services/projects"
 
@@ -12,21 +13,13 @@ import (
 	"github.com/google/uuid"
 )
 
-type createProjectRequest struct {
-	Title       string  `json:"title" binding:"required"`
-	Description string  `json:"description"`
-	Visibility  string  `json:"visibility"`         // PUBLIC | PRIVATE
-	GroupID     *string `json:"group_id,omitempty"` // UUID string, optional alternative to group_code for PRIVATE
-	GroupCode   *string `json:"group_code,omitempty"`
-}
-
 // CreateProject
 // @Summary Create project
 // @Tags Projects
 // @Accept json
 // @Produce json
-// @Param body body createProjectRequest true "Project data"
-// @Success 201 {object} map[string]string
+// @Param body body dto.CreateProjectRequest true "Project data"
+// @Success 201 {object} dto.CreateProjectResponse
 // @Failure 400 {object} map[string]string
 // @Failure 401 {object} map[string]string
 // @Failure 403 {object} map[string]string
@@ -48,7 +41,7 @@ func (h *ProjectsHandler) Create(c *gin.Context) {
 		return
 	}
 
-	var req createProjectRequest
+	var req dto.CreateProjectRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
@@ -116,5 +109,5 @@ func (h *ProjectsHandler) Create(c *gin.Context) {
 		true,
 	))
 
-	c.JSON(http.StatusCreated, gin.H{"project_id": id.String()})
+	c.JSON(http.StatusCreated, dto.CreateProjectResponse{ProjectID: id.String()})
 }

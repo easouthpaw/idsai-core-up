@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"idsai-core-up/internal/http/dto"
 	"idsai-core-up/internal/http/middleware"
 	"idsai-core-up/internal/services/kb"
 
@@ -60,21 +61,17 @@ func (h *KBHandler) ListCategories(c *gin.Context) {
 		return
 	}
 	if cats == nil {
-		c.JSON(http.StatusOK, []struct{}{})
+		c.JSON(http.StatusOK, []dto.KBCategoryResponse{})
 		return
 	}
-	c.JSON(http.StatusOK, cats)
+	c.JSON(http.StatusOK, dto.KBCategoryResponsesFromDomain(cats))
 }
 
 func (h *KBHandler) CreateCategory(c *gin.Context) {
 	if !h.requireEditor(c) {
 		return
 	}
-	var body struct {
-		ParentID  *string `json:"parent_id"`
-		Title     string  `json:"title"`
-		SortOrder int     `json:"sort_order"`
-	}
+	var body dto.CreateCategoryRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
@@ -104,7 +101,7 @@ func (h *KBHandler) CreateCategory(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, cat)
+	c.JSON(http.StatusCreated, dto.KBCategoryResponseFromDomain(cat))
 }
 
 func (h *KBHandler) UpdateCategory(c *gin.Context) {
@@ -116,10 +113,7 @@ func (h *KBHandler) UpdateCategory(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid category id"})
 		return
 	}
-	var body struct {
-		Title     string `json:"title"`
-		SortOrder int    `json:"sort_order"`
-	}
+	var body dto.UpdateCategoryRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
@@ -138,7 +132,7 @@ func (h *KBHandler) UpdateCategory(c *gin.Context) {
 		c.JSON(status, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, cat)
+	c.JSON(http.StatusOK, dto.KBCategoryResponseFromDomain(cat))
 }
 
 func (h *KBHandler) DeleteCategory(c *gin.Context) {
@@ -192,23 +186,17 @@ func (h *KBHandler) ListArticles(c *gin.Context) {
 		return
 	}
 	if items == nil {
-		c.JSON(http.StatusOK, gin.H{"items": []struct{}{}, "total": total})
+		c.JSON(http.StatusOK, dto.ListArticlesResponse{Items: []dto.KBArticleListItemResponse{}, Total: total})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"items": items, "total": total})
+	c.JSON(http.StatusOK, dto.ListArticlesResponse{Items: dto.KBArticleListItemResponsesFromDomain(items), Total: total})
 }
 
 func (h *KBHandler) CreateArticle(c *gin.Context) {
 	if !h.requireEditor(c) {
 		return
 	}
-	var body struct {
-		CategoryID string   `json:"category_id"`
-		Title      string   `json:"title"`
-		Content    string   `json:"content"`
-		Tags       []string `json:"tags"`
-		Status     string   `json:"status"`
-	}
+	var body dto.CreateArticleRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
@@ -235,7 +223,7 @@ func (h *KBHandler) CreateArticle(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, article)
+	c.JSON(http.StatusCreated, dto.KBArticleResponseFromDomain(article))
 }
 
 func (h *KBHandler) GetArticle(c *gin.Context) {
@@ -260,7 +248,7 @@ func (h *KBHandler) GetArticle(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, article)
+	c.JSON(http.StatusOK, dto.KBArticleResponseFromDomain(article))
 }
 
 func (h *KBHandler) UpdateArticle(c *gin.Context) {
@@ -272,12 +260,7 @@ func (h *KBHandler) UpdateArticle(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid article id"})
 		return
 	}
-	var body struct {
-		Title   string   `json:"title"`
-		Content string   `json:"content"`
-		Tags    []string `json:"tags"`
-		Status  string   `json:"status"`
-	}
+	var body dto.UpdateArticleRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
@@ -298,7 +281,7 @@ func (h *KBHandler) UpdateArticle(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, article)
+	c.JSON(http.StatusOK, dto.KBArticleResponseFromDomain(article))
 }
 
 func (h *KBHandler) DeleteArticle(c *gin.Context) {
@@ -375,7 +358,7 @@ func (h *KBHandler) UploadArticle(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, article)
+	c.JSON(http.StatusCreated, dto.KBArticleResponseFromDomain(article))
 }
 
 // ── Tags ────────────────────────────────────────────────────
@@ -387,8 +370,8 @@ func (h *KBHandler) ListTags(c *gin.Context) {
 		return
 	}
 	if tags == nil {
-		c.JSON(http.StatusOK, []struct{}{})
+		c.JSON(http.StatusOK, []dto.KBTagResponse{})
 		return
 	}
-	c.JSON(http.StatusOK, tags)
+	c.JSON(http.StatusOK, dto.KBTagResponsesFromDomain(tags))
 }

@@ -15,6 +15,8 @@
   const capabilityCache = new Map();
   const capabilityPromises = new Map();
   let alertLayer = null;
+  let dialogLayer = null;
+  let activeDialog = null;
   let lastAlertMessage = "";
   let lastAlertAt = 0;
 
@@ -249,6 +251,481 @@
     layer.appendChild(card);
     const ttlMs = Number(options.ttlMs || 4200);
     window.setTimeout(() => removeAlert(card), ttlMs);
+  }
+
+  function ensureDialogStyles() {
+    if (document.getElementById("idsaiAppDialogStyles")) {
+      return;
+    }
+    const style = document.createElement("style");
+    style.id = "idsaiAppDialogStyles";
+    style.textContent = `
+      .idsai-app-dialog-layer {
+        position: fixed;
+        inset: 0;
+        z-index: 1600;
+        pointer-events: none;
+      }
+      .idsai-app-dialog-backdrop {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: rgba(15, 23, 42, 0.56);
+        backdrop-filter: blur(8px);
+        pointer-events: auto;
+      }
+      .idsai-app-dialog {
+        width: min(520px, calc(100vw - 32px));
+        max-height: calc(100vh - 48px);
+        overflow: auto;
+        border-radius: 24px;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        background:
+          radial-gradient(circle at top right, rgba(191, 219, 254, 0.18), transparent 34%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.98) 100%);
+        box-shadow: 0 28px 80px rgba(15, 23, 42, 0.34);
+        color: #0f172a;
+      }
+      .idsai-app-dialog--danger {
+        border-color: rgba(239, 68, 68, 0.24);
+      }
+      .idsai-app-dialog__header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 22px 22px 8px;
+      }
+      .idsai-app-dialog__title {
+        margin: 0;
+        font: 800 26px/1.12 "Manrope", "Inter", "Segoe UI", sans-serif;
+        letter-spacing: -0.03em;
+      }
+      .idsai-app-dialog__subtitle {
+        margin: 8px 0 0;
+        color: #475569;
+        font: 500 14px/1.55 "Inter", "Segoe UI", sans-serif;
+        white-space: pre-line;
+      }
+      .idsai-app-dialog__close {
+        width: 38px;
+        height: 38px;
+        flex: 0 0 auto;
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.92);
+        color: #475569;
+        font: 400 22px/1 sans-serif;
+        cursor: pointer;
+      }
+      .idsai-app-dialog__close:hover {
+        background: #f8fafc;
+      }
+      .idsai-app-dialog__body {
+        padding: 0 22px 6px;
+      }
+      .idsai-app-dialog__fields {
+        display: grid;
+        gap: 14px;
+      }
+      .idsai-app-dialog__field {
+        display: grid;
+        gap: 7px;
+      }
+      .idsai-app-dialog__label {
+        color: #334155;
+        font: 700 12px/1.2 "IBM Plex Mono", "SFMono-Regular", monospace;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .idsai-app-dialog__input,
+      .idsai-app-dialog__textarea {
+        width: 100%;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.98);
+        color: #0f172a;
+        font: 500 15px/1.45 "Inter", "Segoe UI", sans-serif;
+        transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+      }
+      .idsai-app-dialog__input {
+        min-height: 52px;
+        padding: 0 15px;
+      }
+      .idsai-app-dialog__textarea {
+        min-height: 120px;
+        padding: 14px 15px;
+        resize: vertical;
+      }
+      .idsai-app-dialog__input:focus,
+      .idsai-app-dialog__textarea:focus {
+        outline: none;
+        border-color: rgba(37, 99, 235, 0.52);
+        box-shadow: 0 0 0 4px rgba(191, 219, 254, 0.56);
+        transform: translateY(-1px);
+      }
+      .idsai-app-dialog__hint {
+        color: #64748b;
+        font: 500 12px/1.5 "Inter", "Segoe UI", sans-serif;
+      }
+      .idsai-app-dialog__error {
+        min-height: 20px;
+        margin: 8px 0 0;
+        color: #be123c;
+        font: 700 13px/1.45 "Inter", "Segoe UI", sans-serif;
+      }
+      .idsai-app-dialog__actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 14px 22px 22px;
+      }
+      .idsai-app-dialog__button {
+        min-width: 132px;
+        min-height: 46px;
+        border: 1px solid transparent;
+        border-radius: 14px;
+        padding: 0 18px;
+        font: 800 14px/1 "Inter", "Segoe UI", sans-serif;
+        cursor: pointer;
+        transition: transform 140ms ease, filter 140ms ease, background 140ms ease;
+      }
+      .idsai-app-dialog__button:hover {
+        transform: translateY(-1px);
+      }
+      .idsai-app-dialog__button--cancel {
+        border-color: rgba(148, 163, 184, 0.32);
+        background: rgba(255, 255, 255, 0.96);
+        color: #334155;
+      }
+      .idsai-app-dialog__button--primary {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        color: #fff;
+      }
+      .idsai-app-dialog__button--danger {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      }
+      .idsai-app-dialog__button:disabled {
+        cursor: default;
+        filter: grayscale(0.14);
+        opacity: 0.72;
+        transform: none;
+      }
+      @media (max-width: 640px) {
+        .idsai-app-dialog-backdrop {
+          padding: 14px;
+        }
+        .idsai-app-dialog {
+          width: 100%;
+          max-height: calc(100vh - 28px);
+          border-radius: 20px;
+        }
+        .idsai-app-dialog__header,
+        .idsai-app-dialog__body,
+        .idsai-app-dialog__actions {
+          padding-left: 16px;
+          padding-right: 16px;
+        }
+        .idsai-app-dialog__title {
+          font-size: 22px;
+        }
+        .idsai-app-dialog__actions {
+          flex-direction: column-reverse;
+        }
+        .idsai-app-dialog__button {
+          width: 100%;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function ensureDialogLayer() {
+    if (dialogLayer && document.body.contains(dialogLayer)) {
+      return dialogLayer;
+    }
+    if (!document.body) {
+      return null;
+    }
+    ensureDialogStyles();
+    dialogLayer = document.getElementById("idsaiAppDialogLayer");
+    if (dialogLayer) {
+      return dialogLayer;
+    }
+    dialogLayer = document.createElement("section");
+    dialogLayer.id = "idsaiAppDialogLayer";
+    dialogLayer.className = "idsai-app-dialog-layer";
+    document.body.appendChild(dialogLayer);
+    return dialogLayer;
+  }
+
+  function finishDialog(dialog, result) {
+    if (!dialog || dialog.closed) {
+      return;
+    }
+    dialog.closed = true;
+    if (activeDialog === dialog) {
+      activeDialog = null;
+    }
+    document.removeEventListener("keydown", dialog.onKeyDown, true);
+    dialog.backdrop.remove();
+    const focusTarget = dialog.restoreFocus;
+    if (focusTarget instanceof HTMLElement && document.contains(focusTarget)) {
+      focusTarget.focus({ preventScroll: true });
+    }
+    dialog.resolve(result);
+  }
+
+  function collectDialogValues(fields, inputs) {
+    const out = {};
+    fields.forEach((field) => {
+      const key = String(field.name || "").trim();
+      if (!key) return;
+      const el = inputs.get(key);
+      if (!(el instanceof HTMLElement)) return;
+      if (el instanceof HTMLInputElement && el.type === "checkbox") {
+        out[key] = el.checked;
+        return;
+      }
+      out[key] = "value" in el ? String(el.value || "") : "";
+    });
+    return out;
+  }
+
+  function showDialog(options = {}) {
+    if (activeDialog) {
+      finishDialog(activeDialog, options.form ? null : false);
+    }
+
+    const layer = ensureDialogLayer();
+    if (!layer) {
+      return Promise.resolve(options.form ? null : false);
+    }
+
+    const fields = Array.isArray(options.fields) ? options.fields : [];
+    const wantsForm = fields.length > 0 || Boolean(options.form);
+    const confirmText = String(options.confirmText || (wantsForm ? "Сохранить" : "Подтвердить")).trim();
+    const cancelText = String(options.cancelText || "Отмена").trim();
+    const showCancel = options.showCancel !== false;
+    const restoreFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const titleID = `idsaiAppDialogTitle-${Date.now()}`;
+    const descID = `idsaiAppDialogDesc-${Date.now()}`;
+
+    return new Promise((resolve) => {
+      const backdrop = document.createElement("div");
+      backdrop.className = "idsai-app-dialog-backdrop";
+
+      const dialog = document.createElement("section");
+      dialog.className = `idsai-app-dialog${options.danger ? " idsai-app-dialog--danger" : ""}`;
+      dialog.setAttribute("role", "dialog");
+      dialog.setAttribute("aria-modal", "true");
+      dialog.setAttribute("aria-labelledby", titleID);
+      dialog.setAttribute("aria-describedby", descID);
+
+      const header = document.createElement("header");
+      header.className = "idsai-app-dialog__header";
+
+      const titleWrap = document.createElement("div");
+      const titleEl = document.createElement("h3");
+      titleEl.id = titleID;
+      titleEl.className = "idsai-app-dialog__title";
+      titleEl.textContent = String(options.title || "Подтвердите действие");
+      titleWrap.appendChild(titleEl);
+
+      const subtitleEl = document.createElement("p");
+      subtitleEl.id = descID;
+      subtitleEl.className = "idsai-app-dialog__subtitle";
+      subtitleEl.textContent = String(options.message || "").trim();
+      titleWrap.appendChild(subtitleEl);
+
+      const closeBtn = document.createElement("button");
+      closeBtn.type = "button";
+      closeBtn.className = "idsai-app-dialog__close";
+      closeBtn.setAttribute("aria-label", "Закрыть");
+      closeBtn.textContent = "×";
+
+      header.appendChild(titleWrap);
+      header.appendChild(closeBtn);
+      dialog.appendChild(header);
+
+      const body = document.createElement(wantsForm ? "form" : "div");
+      body.className = "idsai-app-dialog__body";
+      if (wantsForm) {
+        body.setAttribute("novalidate", "novalidate");
+      }
+
+      const fieldInputs = new Map();
+      if (fields.length > 0) {
+        const fieldsWrap = document.createElement("div");
+        fieldsWrap.className = "idsai-app-dialog__fields";
+        fields.forEach((field) => {
+          const key = String(field.name || "").trim();
+          if (!key) return;
+
+          const fieldWrap = document.createElement("label");
+          fieldWrap.className = "idsai-app-dialog__field";
+          fieldWrap.setAttribute("for", `idsai-field-${key}`);
+
+          const label = document.createElement("span");
+          label.className = "idsai-app-dialog__label";
+          label.textContent = String(field.label || key);
+          fieldWrap.appendChild(label);
+
+          const isTextarea = String(field.type || "").toLowerCase() === "textarea";
+          const input = isTextarea ? document.createElement("textarea") : document.createElement("input");
+          input.id = `idsai-field-${key}`;
+          input.className = isTextarea ? "idsai-app-dialog__textarea" : "idsai-app-dialog__input";
+          input.name = key;
+          if (!isTextarea && field.type) {
+            input.type = String(field.type);
+          }
+          if (field.placeholder) input.placeholder = String(field.placeholder);
+          if (field.autocomplete) input.autocomplete = String(field.autocomplete);
+          if (field.inputmode) input.setAttribute("inputmode", String(field.inputmode));
+          if (field.pattern) input.setAttribute("pattern", String(field.pattern));
+          if (field.minLength !== undefined) input.minLength = Number(field.minLength);
+          if (field.maxLength !== undefined) input.maxLength = Number(field.maxLength);
+          if (field.rows !== undefined && input instanceof HTMLTextAreaElement) input.rows = Number(field.rows);
+          if (field.required) input.required = true;
+          if ("value" in field && field.value !== undefined && field.value !== null) {
+            input.value = String(field.value);
+          }
+
+          fieldWrap.appendChild(input);
+          if (field.hint) {
+            const hint = document.createElement("small");
+            hint.className = "idsai-app-dialog__hint";
+            hint.textContent = String(field.hint);
+            fieldWrap.appendChild(hint);
+          }
+          fieldsWrap.appendChild(fieldWrap);
+          fieldInputs.set(key, input);
+        });
+        body.appendChild(fieldsWrap);
+      }
+
+      const errorEl = document.createElement("p");
+      errorEl.className = "idsai-app-dialog__error";
+      errorEl.hidden = true;
+      body.appendChild(errorEl);
+      dialog.appendChild(body);
+
+      const actions = document.createElement("footer");
+      actions.className = "idsai-app-dialog__actions";
+
+      const cancelBtn = document.createElement("button");
+      cancelBtn.type = "button";
+      cancelBtn.className = "idsai-app-dialog__button idsai-app-dialog__button--cancel";
+      cancelBtn.textContent = cancelText || "Отмена";
+
+      const confirmBtn = document.createElement("button");
+      confirmBtn.type = wantsForm ? "submit" : "button";
+      confirmBtn.className = `idsai-app-dialog__button idsai-app-dialog__button--primary${options.danger ? " idsai-app-dialog__button--danger" : ""}`;
+      confirmBtn.textContent = confirmText || "Подтвердить";
+
+      if (showCancel) {
+        actions.appendChild(cancelBtn);
+      }
+      actions.appendChild(confirmBtn);
+      dialog.appendChild(actions);
+
+      backdrop.appendChild(dialog);
+      layer.appendChild(backdrop);
+
+      const dialogState = {
+        backdrop,
+        resolve,
+        restoreFocus,
+        closed: false,
+        onKeyDown(event) {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            finishDialog(dialogState, wantsForm ? null : false);
+          }
+        },
+      };
+      activeDialog = dialogState;
+
+      const setError = (message) => {
+        const text = String(message || "").trim();
+        errorEl.textContent = text;
+        errorEl.hidden = !text;
+      };
+
+      const submit = async () => {
+        setError("");
+        if (!wantsForm) {
+          finishDialog(dialogState, true);
+          return;
+        }
+
+        const values = collectDialogValues(fields, fieldInputs);
+        if (typeof options.validate === "function") {
+          const validation = await options.validate(values);
+          if (typeof validation === "string" && validation.trim()) {
+            setError(validation);
+            return;
+          }
+        }
+        finishDialog(dialogState, values);
+      };
+
+      closeBtn.addEventListener("click", () => finishDialog(dialogState, wantsForm ? null : false));
+      cancelBtn.addEventListener("click", () => finishDialog(dialogState, wantsForm ? null : false));
+      confirmBtn.addEventListener("click", (event) => {
+        if (!wantsForm) {
+          event.preventDefault();
+          void submit();
+        }
+      });
+      if (wantsForm) {
+        body.addEventListener("submit", (event) => {
+          event.preventDefault();
+          void submit();
+        });
+      }
+      backdrop.addEventListener("click", (event) => {
+        if (event.target === backdrop) {
+          finishDialog(dialogState, wantsForm ? null : false);
+        }
+      });
+      document.addEventListener("keydown", dialogState.onKeyDown, true);
+
+      const firstField = fields.length > 0 ? fieldInputs.get(String(fields[0].name || "").trim()) : null;
+      window.setTimeout(() => {
+        if (firstField && "focus" in firstField) {
+          firstField.focus({ preventScroll: true });
+          if ("select" in firstField && typeof firstField.select === "function") {
+            firstField.select();
+          }
+          return;
+        }
+        confirmBtn.focus({ preventScroll: true });
+      }, 0);
+    });
+  }
+
+  async function showConfirmDialog(options = {}) {
+    return Boolean(await showDialog({ ...options, form: false }));
+  }
+
+  async function showFormDialog(options = {}) {
+    const result = await showDialog({ ...options, form: true });
+    return result && typeof result === "object" ? result : null;
+  }
+
+  async function showMessageDialog(options = {}) {
+    await showDialog({
+      title: options.title || "Сообщение",
+      message: options.message || "",
+      confirmText: options.confirmText || "Понятно",
+      showCancel: false,
+      danger: Boolean(options.danger),
+      form: false,
+    });
   }
 
   function redirectToNotFound(fromURL) {
@@ -558,6 +1035,9 @@
     requestJSON,
     redirectToNotFound,
     showAlert,
+    showConfirmDialog,
+    showFormDialog,
+    showMessageDialog,
     logout,
     targetByProfile,
   };

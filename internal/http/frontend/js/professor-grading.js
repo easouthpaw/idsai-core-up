@@ -1,6 +1,13 @@
 (() => {
   const auth = window.IDSAIAuth;
 
+  function confirmAction(options) {
+    if (auth && typeof auth.showConfirmDialog === "function") {
+      return auth.showConfirmDialog(options);
+    }
+    return Promise.resolve(window.confirm(String((options && options.message) || "")));
+  }
+
   const EDITABLE_STATUSES = new Set(["REVIEW", "GRADING"]);
   const FINALIZABLE_STATUSES = new Set(["GRADING"]);
 
@@ -599,7 +606,12 @@
       return;
     }
 
-    const confirmed = window.confirm("Завершить оценивание и перевести проект в завершенный статус?");
+    const confirmed = await confirmAction({
+      title: "Завершить оценивание",
+      message: "Проект будет переведен в завершенный статус, а итоговые оценки зафиксируются в карточке проекта.",
+      confirmText: "Завершить оценивание",
+      danger: true,
+    });
     if (!confirmed) return;
 
     ui.publishGradingBtn.disabled = true;

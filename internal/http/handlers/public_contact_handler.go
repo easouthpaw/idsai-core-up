@@ -9,19 +9,13 @@ import (
 	"time"
 	"unicode"
 
+	"idsai-core-up/internal/http/dto"
+
 	"github.com/gin-gonic/gin"
 )
 
 type contactMessageSender interface {
 	SendText(ctx context.Context, text string) error
-}
-
-type authorContactReq struct {
-	Name    string `json:"name"`
-	Phone   string `json:"phone"`
-	Email   string `json:"email"`
-	Contact string `json:"contact"`
-	Message string `json:"message"`
 }
 
 type PublicContactHandler struct {
@@ -42,7 +36,7 @@ func NewPublicContactHandler(sender contactMessageSender, serverName string) *Pu
 }
 
 func (h *PublicContactHandler) Submit(c *gin.Context) {
-	var req authorContactReq
+	var req dto.PublicContactRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
@@ -76,7 +70,7 @@ func (h *PublicContactHandler) Submit(c *gin.Context) {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"status": "sent"})
+		c.JSON(http.StatusOK, dto.StatusResponse{Status: "sent"})
 		return
 	}
 
@@ -113,7 +107,7 @@ func (h *PublicContactHandler) Submit(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "sent"})
+	c.JSON(http.StatusOK, dto.StatusResponse{Status: "sent"})
 }
 
 func compactContactLine(v string) string {

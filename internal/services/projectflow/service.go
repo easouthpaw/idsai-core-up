@@ -100,24 +100,24 @@ func NewService(
 }
 
 type Stack struct {
-	Code string `json:"code"`
+	Code string
 }
 
 type Criterion struct {
-	ID          string    `json:"id"`
-	ProjectID   string    `json:"project_id"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	Weight      int       `json:"weight"`
-	CreatedBy   string    `json:"created_by"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID          string
+	ProjectID   string
+	Title       string
+	Description string
+	Weight      int
+	CreatedBy   string
+	CreatedAt   time.Time
 }
 
 type CriterionGrade struct {
-	CriterionID string     `json:"criterion_id"`
-	IsMet       *bool      `json:"is_met,omitempty"`
-	Comment     string     `json:"comment,omitempty"`
-	UpdatedAt   *time.Time `json:"updated_at,omitempty"`
+	CriterionID string
+	IsMet       *bool
+	Comment     string
+	UpdatedAt   *time.Time
 }
 
 type CriterionGradeUpsert struct {
@@ -127,107 +127,107 @@ type CriterionGradeUpsert struct {
 }
 
 type Position struct {
-	ID        string    `json:"id"`
-	ProjectID string    `json:"project_id"`
-	Code      string    `json:"code"`
-	Name      string    `json:"name"`
-	Capacity  int       `json:"capacity"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        string
+	ProjectID string
+	Code      string
+	Name      string
+	Capacity  int
+	CreatedAt time.Time
 }
 
 type Member struct {
-	ID            string     `json:"id"`
-	ProjectID     string     `json:"project_id"`
-	UserID        string     `json:"user_id"`
-	FullName      string     `json:"full_name,omitempty"`
-	Email         string     `json:"email,omitempty"`
-	PositionID    *string    `json:"position_id,omitempty"`
-	PositionCode  *string    `json:"position_code,omitempty"`
-	PositionName  *string    `json:"position_name,omitempty"`
-	Status        string     `json:"status"`
-	InviteComment string     `json:"invite_comment,omitempty"`
-	InvitedBy     *string    `json:"invited_by,omitempty"`
-	RespondedAt   *time.Time `json:"responded_at,omitempty"`
-	JoinedAt      *time.Time `json:"joined_at,omitempty"`
-	CreatedAt     time.Time  `json:"created_at"`
+	ID            string
+	ProjectID     string
+	UserID        string
+	FullName      string
+	Email         string
+	PositionID    *string
+	PositionCode  *string
+	PositionName  *string
+	Status        string
+	InviteComment string
+	InvitedBy     *string
+	RespondedAt   *time.Time
+	JoinedAt      *time.Time
+	CreatedAt     time.Time
 }
 
 type Task struct {
-	ID             string     `json:"id"`
-	ProjectID      string     `json:"project_id"`
-	Title          string     `json:"title"`
-	Description    string     `json:"description"`
-	PositionID     string     `json:"position_id"`
-	PositionCode   string     `json:"position_code"`
-	PositionName   string     `json:"position_name"`
-	AssigneeUserID *string    `json:"assignee_user_id,omitempty"`
-	Status         string     `json:"status"`
-	CreatedBy      string     `json:"created_by"`
-	DueAt          *time.Time `json:"due_at,omitempty"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
+	ID             string
+	ProjectID      string
+	Title          string
+	Description    string
+	PositionID     string
+	PositionCode   string
+	PositionName   string
+	AssigneeUserID *string
+	Status         string
+	CreatedBy      string
+	DueAt          *time.Time
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 type TaskActivity struct {
-	ID          string    `json:"id"`
-	ProjectID   string    `json:"project_id"`
-	TaskID      string    `json:"task_id"`
-	ActorUserID *string   `json:"actor_user_id,omitempty"`
-	ActorName   string    `json:"actor_name,omitempty"`
-	ActorEmail  string    `json:"actor_email,omitempty"`
-	EventType   string    `json:"event_type"`
-	FromStatus  string    `json:"from_status,omitempty"`
-	ToStatus    string    `json:"to_status,omitempty"`
-	Title       string    `json:"title,omitempty"`
-	Comment     string    `json:"comment,omitempty"`
-	Attachments []string  `json:"attachments,omitempty"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID          string
+	ProjectID   string
+	TaskID      string
+	ActorUserID *string
+	ActorName   string
+	ActorEmail  string
+	EventType   string
+	FromStatus  string
+	ToStatus    string
+	Title       string
+	Comment     string
+	Attachments []string
+	CreatedAt   time.Time
 }
 
 type StudentCandidate struct {
-	UserID         string `json:"user_id"`
-	FullName       string `json:"full_name"`
-	Email          string `json:"email"`
-	DepartmentCode string `json:"department_code"`
+	UserID         string
+	FullName       string
+	Email          string
+	DepartmentCode string
 }
 
 type ProfessorCandidate struct {
-	UserID         string `json:"user_id"`
-	FullName       string `json:"full_name"`
-	Email          string `json:"email"`
-	DepartmentCode string `json:"department_code"`
+	UserID         string
+	FullName       string
+	Email          string
+	DepartmentCode string
 }
 
 type IncomingInvite struct {
-	ProjectID     string     `json:"project_id"`
-	ProjectTitle  string     `json:"project_title"`
-	ProjectStatus string     `json:"project_status"`
-	Status        string     `json:"status"`
-	UserID        string     `json:"user_id,omitempty"`
-	InviteComment string     `json:"invite_comment,omitempty"`
-	InvitedBy     *string    `json:"invited_by,omitempty"`
-	InviterName   string     `json:"inviter_name,omitempty"`
-	InviterEmail  string     `json:"inviter_email,omitempty"`
-	CreatedAt     time.Time  `json:"created_at"`
-	RespondedAt   *time.Time `json:"responded_at,omitempty"`
+	ProjectID     string
+	ProjectTitle  string
+	ProjectStatus string
+	Status        string
+	UserID        string
+	InviteComment string
+	InvitedBy     *string
+	InviterName   string
+	InviterEmail  string
+	CreatedAt     time.Time
+	RespondedAt   *time.Time
 }
 
 type OutgoingApplication struct {
-	ProjectID     string     `json:"project_id"`
-	ProjectTitle  string     `json:"project_title"`
-	ProjectStatus string     `json:"project_status"`
-	Status        string     `json:"status"`
-	CreatedAt     time.Time  `json:"created_at"`
-	RespondedAt   *time.Time `json:"responded_at,omitempty"`
+	ProjectID     string
+	ProjectTitle  string
+	ProjectStatus string
+	Status        string
+	CreatedAt     time.Time
+	RespondedAt   *time.Time
 }
 
 type Readiness struct {
-	ProjectID       string `json:"project_id"`
-	Status          string `json:"status"`
-	RequiredMembers int    `json:"required_members"`
-	ActiveMembers   int    `json:"active_members"`
-	HasProfessor    bool   `json:"has_professor"`
-	ProfessorStatus string `json:"professor_status"`
-	CriteriaCount   int    `json:"criteria_count"`
-	CanActivate     bool   `json:"can_activate"`
+	ProjectID       string
+	Status          string
+	RequiredMembers int
+	ActiveMembers   int
+	HasProfessor    bool
+	ProfessorStatus string
+	CriteriaCount   int
+	CanActivate     bool
 }

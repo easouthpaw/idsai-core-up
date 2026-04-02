@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"idsai-core-up/internal/domain"
+	"idsai-core-up/internal/http/dto"
 	"idsai-core-up/internal/http/middleware"
 	"idsai-core-up/internal/services/projects"
 
@@ -12,20 +13,12 @@ import (
 	"github.com/google/uuid"
 )
 
-type groupOptionResponse struct {
-	ID         string `json:"id"`
-	Code       string `json:"code"`
-	Name       string `json:"name"`
-	Department string `json:"department"`
-	Number     string `json:"number"`
-}
-
 // GetProject
 // @Summary Get project by id
 // @Tags Projects
 // @Produce json
 // @Param project_id path string true "Project UUID"
-// @Success 200 {object} projectResponse
+// @Success 200 {object} dto.ProjectResponse
 // @Failure 400 {object} map[string]string
 // @Failure 403 {object} map[string]string
 // @Failure 404 {object} map[string]string
@@ -63,14 +56,14 @@ func (h *ProjectsHandler) Get(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, projectViewToResponse(view))
+	c.JSON(http.StatusOK, dto.ProjectResponseFromView(view))
 }
 
 // ListMyProjects
 // @Summary List my projects
 // @Tags Projects
 // @Produce json
-// @Success 200 {array} projectResponse
+// @Success 200 {array} dto.ProjectResponse
 // @Failure 400 {object} map[string]string
 // @Failure 401 {object} map[string]string
 // @Failure 500 {object} map[string]string
@@ -88,9 +81,9 @@ func (h *ProjectsHandler) ListMine(c *gin.Context) {
 		return
 	}
 
-	resp := make([]projectResponse, 0, len(items))
+	resp := make([]dto.ProjectResponse, 0, len(items))
 	for _, p := range items {
-		resp = append(resp, projectToResponse(p))
+		resp = append(resp, dto.ProjectResponseFromDomain(p))
 	}
 
 	c.JSON(http.StatusOK, resp)
@@ -100,7 +93,7 @@ func (h *ProjectsHandler) ListMine(c *gin.Context) {
 // @Summary List all projects in current faculty
 // @Tags Projects
 // @Produce json
-// @Success 200 {array} projectResponse
+// @Success 200 {array} dto.ProjectResponse
 // @Failure 401 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /projects/faculty [get]
@@ -122,9 +115,9 @@ func (h *ProjectsHandler) ListFaculty(c *gin.Context) {
 		return
 	}
 
-	resp := make([]projectResponse, 0, len(items))
+	resp := make([]dto.ProjectResponse, 0, len(items))
 	for _, p := range items {
-		resp = append(resp, projectToResponse(p))
+		resp = append(resp, dto.ProjectResponseFromDomain(p))
 	}
 
 	c.JSON(http.StatusOK, resp)
@@ -134,7 +127,7 @@ func (h *ProjectsHandler) ListFaculty(c *gin.Context) {
 // @Summary List all public projects
 // @Tags Projects
 // @Produce json
-// @Success 200 {array} projectResponse
+// @Success 200 {array} dto.ProjectResponse
 // @Failure 500 {object} map[string]string
 // @Router /projects/public [get]
 func (h *ProjectsHandler) ListPublic(c *gin.Context) {
@@ -146,9 +139,9 @@ func (h *ProjectsHandler) ListPublic(c *gin.Context) {
 		return
 	}
 
-	resp := make([]projectResponse, 0, len(items))
+	resp := make([]dto.ProjectResponse, 0, len(items))
 	for _, p := range items {
-		resp = append(resp, projectToResponse(p))
+		resp = append(resp, dto.ProjectResponseFromDomain(p))
 	}
 
 	c.JSON(http.StatusOK, resp)
@@ -158,7 +151,7 @@ func (h *ProjectsHandler) ListPublic(c *gin.Context) {
 // @Summary List predefined groups for faculty
 // @Tags Projects
 // @Produce json
-// @Success 200 {array} groupOptionResponse
+// @Success 200 {array} dto.GroupOptionResponse
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /projects/groups [get]
@@ -175,17 +168,5 @@ func (h *ProjectsHandler) ListGroups(c *gin.Context) {
 		return
 	}
 
-	resp := make([]groupOptionResponse, 0, len(items))
-	for _, g := range items {
-		dept, num := splitGroupCode(g.Code)
-		resp = append(resp, groupOptionResponse{
-			ID:         g.ID.String(),
-			Code:       g.Code,
-			Name:       g.Name,
-			Department: dept,
-			Number:     num,
-		})
-	}
-
-	c.JSON(http.StatusOK, resp)
+	c.JSON(http.StatusOK, dto.GroupOptionResponsesFromService(items))
 }

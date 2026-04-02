@@ -4,15 +4,12 @@ import (
 	"net/http"
 	"strings"
 
+	"idsai-core-up/internal/http/dto"
 	"idsai-core-up/internal/http/middleware"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
-
-type assignProfessorReq struct {
-	ProfessorID string `json:"professor_id" binding:"required"`
-}
 
 func (h *ProjectFlowHandler) SearchProfessors(c *gin.Context) {
 	uid, ok := parseUserID(c)
@@ -31,7 +28,7 @@ func (h *ProjectFlowHandler) SearchProfessors(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, items)
+	c.JSON(http.StatusOK, dto.ProjectFlowProfessorCandidateResponsesFromService(items))
 }
 
 func (h *ProjectFlowHandler) GetAssignedProfessor(c *gin.Context) {
@@ -48,7 +45,7 @@ func (h *ProjectFlowHandler) GetAssignedProfessor(c *gin.Context) {
 		handleFlowErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"professor": item})
+	c.JSON(http.StatusOK, dto.AssignedProfessorResponseFromService(item))
 }
 
 func (h *ProjectFlowHandler) AssignProfessor(c *gin.Context) {
@@ -66,7 +63,7 @@ func (h *ProjectFlowHandler) AssignProfessor(c *gin.Context) {
 		return
 	}
 
-	var req assignProfessorReq
+	var req dto.AssignProfessorRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
@@ -96,7 +93,7 @@ func (h *ProjectFlowHandler) AssignProfessor(c *gin.Context) {
 		true,
 	))
 
-	c.JSON(http.StatusOK, projectToResponse(p))
+	c.JSON(http.StatusOK, dto.ProjectResponseFromDomain(p))
 }
 
 func (h *ProjectFlowHandler) RespondProfessorInvite(c *gin.Context) {
@@ -114,7 +111,7 @@ func (h *ProjectFlowHandler) RespondProfessorInvite(c *gin.Context) {
 		return
 	}
 
-	var req respondInviteReq
+	var req dto.RespondInviteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
@@ -148,7 +145,7 @@ func (h *ProjectFlowHandler) RespondProfessorInvite(c *gin.Context) {
 		true,
 	))
 
-	c.JSON(http.StatusOK, projectToResponse(p))
+	c.JSON(http.StatusOK, dto.ProjectResponseFromDomain(p))
 }
 
 func (h *ProjectFlowHandler) ListProfessorReviewInvites(c *gin.Context) {
@@ -165,9 +162,9 @@ func (h *ProjectFlowHandler) ListProfessorReviewInvites(c *gin.Context) {
 		return
 	}
 
-	out := make([]projectResponse, 0, len(items))
+	out := make([]dto.ProjectResponse, 0, len(items))
 	for _, item := range items {
-		out = append(out, projectToResponse(item))
+		out = append(out, dto.ProjectResponseFromDomain(item))
 	}
 	c.JSON(http.StatusOK, out)
 }

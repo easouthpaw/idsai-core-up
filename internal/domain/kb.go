@@ -14,49 +14,49 @@ var (
 )
 
 type KBCategory struct {
-	ID        uuid.UUID  `json:"id"`
-	TenantID  uuid.UUID  `json:"tenant_id"`
-	ParentID  *uuid.UUID `json:"parent_id"`
-	Title     string     `json:"title"`
-	Slug      string     `json:"slug"`
-	SortOrder int        `json:"sort_order"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
+	ID        uuid.UUID
+	TenantID  uuid.UUID
+	ParentID  *uuid.UUID
+	Title     string
+	Slug      string
+	SortOrder int
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 type KBArticle struct {
-	ID           uuid.UUID  `json:"id"`
-	TenantID     uuid.UUID  `json:"tenant_id"`
-	CategoryID   uuid.UUID  `json:"category_id"`
-	AuthorID     uuid.UUID  `json:"author_id"`
-	Title        string     `json:"title"`
-	Slug         string     `json:"slug"`
-	Content      string     `json:"content"`
-	Status       string     `json:"status"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
-	PublishedAt  *time.Time `json:"published_at"`
-	AuthorName   string     `json:"author_name"`
-	AuthorAvatar string     `json:"author_avatar"`
-	CategoryPath string     `json:"category_path"`
-	Tags         []string   `json:"tags"`
+	ID           uuid.UUID
+	TenantID     uuid.UUID
+	CategoryID   uuid.UUID
+	AuthorID     uuid.UUID
+	Title        string
+	Slug         string
+	Content      string
+	Status       string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	PublishedAt  *time.Time
+	AuthorName   string
+	AuthorAvatar string
+	CategoryPath string
+	Tags         []string
 }
 
 type KBArticleListItem struct {
-	ID          uuid.UUID  `json:"id"`
-	CategoryID  uuid.UUID  `json:"category_id"`
-	AuthorID    uuid.UUID  `json:"author_id"`
-	Title       string     `json:"title"`
-	Slug        string     `json:"slug"`
-	Status      string     `json:"status"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	PublishedAt *time.Time `json:"published_at"`
-	AuthorName  string     `json:"author_name"`
-	Tags        []string   `json:"tags"`
+	ID          uuid.UUID
+	CategoryID  uuid.UUID
+	AuthorID    uuid.UUID
+	Title       string
+	Slug        string
+	Status      string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	PublishedAt *time.Time
+	AuthorName  string
+	Tags        []string
 }
 
 type KBTag struct {
-	ID   uuid.UUID `json:"id"`
-	Name string    `json:"name"`
+	ID   uuid.UUID
+	Name string
 }

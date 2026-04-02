@@ -327,8 +327,29 @@ FROM projects p
 LEFT JOIN users u ON u.id = p.created_by
 LEFT JOIN user_profiles up ON up.user_id = p.created_by
 WHERE p.tenant_id = $1
-  AND p.created_by = $2
-ORDER BY p.created_at DESC;
+  AND (
+    p.created_by = $2
+    OR EXISTS (
+      SELECT 1
+      FROM project_members pm
+      WHERE pm.project_id = p.id
+        AND pm.tenant_id = p.tenant_id
+        AND pm.user_id = $2
+        AND pm.status = 'ACTIVE'
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM role_assignments ra
+      JOIN roles r ON r.id = ra.role_id
+      WHERE ra.user_id = $2
+        AND ra.tenant_id = p.tenant_id
+        AND ra.scope_type = 'PROJECT'
+        AND ra.scope_id = p.id
+        AND (ra.expires_at IS NULL OR ra.expires_at > now())
+        AND r.code = 'PROJECT_PROFESSOR'
+    )
+  )
+ORDER BY p.updated_at DESC, p.created_at DESC;
 `
 	rows, err := r.db.Query(ctx, q, tenantID, createdBy)
 	if err != nil {

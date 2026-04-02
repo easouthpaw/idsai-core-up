@@ -43,6 +43,7 @@ func registerProjectFlowRoutes(
 	projectFlow.GET("/members", requireProject("project.view"), projectFlowH.ListMembers)
 	projectFlow.POST("/members/:user_id/approve", requireProject("member.approve"), projectFlowH.ApproveMember)
 	projectFlow.POST("/members/:user_id/reject", requireProject("member.approve"), projectFlowH.RejectMember)
+	projectFlow.DELETE("/members/:user_id", requireProject("member.approve"), projectFlowH.RemoveMember)
 	projectFlow.PATCH("/members/:user_id/position", requireProject("member.approve"), projectFlowH.SetMemberPosition)
 	projectFlow.GET("/professor", requireProject("project.view"), projectFlowH.GetAssignedProfessor)
 	projectFlow.POST("/professor", requireProject("project.invite_professor"), projectFlowH.AssignProfessor)

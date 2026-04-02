@@ -286,6 +286,51 @@ RETURNING id, project_id, user_id, position_id, status, invite_comment, invited_
 	return m, mapProjectFlowErr(err)
 }
 
+func (r *ProjectFlowRepo) RemoveProjectMember(
+	ctx context.Context,
+	projectID, memberUserID uuid.UUID,
+) (projectflow.Member, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return projectflow.Member{}, err
+	}
+
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return projectflow.Member{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	const q = `
+UPDATE project_members
+SET status='REMOVED', position_id=NULL, joined_at=NULL, responded_at=now()
+WHERE tenant_id = $1
+  AND project_id = $2
+  AND user_id = $3
+  AND status IN ('ACTIVE', 'INVITED')
+RETURNING id, project_id, user_id, position_id, status, invite_comment, invited_by, responded_at, joined_at, created_at;
+`
+	m, err := scanMemberRow(tx.QueryRow(ctx, q, tenantID, projectID, memberUserID))
+	if err != nil {
+		return projectflow.Member{}, err
+	}
+
+	if _, err := tx.Exec(ctx, `
+UPDATE tasks
+SET assignee_user_id = NULL,
+    updated_at = now()
+WHERE project_id = $1
+  AND assignee_user_id = $2;
+`, projectID, memberUserID); err != nil {
+		return projectflow.Member{}, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return projectflow.Member{}, err
+	}
+	return m, nil
+}
+
 func (r *ProjectFlowRepo) SetActiveMemberPosition(
 	ctx context.Context,
 	projectID, memberUserID, positionID uuid.UUID,
