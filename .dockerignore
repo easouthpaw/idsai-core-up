@@ -1,0 +1,10 @@
+.git
+.github
+.vscode
+.env
+.env.*
+tmp
+bin
+dist
+coverage
+node_modules

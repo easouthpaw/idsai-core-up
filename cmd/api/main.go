@@ -73,15 +73,19 @@ func main() {
 		IdleTimeout:       120 * time.Second,
 	}
 
-	healthMonitor := alerts.NewHealthMonitor(
-		a.DB,
-		notifier,
-		time.Duration(a.Cfg.HealthcheckPollS)*time.Second,
-		time.Duration(a.Cfg.HeartbeatS)*time.Second,
-	)
-	go runGuard(notifier, "health monitor", func() {
-		healthMonitor.Start(rootCtx)
-	})
+	if a.Cfg.HealthMonitorEnable {
+		healthMonitor := alerts.NewHealthMonitor(
+			a.DB,
+			notifier,
+			time.Duration(a.Cfg.HealthcheckPollS)*time.Second,
+			time.Duration(a.Cfg.HeartbeatS)*time.Second,
+		)
+		go runGuard(notifier, "health monitor", func() {
+			healthMonitor.Start(rootCtx)
+		})
+	} else {
+		log.Printf("health monitor disabled by HEALTH_MONITOR_ENABLED=false")
+	}
 
 	ln, err := net.Listen("tcp", a.Cfg.Addr)
 	if err != nil {

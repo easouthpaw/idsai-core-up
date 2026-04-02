@@ -12,6 +12,10 @@ import (
 )
 
 func startEmailOutboxDispatcher(ctx context.Context, cfg config.Config, repo notifications.OutboxRepository) {
+	if !cfg.BackgroundJobsEnable {
+		log.Printf("background jobs disabled by BACKGROUND_JOBS_ENABLED=false")
+		return
+	}
 	if !cfg.EmailEnable {
 		log.Printf("email notifications disabled by EMAIL_ENABLED=false")
 		return

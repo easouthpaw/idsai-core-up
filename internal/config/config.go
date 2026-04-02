@@ -44,16 +44,18 @@ type Config struct {
 	RedisAddr                 string
 	RedisPassword             string
 	RedisDB                   int
+	BackgroundJobsEnable      bool
+	HealthMonitorEnable       bool
 }
 
 func Load() Config {
 	_ = godotenv.Load()
 
 	return Config{
-		Addr:                      getenv("ADDR", ":8080"),
+		Addr:                      getenvAddr("ADDR", "PORT", ":8080"),
 		DatabaseURL:               getenv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/idsai?sslmode=disable"),
 		JWTSecret:                 getenv("JWT_SECRET", ""),
-		PublicBaseURL:             getenv("PUBLIC_BASE_URL", "http://localhost:8080"),
+		PublicBaseURL:             getenvFirstNonEmpty([]string{"PUBLIC_BASE_URL", "RENDER_EXTERNAL_URL"}, "http://localhost:8080"),
 		SMTPHost:                  getenv("SMTP_HOST", ""),
 		SMTPPort:                  getenv("SMTP_PORT", "587"),
 		SMTPUser:                  getenv("SMTP_USER", ""),
@@ -81,9 +83,11 @@ func Load() Config {
 		StorageBucket:             getenv("MINIO_BUCKET", "idsai-media"),
 		StorageUseSSL:             getenvBool("MINIO_USE_SSL", false),
 		StoragePublicBaseURL:      getenv("MINIO_PUBLIC_BASE_URL", ""),
-		RedisAddr:                 getenv("REDIS_ADDR", "localhost:6379"),
+		RedisAddr:                 getenv("REDIS_ADDR", ""),
 		RedisPassword:             getenv("REDIS_PASSWORD", ""),
 		RedisDB:                   getenvInt("REDIS_DB", 0),
+		BackgroundJobsEnable:      getenvBool("BACKGROUND_JOBS_ENABLED", true),
+		HealthMonitorEnable:       getenvBool("HEALTH_MONITOR_ENABLED", true),
 	}
 }
 
@@ -129,4 +133,23 @@ func getenvBool(key string, fallback bool) bool {
 	default:
 		return fallback
 	}
+}
+
+func getenvAddr(addrKey, portKey, fallback string) string {
+	if v := strings.TrimSpace(os.Getenv(addrKey)); v != "" {
+		return v
+	}
+	if port := strings.TrimSpace(os.Getenv(portKey)); port != "" {
+		return ":" + strings.TrimPrefix(port, ":")
+	}
+	return fallback
+}
+
+func getenvFirstNonEmpty(keys []string, fallback string) string {
+	for _, key := range keys {
+		if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+			return v
+		}
+	}
+	return fallback
 }
