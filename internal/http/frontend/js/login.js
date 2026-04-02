@@ -297,7 +297,11 @@
 
     auth.clearClientState();
     setTab("login");
-    setStatus("Аккаунт создан. Подтвердите email по ссылке из письма, затем войдите.", true);
+    if (out.data && out.data.status === "registered") {
+      setStatus("Аккаунт создан. Теперь можно войти.", true);
+    } else {
+      setStatus("Аккаунт создан. Подтвердите email по ссылке из письма, затем войдите.", true);
+    }
     showJSON(out.data);
   }
 

@@ -155,6 +155,13 @@ func (f *authHandlerRepo) InvalidateAuthTokens(ctx context.Context, tenantID, us
 
 func newAuthHandlerForTest(t *testing.T) *AuthHandler {
 	t.Helper()
+	return newAuthHandlerForTestWithConfig(t, auth.Config{
+		JWTSecret: "01234567890123456789012345678901",
+	})
+}
+
+func newAuthHandlerForTestWithConfig(t *testing.T, cfg auth.Config) *AuthHandler {
+	t.Helper()
 
 	hash, err := passwords.Hash("valid-password1")
 	require.NoError(t, err)
@@ -175,9 +182,7 @@ func newAuthHandlerForTest(t *testing.T) *AuthHandler {
 		},
 	}
 
-	svc := auth.NewService(repo, auth.Config{
-		JWTSecret: "01234567890123456789012345678901",
-	})
+	svc := auth.NewService(repo, cfg)
 	return NewAuthHandler(svc)
 }
 
@@ -253,4 +258,59 @@ func TestAuthHandlerRefreshWithoutSessionReturnsNoContent(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusNoContent, w.Code)
+}
+
+func TestAuthHandlerRegisterReturnsVerificationRequiredByDefault(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	h := newAuthHandlerForTest(t)
+	r := gin.New()
+	r.POST("/v2/auth/register", h.RegisterStudent)
+
+	body, err := json.Marshal(map[string]string{
+		"email":           "new.student@example.edu",
+		"password":        "valid-password1",
+		"full_name":       "New Student",
+		"department_code": "CS",
+		"group_code":      "CS-101",
+	})
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/v2/auth/register", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusAccepted, w.Code)
+	require.JSONEq(t, `{"status":"verification_required"}`, w.Body.String())
+}
+
+func TestAuthHandlerRegisterReturnsRegisteredWhenAutoVerifyEnabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	h := newAuthHandlerForTestWithConfig(t, auth.Config{
+		JWTSecret:             "01234567890123456789012345678901",
+		AutoVerifyRegistrants: true,
+	})
+	r := gin.New()
+	r.POST("/v2/auth/register", h.RegisterStudent)
+
+	body, err := json.Marshal(map[string]string{
+		"email":           "new.student@example.edu",
+		"password":        "valid-password1",
+		"full_name":       "New Student",
+		"department_code": "CS",
+		"group_code":      "CS-101",
+	})
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/v2/auth/register", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusAccepted, w.Code)
+	require.JSONEq(t, `{"status":"registered"}`, w.Body.String())
 }

@@ -20,6 +20,7 @@ type Config struct {
 	SMTPUser                  string
 	SMTPPass                  string
 	SMTPFrom                  string
+	ContactEmailTo            string
 	EmailEnable               bool
 	OutboxPollS               int
 	ServerName                string
@@ -64,6 +65,7 @@ func Load() Config {
 		SMTPUser:                  getenv("SMTP_USER", ""),
 		SMTPPass:                  getenv("SMTP_PASS", ""),
 		SMTPFrom:                  getenv("SMTP_FROM", "noreply@idsai.local"),
+		ContactEmailTo:            getenv("CONTACT_EMAIL_TO", ""),
 		EmailEnable:               getenvBool("EMAIL_ENABLED", true),
 		OutboxPollS:               getenvInt("NOTIFICATIONS_OUTBOX_POLL_SECONDS", 15),
 		ServerName:                getenv("SERVER_NAME", "idsai"),

@@ -307,6 +307,10 @@ func (s *Service) PasswordResetTTL() time.Duration {
 	return s.passwordResetTTL
 }
 
+func (s *Service) RegistrationRequiresVerification() bool {
+	return !s.autoVerifyRegs
+}
+
 func (s *Service) RegisterStudent(ctx context.Context, tenantCode, email, password, fullName, departmentCode, groupCode string) error {
 	tenantCode = normalizeTenantCode(tenantCode)
 	tenantID, err := s.repo.FindTenantByCode(ctx, tenantCode)

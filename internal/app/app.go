@@ -4,13 +4,11 @@ import (
 	"context"
 	"log"
 	"strings"
-	"time"
 
 	"idsai-core-up/internal/config"
 	"idsai-core-up/internal/db"
 	httpx "idsai-core-up/internal/http"
 	"idsai-core-up/internal/http/handlers"
-	"idsai-core-up/internal/infra/alerts"
 	"idsai-core-up/internal/infra/cache"
 
 	"github.com/gin-gonic/gin"
@@ -36,16 +34,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 
 	modules := wireModules(pool, cfg)
 	startEmailOutboxDispatcher(ctx, cfg, modules.notificationsRepo)
-	publicContactHandler := handlers.NewPublicContactHandler(
-		alerts.NewTelegramNotifier(
-			cfg.TelegramBotToken,
-			cfg.TelegramSuperadminChat,
-			cfg.ServerName,
-			5*time.Second,
-			0,
-		),
-		cfg.ServerName,
-	)
+	publicContactHandler := handlers.NewPublicContactHandler(newPublicContactSender(cfg), cfg.ServerName)
 
 	router := httpx.NewRouter(
 		pool,

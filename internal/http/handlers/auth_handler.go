@@ -188,7 +188,11 @@ func (h *AuthHandler) RegisterStudent(c *gin.Context) {
 	}
 
 	clearSessionCookies(c)
-	c.JSON(http.StatusAccepted, dto.AuthStatusResponse{Status: "verification_required"})
+	status := "verification_required"
+	if !h.svc.RegistrationRequiresVerification() {
+		status = "registered"
+	}
+	c.JSON(http.StatusAccepted, dto.AuthStatusResponse{Status: status})
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
