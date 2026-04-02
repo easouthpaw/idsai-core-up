@@ -75,32 +75,68 @@
               </div>
             </div>
             <div class="hero-meta" aria-label="Сводка администратора">
-              <article class="hero-meta-card">
-                <span class="material-symbols-outlined">verified_user</span>
-                <div>
-                  <p>Роль</p>
-                  <strong>SUPER_ADMIN</strong>
+              <article class="hero-folder hero-folder--action">
+                <p class="hero-folder-label">Quick action 01</p>
+                <div class="hero-folder-card hero-folder-card--action">
+                  <div class="hero-action-head">
+                    <span class="material-symbols-outlined">group</span>
+                    <div class="hero-folder-meta">
+                      <strong class="hero-folder-title">Пользователи</strong>
+                      <p class="hero-folder-copy">Аккаунты, роли, статусы и быстрый переход в реестр пользователей.</p>
+                    </div>
+                  </div>
+                  <div class="hero-action-foot">
+                    <code class="hero-action-command">open users --scope=all</code>
+                    <button id="openUsersViewBtn" class="ghost-btn hero-action-btn" type="button">Открыть</button>
+                  </div>
                 </div>
               </article>
-              <article class="hero-meta-card">
-                <span class="material-symbols-outlined">manage_accounts</span>
-                <div>
-                  <p>Фокус</p>
-                  <strong>Users & Projects</strong>
+              <article class="hero-folder hero-folder--action">
+                <p class="hero-folder-label">Quick action 02</p>
+                <div class="hero-folder-card hero-folder-card--action">
+                  <div class="hero-action-head">
+                    <span class="material-symbols-outlined">folder_data</span>
+                    <div class="hero-folder-meta">
+                      <strong class="hero-folder-title">Проекты</strong>
+                      <p class="hero-folder-copy">Запуск, статусы, удаление и наблюдение за проектным потоком.</p>
+                    </div>
+                  </div>
+                  <div class="hero-action-foot">
+                    <code class="hero-action-command">open projects --live</code>
+                    <button id="openProjectsViewBtn" class="ghost-btn hero-action-btn" type="button">Открыть</button>
+                  </div>
                 </div>
               </article>
-              <article class="hero-meta-card">
-                <span class="material-symbols-outlined">bolt</span>
-                <div>
-                  <p>Режим</p>
-                  <strong>Live control</strong>
+              <article class="hero-folder hero-folder--action">
+                <p class="hero-folder-label">Quick action 03</p>
+                <div class="hero-folder-card hero-folder-card--action">
+                  <div class="hero-action-head">
+                    <span class="material-symbols-outlined">lan</span>
+                    <div class="hero-folder-meta">
+                      <strong class="hero-folder-title">Группы</strong>
+                      <p class="hero-folder-copy">Структура потоков, кафедры и административные переводы в одном контуре.</p>
+                    </div>
+                  </div>
+                  <div class="hero-action-foot">
+                    <code class="hero-action-command">goto /dev/groups</code>
+                    <a class="ghost-btn hero-action-btn" href="/dev/groups">Открыть</a>
+                  </div>
                 </div>
               </article>
-              <article class="hero-meta-card">
-                <span class="material-symbols-outlined">lan</span>
-                <div>
-                  <p>Контур</p>
-                  <strong>Пользователи, проекты, структура и RBAC в одном экране</strong>
+              <article class="hero-folder hero-folder--action">
+                <p class="hero-folder-label">Quick action 04</p>
+                <div class="hero-folder-card hero-folder-card--action">
+                  <div class="hero-action-head">
+                    <span class="material-symbols-outlined">library_books</span>
+                    <div class="hero-folder-meta">
+                      <strong class="hero-folder-title">База знаний</strong>
+                      <p class="hero-folder-copy">Внутренние гайды, редактор статей и документация для команды.</p>
+                    </div>
+                  </div>
+                  <div class="hero-action-foot">
+                    <code class="hero-action-command">goto /dev/kb</code>
+                    <a class="ghost-btn hero-action-btn" href="/dev/kb">Открыть</a>
+                  </div>
                 </div>
               </article>
             </div>
@@ -195,56 +231,25 @@
               </div>
             </article>
 
-            <article class="dashboard-section-card quick-links-card">
-              <div class="dashboard-section-head">
-                <div>
-                  <p class="section-kicker">Fast lanes</p>
-                  <h3>Быстрые переходы</h3>
+            <article class="activity-card activity-card--terminal dashboard-terminal-card">
+              <div class="activity-terminal-bar" aria-hidden="true">
+                <div class="activity-terminal-lights">
+                  <span class="activity-terminal-light red"></span>
+                  <span class="activity-terminal-light amber"></span>
+                  <span class="activity-terminal-light green"></span>
                 </div>
+                <span class="activity-terminal-title">idsai-admin://recent-signal</span>
               </div>
-              <div class="quick-grid">
-                <article class="quick-card">
-                  <div>
-                    <h3>Пользователи</h3>
-                    <p>Создание аккаунтов, роли, статусы и быстрые действия по доступам.</p>
-                  </div>
-                  <button id="openUsersViewBtn" class="ghost-btn" type="button">Открыть</button>
-                </article>
-                <article class="quick-card">
-                  <div>
-                    <h3>Проекты</h3>
-                    <p>Статусы, запуск, удаление и мониторинг проектного потока.</p>
-                  </div>
-                  <button id="openProjectsViewBtn" class="ghost-btn" type="button">Открыть</button>
-                </article>
-                <article class="quick-card">
-                  <div>
-                    <h3>Группы и кафедры</h3>
-                    <p>Структура студентов, групп и административные заявки на переводы.</p>
-                  </div>
-                  <a class="ghost-btn" href="/dev/groups">Открыть</a>
-                </article>
-                <article class="quick-card">
-                  <div>
-                    <h3>База знаний</h3>
-                    <p>Редактор, категории и статьи для внутренних гайдов и документации.</p>
-                  </div>
-                  <a class="ghost-btn" href="/dev/kb">Открыть</a>
-                </article>
+              <div class="activity-head">
+                <div>
+                  <p class="section-kicker">Recent signal</p>
+                  <h3>Последняя активность</h3>
+                </div>
+                <span>Пользователи и проекты</span>
               </div>
+              <ul id="activityList" class="activity-list"></ul>
             </article>
           </section>
-
-          <article class="activity-card">
-            <div class="activity-head">
-              <div>
-                <p class="section-kicker">Recent signal</p>
-                <h3>Последняя активность</h3>
-              </div>
-              <span>Пользователи и проекты</span>
-            </div>
-            <ul id="activityList" class="activity-list"></ul>
-          </article>
         </section>
 
         <section id="view-users" class="view">
