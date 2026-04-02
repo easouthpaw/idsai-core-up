@@ -18,12 +18,16 @@ services:
         value: "true"
       - key: EMAIL_ENABLED
         value: "false"
+      - key: AUTH_AUTO_VERIFY_REGISTRATIONS
+        value: "true"
       - key: BACKGROUND_JOBS_ENABLED
         value: "false"
       - key: REDIS_ADDR
         value: ""
       - key: HEALTH_MONITOR_ENABLED
         value: "false"
+      - key: LOCAL_STORAGE_DIR
+        value: "/tmp/idsai-media"
 
 databases:
   - name: idsai-demo-db

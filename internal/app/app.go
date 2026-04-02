@@ -3,14 +3,15 @@ package app
 import (
 	"context"
 	"log"
+	"strings"
 	"time"
 
 	"idsai-core-up/internal/config"
 	"idsai-core-up/internal/db"
-	"idsai-core-up/internal/infra/cache"
 	httpx "idsai-core-up/internal/http"
 	"idsai-core-up/internal/http/handlers"
 	"idsai-core-up/internal/infra/alerts"
+	"idsai-core-up/internal/infra/cache"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -59,6 +60,9 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		modules.notificationsSvc,
 		cfg.JWTSecret,
 	)
+	if dir := strings.TrimSpace(cfg.LocalStorageDir); dir != "" {
+		router.StaticFS("/media", gin.Dir(dir, false))
+	}
 
 	return &App{Cfg: cfg, DB: pool, HTTP: router, redis: modules.redisClient}, nil
 }

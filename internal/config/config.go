@@ -14,6 +14,7 @@ type Config struct {
 	DatabaseURL               string
 	JWTSecret                 string
 	PublicBaseURL             string
+	AuthAutoVerifyRegistrants bool
 	SMTPHost                  string
 	SMTPPort                  string
 	SMTPUser                  string
@@ -41,6 +42,7 @@ type Config struct {
 	StorageBucket             string
 	StorageUseSSL             bool
 	StoragePublicBaseURL      string
+	LocalStorageDir           string
 	RedisAddr                 string
 	RedisPassword             string
 	RedisDB                   int
@@ -56,6 +58,7 @@ func Load() Config {
 		DatabaseURL:               getenv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/idsai?sslmode=disable"),
 		JWTSecret:                 getenv("JWT_SECRET", ""),
 		PublicBaseURL:             getenvFirstNonEmpty([]string{"PUBLIC_BASE_URL", "RENDER_EXTERNAL_URL"}, "http://localhost:8080"),
+		AuthAutoVerifyRegistrants: getenvBool("AUTH_AUTO_VERIFY_REGISTRATIONS", false),
 		SMTPHost:                  getenv("SMTP_HOST", ""),
 		SMTPPort:                  getenv("SMTP_PORT", "587"),
 		SMTPUser:                  getenv("SMTP_USER", ""),
@@ -83,6 +86,7 @@ func Load() Config {
 		StorageBucket:             getenv("MINIO_BUCKET", "idsai-media"),
 		StorageUseSSL:             getenvBool("MINIO_USE_SSL", false),
 		StoragePublicBaseURL:      getenv("MINIO_PUBLIC_BASE_URL", ""),
+		LocalStorageDir:           getenv("LOCAL_STORAGE_DIR", ""),
 		RedisAddr:                 getenv("REDIS_ADDR", ""),
 		RedisPassword:             getenv("REDIS_PASSWORD", ""),
 		RedisDB:                   getenvInt("REDIS_DB", 0),

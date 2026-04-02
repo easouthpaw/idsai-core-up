@@ -86,6 +86,11 @@ ORDER BY p.full_name ASC, u.created_at DESC;
 }
 
 func (r *AdminRepo) ListProjects(ctx context.Context, status, search string) ([]svc.Project, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	const q = `
 SELECT
   p.id,
@@ -102,21 +107,22 @@ SELECT
   p.created_at,
   p.updated_at
 FROM projects p
-LEFT JOIN users u ON u.id = p.created_by
-LEFT JOIN user_profiles up ON up.user_id = p.created_by
-LEFT JOIN faculties f ON f.id = p.faculty_id
-LEFT JOIN departments d ON d.id = up.department_id
-WHERE ($1::text = '' OR p.status = $1::text)
+LEFT JOIN users u ON u.id = p.created_by AND u.tenant_id = p.tenant_id
+LEFT JOIN user_profiles up ON up.user_id = p.created_by AND up.tenant_id = p.tenant_id
+LEFT JOIN faculties f ON f.id = p.faculty_id AND f.tenant_id = p.tenant_id
+LEFT JOIN departments d ON d.id = up.department_id AND d.tenant_id = p.tenant_id
+WHERE p.tenant_id = $1
+  AND ($2::text = '' OR p.status = $2::text)
   AND (
-    $2::text = ''
-    OR p.title ILIKE '%' || $2::text || '%'
-    OR p.description ILIKE '%' || $2::text || '%'
-    OR COALESCE(up.full_name, '') ILIKE '%' || $2::text || '%'
-    OR COALESCE(u.email, '') ILIKE '%' || $2::text || '%'
+    $3::text = ''
+    OR p.title ILIKE '%' || $3::text || '%'
+    OR p.description ILIKE '%' || $3::text || '%'
+    OR COALESCE(up.full_name, '') ILIKE '%' || $3::text || '%'
+    OR COALESCE(u.email, '') ILIKE '%' || $3::text || '%'
   )
 ORDER BY p.updated_at DESC, p.created_at DESC;
 `
-	rows, err := r.db.Query(ctx, q, status, search)
+	rows, err := r.db.Query(ctx, q, tenantID, status, search)
 	if err != nil {
 		return nil, err
 	}
@@ -313,11 +319,17 @@ WHERE user_id = $1
 }
 
 func (r *AdminRepo) UpdateProjectStatus(ctx context.Context, projectID uuid.UUID, status string) error {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
 	tag, err := r.db.Exec(ctx, `
 UPDATE projects
 SET status = $2, updated_at = now()
-WHERE id = $1;
-`, projectID, status)
+WHERE id = $1
+  AND tenant_id = $3;
+`, projectID, status, tenantID)
 	if err != nil {
 		return err
 	}
@@ -382,6 +394,11 @@ WHERE id = $1;
 }
 
 func (r *AdminRepo) DeleteProject(ctx context.Context, projectID uuid.UUID) error {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return err
@@ -391,15 +408,18 @@ func (r *AdminRepo) DeleteProject(ctx context.Context, projectID uuid.UUID) erro
 	// Keep RBAC clean because role_assignments.scope_id has no FK to projects.
 	if _, err := tx.Exec(ctx, `
 DELETE FROM role_assignments
-WHERE scope_type = 'PROJECT' AND scope_id = $1;
-`, projectID); err != nil {
+WHERE tenant_id = $1
+  AND scope_type = 'PROJECT'
+  AND scope_id = $2;
+`, tenantID, projectID); err != nil {
 		return err
 	}
 
 	tag, err := tx.Exec(ctx, `
 DELETE FROM projects
-WHERE id = $1;
-`, projectID)
+WHERE tenant_id = $1
+  AND id = $2;
+`, tenantID, projectID)
 	if err != nil {
 		return err
 	}
@@ -411,6 +431,11 @@ WHERE id = $1;
 }
 
 func (r *AdminRepo) GetProjectByID(ctx context.Context, projectID uuid.UUID) (svc.Project, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return svc.Project{}, err
+	}
+
 	const q = `
 SELECT
   p.id,
@@ -427,14 +452,15 @@ SELECT
   p.created_at,
   p.updated_at
 FROM projects p
-LEFT JOIN users u ON u.id = p.created_by
-LEFT JOIN user_profiles up ON up.user_id = p.created_by
-LEFT JOIN faculties f ON f.id = p.faculty_id
-LEFT JOIN departments d ON d.id = up.department_id
-WHERE p.id = $1;
+LEFT JOIN users u ON u.id = p.created_by AND u.tenant_id = p.tenant_id
+LEFT JOIN user_profiles up ON up.user_id = p.created_by AND up.tenant_id = p.tenant_id
+LEFT JOIN faculties f ON f.id = p.faculty_id AND f.tenant_id = p.tenant_id
+LEFT JOIN departments d ON d.id = up.department_id AND d.tenant_id = p.tenant_id
+WHERE p.tenant_id = $1
+  AND p.id = $2;
 `
 	var p svc.Project
-	err := r.db.QueryRow(ctx, q, projectID).Scan(
+	err = r.db.QueryRow(ctx, q, tenantID, projectID).Scan(
 		&p.ID,
 		&p.Title,
 		&p.Description,
@@ -456,6 +482,11 @@ WHERE p.id = $1;
 }
 
 func (r *AdminRepo) GetProjectObservation(ctx context.Context, projectID uuid.UUID) (svc.ProjectObservation, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return svc.ProjectObservation{}, err
+	}
+
 	project, err := r.GetProjectByID(ctx, projectID)
 	if err != nil {
 		return svc.ProjectObservation{}, err
@@ -472,9 +503,10 @@ func (r *AdminRepo) GetProjectObservation(ctx context.Context, projectID uuid.UU
 	posRows, err := r.db.Query(ctx, `
 SELECT id, code, name, capacity
 FROM project_positions
-WHERE project_id = $1
+WHERE tenant_id = $1
+  AND project_id = $2
 ORDER BY created_at ASC;
-`, projectID)
+`, tenantID, projectID)
 	if err != nil {
 		return svc.ProjectObservation{}, err
 	}
@@ -504,14 +536,15 @@ SELECT
   pm.joined_at,
   pm.responded_at
 FROM project_members pm
-LEFT JOIN users u ON u.id = pm.user_id
-LEFT JOIN user_profiles up ON up.user_id = pm.user_id
-LEFT JOIN project_positions pp ON pp.id = pm.position_id
+LEFT JOIN users u ON u.id = pm.user_id AND u.tenant_id = pm.tenant_id
+LEFT JOIN user_profiles up ON up.user_id = pm.user_id AND up.tenant_id = pm.tenant_id
+LEFT JOIN project_positions pp ON pp.id = pm.position_id AND pp.tenant_id = pm.tenant_id
 LEFT JOIN LATERAL (
   SELECT r.code AS role_code
   FROM role_assignments ra
   JOIN roles r ON r.id = ra.role_id
   WHERE ra.user_id = pm.user_id
+    AND ra.tenant_id = pm.tenant_id
     AND (ra.expires_at IS NULL OR ra.expires_at > now())
   ORDER BY
     CASE r.code
@@ -525,9 +558,10 @@ LEFT JOIN LATERAL (
     ra.created_at DESC
   LIMIT 1
 ) AS primary_role ON TRUE
-WHERE pm.project_id = $1
+WHERE pm.tenant_id = $1
+  AND pm.project_id = $2
 ORDER BY pm.created_at ASC;
-`, projectID)
+`, tenantID, projectID)
 	if err != nil {
 		return svc.ProjectObservation{}, err
 	}
@@ -566,12 +600,13 @@ SELECT
   t.due_at,
   t.updated_at
 FROM tasks t
-JOIN project_positions pp ON pp.id = t.position_id
-LEFT JOIN user_profiles assignee ON assignee.user_id = t.assignee_user_id
-WHERE t.project_id = $1
+JOIN project_positions pp ON pp.id = t.position_id AND pp.tenant_id = t.tenant_id
+LEFT JOIN user_profiles assignee ON assignee.user_id = t.assignee_user_id AND assignee.tenant_id = t.tenant_id
+WHERE t.tenant_id = $1
+  AND t.project_id = $2
 ORDER BY t.created_at DESC
 LIMIT 200;
-`, projectID)
+`, tenantID, projectID)
 	if err != nil {
 		return svc.ProjectObservation{}, err
 	}
@@ -609,15 +644,17 @@ SELECT
   COALESCE(cr.comment, '') AS comment,
   cr.updated_at
 FROM project_criteria c
-LEFT JOIN projects p ON p.id = c.project_id
+LEFT JOIN projects p ON p.id = c.project_id AND p.tenant_id = c.tenant_id
 LEFT JOIN project_criterion_reviews cr
   ON cr.project_id = c.project_id
  AND cr.criterion_id = c.id
  AND cr.professor_id = p.professor_id
-WHERE c.project_id = $1
+ AND cr.tenant_id = c.tenant_id
+WHERE c.tenant_id = $1
+  AND c.project_id = $2
 ORDER BY c.created_at ASC;
 `
-	criteriaRows, err := r.db.Query(ctx, criteriaQuery, projectID)
+	criteriaRows, err := r.db.Query(ctx, criteriaQuery, tenantID, projectID)
 	if err != nil {
 		if !isUndefinedRelation(err, "project_criterion_reviews") {
 			return svc.ProjectObservation{}, err
@@ -625,9 +662,10 @@ ORDER BY c.created_at ASC;
 		criteriaRows, err = r.db.Query(ctx, `
 SELECT id, title, weight, created_by, created_at
 FROM project_criteria
-WHERE project_id = $1
+WHERE tenant_id = $1
+  AND project_id = $2
 ORDER BY created_at ASC;
-`, projectID)
+`, tenantID, projectID)
 		if err != nil {
 			return svc.ProjectObservation{}, err
 		}

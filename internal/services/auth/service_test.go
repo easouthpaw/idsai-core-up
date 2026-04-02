@@ -16,10 +16,14 @@ type fakeRepo struct {
 	tenantID              uuid.UUID
 	user                  User
 	findUserErr           error
+	createdUser           CreateUserParams
+	createUserCount       int
 	refreshInsertCount    int
 	updatedPasswordHash   string
 	updatedPasswordUserID uuid.UUID
 	resetToken            AuthTokenRecord
+	insertAuthTokenCount  int
+	invalidateTokenCount  int
 }
 
 func (f *fakeRepo) FindTenantByCode(ctx context.Context, tenantCode string) (uuid.UUID, error) {
@@ -27,6 +31,8 @@ func (f *fakeRepo) FindTenantByCode(ctx context.Context, tenantCode string) (uui
 }
 
 func (f *fakeRepo) CreateUser(ctx context.Context, in CreateUserParams) (uuid.UUID, error) {
+	f.createdUser = in
+	f.createUserCount++
 	return uuid.New(), nil
 }
 
@@ -137,6 +143,7 @@ func (f *fakeRepo) ListDepartmentGroupsTree(ctx context.Context, tenantID uuid.U
 }
 
 func (f *fakeRepo) InsertAuthToken(ctx context.Context, tenantID, userID uuid.UUID, purpose, tokenHash string, expiresAt time.Time) error {
+	f.insertAuthTokenCount++
 	return nil
 }
 
@@ -152,6 +159,7 @@ func (f *fakeRepo) ConsumeAuthToken(ctx context.Context, tokenID uuid.UUID, cons
 }
 
 func (f *fakeRepo) InvalidateAuthTokens(ctx context.Context, tenantID, userID uuid.UUID, purpose string) error {
+	f.invalidateTokenCount++
 	return nil
 }
 
@@ -239,4 +247,51 @@ func TestResetPasswordRejectsExpiredToken(t *testing.T) {
 
 	err := svc.ResetPassword(context.Background(), "raw-token", "new-password-123")
 	require.ErrorIs(t, err, ErrTokenExpired)
+}
+
+func TestRegisterStudentRequiresVerificationByDefault(t *testing.T) {
+	repo := &fakeRepo{tenantID: uuid.New()}
+	svc := NewService(repo, Config{
+		JWTSecret: "01234567890123456789012345678901",
+	})
+
+	err := svc.RegisterStudent(
+		context.Background(),
+		"CORE",
+		"student@example.edu",
+		"DemoPass123!",
+		"Student User",
+		"CS",
+		"CS-101",
+	)
+	require.NoError(t, err)
+	require.Equal(t, 1, repo.createUserCount)
+	require.Equal(t, StatusPending, repo.createdUser.Status)
+	require.Nil(t, repo.createdUser.EmailVerifiedAt)
+	require.Equal(t, 1, repo.invalidateTokenCount)
+	require.Equal(t, 1, repo.insertAuthTokenCount)
+}
+
+func TestRegisterStudentAutoVerifiesWhenEnabled(t *testing.T) {
+	repo := &fakeRepo{tenantID: uuid.New()}
+	svc := NewService(repo, Config{
+		JWTSecret:             "01234567890123456789012345678901",
+		AutoVerifyRegistrants: true,
+	})
+
+	err := svc.RegisterStudent(
+		context.Background(),
+		"CORE",
+		"student@example.edu",
+		"DemoPass123!",
+		"Student User",
+		"CS",
+		"CS-101",
+	)
+	require.NoError(t, err)
+	require.Equal(t, 1, repo.createUserCount)
+	require.Equal(t, StatusActive, repo.createdUser.Status)
+	require.NotNil(t, repo.createdUser.EmailVerifiedAt)
+	require.Zero(t, repo.invalidateTokenCount)
+	require.Zero(t, repo.insertAuthTokenCount)
 }

@@ -221,6 +221,7 @@ type Config struct {
 	VerificationTTL        time.Duration
 	EmailChangeTTL         time.Duration
 	PasswordResetTTL       time.Duration
+	AutoVerifyRegistrants  bool
 	MaxFailedLoginAttempts int
 	LoginAttemptWindow     time.Duration
 }
@@ -234,6 +235,7 @@ type Service struct {
 	verificationTTL  time.Duration
 	emailChangeTTL   time.Duration
 	passwordResetTTL time.Duration
+	autoVerifyRegs   bool
 	loginLimiter     *attemptLimiter
 	recoveryLimiter  *attemptLimiter
 	notifier         NotificationPublisher
@@ -279,6 +281,7 @@ func NewService(repo Repository, cfg Config) *Service {
 		verificationTTL:  cfg.VerificationTTL,
 		emailChangeTTL:   cfg.EmailChangeTTL,
 		passwordResetTTL: cfg.PasswordResetTTL,
+		autoVerifyRegs:   cfg.AutoVerifyRegistrants,
 		loginLimiter:     newAttemptLimiter(cfg.LoginAttemptWindow, cfg.MaxFailedLoginAttempts),
 		recoveryLimiter:  newAttemptLimiter(15*time.Minute, 5),
 	}
@@ -340,12 +343,18 @@ func (s *Service) RegisterStudent(ctx context.Context, tenantCode, email, passwo
 	}
 
 	now := time.Now().UTC()
+	status := StatusPending
+	var verifiedAt *time.Time
+	if s.autoVerifyRegs {
+		status = StatusActive
+		verifiedAt = &now
+	}
 	userID, err := s.repo.CreateUser(ctx, CreateUserParams{
 		TenantID:          tenantID,
 		Email:             email,
 		PasswordHash:      hash,
-		Status:            StatusPending,
-		EmailVerifiedAt:   nil,
+		Status:            status,
+		EmailVerifiedAt:   verifiedAt,
 		PasswordChangedAt: now,
 	})
 	if err != nil {
@@ -356,6 +365,9 @@ func (s *Service) RegisterStudent(ctx context.Context, tenantCode, email, passwo
 	}
 	if err := s.repo.GrantStudentFacultyRole(ctx, tenantID, userID, facultyID); err != nil {
 		return err
+	}
+	if s.autoVerifyRegs {
+		return nil
 	}
 
 	return s.issueVerification(ctx, tenantID, userID, email)
