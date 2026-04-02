@@ -215,6 +215,31 @@ func (s *Service) SubmitProjectForGrading(ctx context.Context, userID, projectID
 	return s.projectByID(ctx, projectID)
 }
 
+func (s *Service) ReturnProjectForRetake(ctx context.Context, userID, projectID uuid.UUID) (domain.Project, error) {
+	if err := s.requireProjectPermission(ctx, userID, "grading.publish", projectID); err != nil {
+		return domain.Project{}, err
+	}
+
+	p, err := s.projectByID(ctx, projectID)
+	if err != nil {
+		return domain.Project{}, err
+	}
+	if p.Status != domain.ProjectGrading {
+		return domain.Project{}, fmt.Errorf("%w: project status must be GRADING", ErrInvalidInput)
+	}
+	if p.ProfessorID == nil || *p.ProfessorID != userID {
+		return domain.Project{}, domain.ErrForbidden
+	}
+
+	if err := s.lifecycleRepo.ReturnProjectToActive(ctx, projectID); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return domain.Project{}, ErrInvalidInput
+		}
+		return domain.Project{}, err
+	}
+	return s.projectByID(ctx, projectID)
+}
+
 func (s *Service) PublishGrading(ctx context.Context, userID, projectID uuid.UUID) (domain.Project, error) {
 	if err := s.requireProjectPermission(ctx, userID, "grading.publish", projectID); err != nil {
 		return domain.Project{}, err

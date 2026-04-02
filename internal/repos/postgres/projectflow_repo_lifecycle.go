@@ -26,6 +26,9 @@ WHERE tenant_id = $1
 `
 	ct, err := r.db.Exec(ctx, q, tenantID, projectID)
 	if err != nil {
+		if isUndefinedColumnErr(err, "retake_count") {
+			return projectflow.ErrSchemaMissing
+		}
 		return err
 	}
 	if ct.RowsAffected() == 0 {
@@ -68,6 +71,31 @@ SET status = 'GRADING', updated_at = now()
 WHERE tenant_id = $1
   AND id = $2
   AND status = 'ACTIVE';
+`
+	ct, err := r.db.Exec(ctx, q, tenantID, projectID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return projectflow.ErrNotFound
+	}
+	return nil
+}
+
+func (r *ProjectFlowRepo) ReturnProjectToActive(ctx context.Context, projectID uuid.UUID) error {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	const q = `
+UPDATE projects
+SET status = 'ACTIVE',
+    retake_count = retake_count + 1,
+    updated_at = now()
+WHERE tenant_id = $1
+  AND id = $2
+  AND status = 'GRADING';
 `
 	ct, err := r.db.Exec(ctx, q, tenantID, projectID)
 	if err != nil {

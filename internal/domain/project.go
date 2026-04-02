@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,6 +18,32 @@ const (
 	ProjectCompleted   ProjectStatus = "COMPLETED"
 	ProjectArchive     ProjectStatus = "ARCHIVE"
 )
+
+const (
+	ProjectRetakePenaltyPerAttempt = 5
+	ProjectRetakePenaltyCap        = 25
+)
+
+func RetakePenaltyPercent(retakeCount int) int {
+	if retakeCount <= 0 {
+		return 0
+	}
+	penalty := retakeCount * ProjectRetakePenaltyPerAttempt
+	if penalty > ProjectRetakePenaltyCap {
+		return ProjectRetakePenaltyCap
+	}
+	return penalty
+}
+
+func ReviewScoreFromPercent(passPercent int) string {
+	if passPercent < 0 {
+		passPercent = 0
+	}
+	if passPercent > 100 {
+		passPercent = 100
+	}
+	return fmt.Sprintf("%.1f", float64(passPercent)*5/100)
+}
 
 type Project struct {
 	ID                    uuid.UUID
@@ -37,5 +64,6 @@ type Project struct {
 	ImageKey              string
 	ImageURL              string
 	DefaultCoverVariant   int
+	RetakeCount           int
 	ImageUpdatedAt        *time.Time
 }

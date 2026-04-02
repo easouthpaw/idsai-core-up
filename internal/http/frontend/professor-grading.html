@@ -77,10 +77,12 @@
           <strong id="gradingProgressText">0%</strong>
         </div>
 
+        <p id="summaryPenalty" class="grading-summary-note" hidden></p>
         <div id="gradingChecklistIntro" class="grading-guide-list"></div>
         <p id="pageStatus" class="page-status" aria-live="polite"></p>
 
         <div class="grading-summary-actions">
+          <button id="returnForRetakeBtn" class="ghost-btn" type="button">Отправить на пересдачу</button>
           <button id="publishGradingBtn" class="ghost-btn" type="button">Завершить оценивание</button>
           <button id="saveGradingBtn" class="primary-btn" type="button">Сохранить оценку</button>
         </div>
@@ -95,6 +97,16 @@
         </section>
 
         <div id="gradingList" class="grading-list"></div>
+
+        <section class="team-activity-card" aria-labelledby="teamActivityTitle">
+          <div class="team-activity-card__head">
+            <div>
+              <h2 id="teamActivityTitle">Активность команды</h2>
+              <p>Короткая визуальная сводка по участникам на основе задач и событий проекта.</p>
+            </div>
+          </div>
+          <div id="teamActivityList" class="team-activity-list"></div>
+        </section>
       </div>
     </section>
   </main>

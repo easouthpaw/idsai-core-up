@@ -86,8 +86,16 @@ func (d *projectFlowTestDeps) CreateProjectPosition(ctx context.Context, project
 	return projectflow.Position{}, nil
 }
 
+func (d *projectFlowTestDeps) EnsureProjectPosition(ctx context.Context, projectID uuid.UUID, code, name string, capacity int) (projectflow.Position, error) {
+	return projectflow.Position{}, nil
+}
+
 func (d *projectFlowTestDeps) ListProjectPositions(ctx context.Context, projectID uuid.UUID) ([]projectflow.Position, error) {
 	return nil, nil
+}
+
+func (d *projectFlowTestDeps) GetProjectPosition(ctx context.Context, projectID, positionID uuid.UUID) (projectflow.Position, error) {
+	return projectflow.Position{}, nil
 }
 
 func (d *projectFlowTestDeps) GetProjectPositionCapacity(ctx context.Context, projectID, positionID uuid.UUID) (int, error) {
@@ -219,6 +227,10 @@ func (d *projectFlowTestDeps) CountProjectTasksSummary(ctx context.Context, proj
 }
 
 func (d *projectFlowTestDeps) MoveProjectToGrading(ctx context.Context, projectID uuid.UUID) error {
+	return nil
+}
+
+func (d *projectFlowTestDeps) ReturnProjectToActive(ctx context.Context, projectID uuid.UUID) error {
 	return nil
 }
 

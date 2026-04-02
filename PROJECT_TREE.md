@@ -298,7 +298,8 @@ idsai-core-up
 |   |-- 00035_seed_rich_demo_project_flow.sql
 |   |-- 00036_rbac_project_view_for_project_roles.sql
 |   |-- 00037_rbac_professor_faculty_project_read.sql
-|   `-- 00038_rbac_delegated_project_roles.sql
+|   |-- 00038_rbac_delegated_project_roles.sql
+|   `-- 00039_project_retake_count.sql
 |-- .env
 |-- .gitignore
 |-- docker-compose.yml

@@ -15,16 +15,22 @@ func (r *ProjectFlowRepo) GetProjectByID(ctx context.Context, projectID uuid.UUI
 		return domain.Project{}, err
 	}
 
-	const q = `
-SELECT id, title, description, status, is_public, created_by, professor_id,
-       professor_review_status,
-       faculty_id, visibility, group_id,
-       created_at, updated_at
+	q := `
+SELECT ` + projectFlowProjectColumns(true) + `
 FROM projects
 WHERE tenant_id = $1
   AND id = $2;
 `
 	p, err := scanProjectRow(r.db.QueryRow(ctx, q, tenantID, projectID))
+	if isUndefinedColumnErr(err, "retake_count") {
+		legacyQ := `
+SELECT ` + projectFlowProjectColumns(false) + `
+FROM projects
+WHERE tenant_id = $1
+  AND id = $2;
+`
+		p, err = scanProjectRow(r.db.QueryRow(ctx, legacyQ, tenantID, projectID))
+	}
 	return p, mapProjectFlowErr(err)
 }
 
@@ -317,6 +323,44 @@ RETURNING id, project_id, code, name, capacity, created_at;
 	return p, nil
 }
 
+func (r *ProjectFlowRepo) EnsureProjectPosition(ctx context.Context, projectID uuid.UUID, code, name string, capacity int) (projectflow.Position, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return projectflow.Position{}, err
+	}
+
+	const q = `
+INSERT INTO project_positions(tenant_id, project_id, code, name, capacity)
+SELECT $1, $2, $3, $4, $5
+FROM projects p
+WHERE p.tenant_id = $1
+  AND p.id = $2
+ON CONFLICT (project_id, code)
+DO UPDATE SET name = EXCLUDED.name,
+              capacity = EXCLUDED.capacity
+RETURNING id, project_id, code, name, capacity, created_at;
+`
+	var (
+		id         uuid.UUID
+		positionID uuid.UUID
+		p          projectflow.Position
+	)
+	err = r.db.QueryRow(ctx, q, tenantID, projectID, code, name, capacity).Scan(
+		&id,
+		&positionID,
+		&p.Code,
+		&p.Name,
+		&p.Capacity,
+		&p.CreatedAt,
+	)
+	if err != nil {
+		return projectflow.Position{}, mapProjectFlowErr(err)
+	}
+	p.ID = id.String()
+	p.ProjectID = positionID.String()
+	return p, nil
+}
+
 func (r *ProjectFlowRepo) ListProjectPositions(ctx context.Context, projectID uuid.UUID) ([]projectflow.Position, error) {
 	tenantID, err := tenantIDFromContext(ctx)
 	if err != nil {
@@ -351,6 +395,32 @@ ORDER BY created_at ASC;
 		out = append(out, p)
 	}
 	return out, rows.Err()
+}
+
+func (r *ProjectFlowRepo) GetProjectPosition(ctx context.Context, projectID, positionID uuid.UUID) (projectflow.Position, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return projectflow.Position{}, err
+	}
+
+	const q = `
+SELECT id, project_id, code, name, capacity, created_at
+FROM project_positions
+WHERE tenant_id = $1
+  AND project_id = $2
+  AND id = $3;
+`
+	var (
+		id         uuid.UUID
+		projectRef uuid.UUID
+		p          projectflow.Position
+	)
+	if err := r.db.QueryRow(ctx, q, tenantID, projectID, positionID).Scan(&id, &projectRef, &p.Code, &p.Name, &p.Capacity, &p.CreatedAt); err != nil {
+		return projectflow.Position{}, mapProjectFlowErr(err)
+	}
+	p.ID = id.String()
+	p.ProjectID = projectRef.String()
+	return p, nil
 }
 
 func (r *ProjectFlowRepo) GetProjectPositionCapacity(ctx context.Context, projectID, positionID uuid.UUID) (int, error) {

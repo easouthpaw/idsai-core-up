@@ -76,6 +76,7 @@ func scanProjectRow(scanner rowScanner) (domain.Project, error) {
 		&p.FacultyID,
 		&p.Visibility,
 		&groupID,
+		&p.RetakeCount,
 		&p.CreatedAt,
 		&p.UpdatedAt,
 	); err != nil {
@@ -179,6 +180,32 @@ func isUndefinedRelationErr(err error, relation string) bool {
 		return true
 	}
 	return strings.Contains(strings.ToLower(pgErr.Message), strings.ToLower(relation))
+}
+
+func isUndefinedColumnErr(err error, column string) bool {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) {
+		return false
+	}
+	if pgErr.Code != "42703" {
+		return false
+	}
+	if strings.EqualFold(pgErr.ColumnName, column) {
+		return true
+	}
+	return strings.Contains(strings.ToLower(pgErr.Message), strings.ToLower(column))
+}
+
+func projectFlowProjectColumns(includeRetake bool) string {
+	retakeExpr := "0 AS retake_count"
+	if includeRetake {
+		retakeExpr = "retake_count"
+	}
+	return `id, title, description, status, is_public, created_by, professor_id,
+       professor_review_status,
+       faculty_id, visibility, group_id,
+       ` + retakeExpr + `,
+       created_at, updated_at`
 }
 
 func mapProjectFlowErr(err error) error {

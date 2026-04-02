@@ -26,7 +26,9 @@ type ProjectsRepository interface {
 
 type PositionsRepository interface {
 	CreateProjectPosition(ctx context.Context, projectID uuid.UUID, code, name string, capacity int) (Position, error)
+	EnsureProjectPosition(ctx context.Context, projectID uuid.UUID, code, name string, capacity int) (Position, error)
 	ListProjectPositions(ctx context.Context, projectID uuid.UUID) ([]Position, error)
+	GetProjectPosition(ctx context.Context, projectID, positionID uuid.UUID) (Position, error)
 	GetProjectPositionCapacity(ctx context.Context, projectID, positionID uuid.UUID) (int, error)
 	SumProjectPositionCapacities(ctx context.Context, projectID uuid.UUID) (int, error)
 }
@@ -72,6 +74,7 @@ type LifecycleRepository interface {
 	ActivateProject(ctx context.Context, projectID uuid.UUID) error
 	CountProjectTasksSummary(ctx context.Context, projectID uuid.UUID) (total, done int, err error)
 	MoveProjectToGrading(ctx context.Context, projectID uuid.UUID) error
+	ReturnProjectToActive(ctx context.Context, projectID uuid.UUID) error
 	MoveProjectToCompleted(ctx context.Context, projectID uuid.UUID) error
 	DeleteOwnedProject(ctx context.Context, projectID, ownerID uuid.UUID) error
 }

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"idsai-core-up/internal/domain"
 	"idsai-core-up/internal/http/dto"
 	"idsai-core-up/internal/http/middleware"
 	"idsai-core-up/internal/services/projectflow"
@@ -250,6 +251,64 @@ func (h *ProjectFlowHandler) PublishProjectGrading(c *gin.Context) {
 				"project_id": pid.String(),
 				"title":      p.Title,
 				"status":     p.Status,
+			},
+			true,
+		))
+	}
+
+	c.JSON(http.StatusOK, dto.ProjectEnvelopeResponse{Project: dto.ProjectResponseFromDomain(p)})
+}
+
+func (h *ProjectFlowHandler) ReturnProjectForRetake(c *gin.Context) {
+	uid, ok := parseUserID(c)
+	if !ok {
+		return
+	}
+	tenantID, ok := middleware.TenantIDFromCtx(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	pid, ok := parseProjectID(c)
+	if !ok {
+		return
+	}
+
+	p, err := h.svc.ReturnProjectForRetake(c.Request.Context(), uid, pid)
+	if err != nil {
+		handleFlowErr(c, err)
+		return
+	}
+
+	notifyBestEffort(h.notifier, c.Request.Context(), notifCreateInput(
+		tenantID,
+		uid,
+		"project.returned_for_retake",
+		"Проект возвращен на пересдачу",
+		"Проект переведен обратно в статус ACTIVE. При следующей публикации будет применен штраф за пересдачу.",
+		map[string]any{
+			"project_id":     pid.String(),
+			"title":          p.Title,
+			"status":         p.Status,
+			"retake_count":   p.RetakeCount,
+			"retake_penalty": domain.RetakePenaltyPercent(p.RetakeCount),
+		},
+		false,
+	))
+
+	if p.CreatedBy != uid {
+		notifyBestEffort(h.notifier, c.Request.Context(), notifCreateInput(
+			tenantID,
+			p.CreatedBy,
+			"project.needs_retake",
+			"Проект отправлен на пересдачу",
+			"Преподаватель вернул проект на доработку. После повторной отправки итоговая оценка будет немного снижена.",
+			map[string]any{
+				"project_id":     pid.String(),
+				"title":          p.Title,
+				"status":         p.Status,
+				"retake_count":   p.RetakeCount,
+				"retake_penalty": domain.RetakePenaltyPercent(p.RetakeCount),
 			},
 			true,
 		))

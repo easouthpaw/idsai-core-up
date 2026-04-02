@@ -53,6 +53,7 @@ func registerProjectFlowRoutes(
 	projectFlow.GET("/grading", requireProject("grading.view"), projectFlowH.GetGrading)
 	projectFlow.PUT("/grading", requireProject("grading.mark_criteria"), projectFlowH.UpsertGrading)
 	projectFlow.POST("/grading/submit", requireProject("project.submit_for_review"), projectFlowH.SubmitProjectForGrading)
+	projectFlow.POST("/grading/return", requireProject("grading.publish"), projectFlowH.ReturnProjectForRetake)
 	projectFlow.POST("/grading/publish", requireProject("grading.publish"), projectFlowH.PublishProjectGrading)
 	projectFlow.GET("/readiness", requireProject("project.view"), projectFlowH.Readiness)
 	projectFlow.POST("/approve", requireProject("project.approve"), projectFlowH.ApproveProject)

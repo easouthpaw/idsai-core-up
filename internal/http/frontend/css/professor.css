@@ -1552,6 +1552,17 @@ td .muted {
   width: 100%;
 }
 
+.grading-summary-note {
+  margin: -2px 0 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(245, 158, 11, 0.18);
+  border-radius: 16px;
+  background: rgba(255, 247, 237, 0.96);
+  color: #9a5b14;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .grading-guide-list {
   display: grid;
   gap: 8px;
@@ -1608,6 +1619,109 @@ td .muted {
   padding: 18px;
   display: grid;
   gap: 16px;
+}
+
+.team-activity-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid #dde5f1;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(252, 255, 253, 0.98) 0%, rgba(244, 250, 247, 0.98) 100%);
+}
+
+.team-activity-card__head h2 {
+  margin: 0;
+  font-size: 24px;
+  letter-spacing: -0.03em;
+}
+
+.team-activity-card__head p {
+  margin: 6px 0 0;
+  color: #6f7f98;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.team-activity-list {
+  display: grid;
+  gap: 10px;
+}
+
+.team-activity-item {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(31, 210, 116, 0.14);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.team-activity-item__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.team-activity-item__head strong {
+  display: block;
+  color: #172440;
+  font-size: 16px;
+}
+
+.team-activity-item__head p {
+  margin: 5px 0 0;
+  color: #73829a;
+  font-size: 13px;
+}
+
+.team-activity-item__rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(31, 210, 116, 0.1);
+  color: #167a49;
+  font: 700 11px "JetBrains Mono", monospace;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.team-activity-track {
+  height: 10px;
+  border-radius: 999px;
+  background: #e8eef7;
+  overflow: hidden;
+}
+
+.team-activity-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #1fd274 0%, #1aa162 100%);
+}
+
+.team-activity-empty {
+  padding: 14px;
+  border: 1px dashed #d5ddeb;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.team-activity-empty strong {
+  display: block;
+  color: #172440;
+  font-size: 15px;
+}
+
+.team-activity-empty p {
+  margin: 6px 0 0;
+  color: #74829a;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .grading-workspace__intro {
@@ -1793,7 +1907,8 @@ td .muted {
   .grading-hero,
   .grading-summary-card,
   .grading-workspace,
-  .grading-stage-panel {
+  .grading-stage-panel,
+  .team-activity-card {
     padding: 16px;
     border-radius: 18px;
   }
@@ -1825,6 +1940,11 @@ td .muted {
 
   .summary-grid--studio {
     grid-template-columns: 1fr;
+  }
+
+  .team-activity-item__head {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .field-grid.two {

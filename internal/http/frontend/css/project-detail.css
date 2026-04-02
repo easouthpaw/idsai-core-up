@@ -1579,6 +1579,11 @@ body.project-body {
   gap: 5px;
 }
 
+.task-item--overdue {
+  border-color: #fca5a5;
+  background: linear-gradient(180deg, #fff 0%, #fff5f5 100%);
+}
+
 .task-item h4 {
   margin: 0;
   font-size: 12px;
@@ -1608,6 +1613,22 @@ body.project-body {
   font: 700 9px "IBM Plex Mono", ui-monospace, monospace;
 }
 
+.tag-danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.task-deadline {
+  margin: 0;
+  color: #475467;
+  font: 700 10px "IBM Plex Mono", ui-monospace, monospace;
+}
+
+.task-deadline.is-overdue {
+  color: #b42318;
+}
+
 .task-controls {
   display: grid;
   gap: 5px;
@@ -1632,6 +1653,13 @@ body.project-body {
   border-color: #bbf7d0;
   background: #ecfdf3;
   color: #166534;
+}
+
+.task-note.overdue {
+  border-style: solid;
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b42318;
 }
 
 .task-control-row {

@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 	"time"
 
@@ -21,6 +20,40 @@ type ProjectsRepo struct {
 
 func NewProjectsRepo(db *pgxpool.Pool) *ProjectsRepo {
 	return &ProjectsRepo{db: db}
+}
+
+func projectsRepoProjectColumns(includeRetake bool) string {
+	retakeExpr := "0 AS retake_count"
+	if includeRetake {
+		retakeExpr = "p.retake_count AS retake_count"
+	}
+	return `
+  p.id,
+  p.title,
+  p.description,
+  p.status,
+  p.is_public,
+  p.created_by,
+  COALESCE(NULLIF(TRIM(up.full_name), ''), split_part(COALESCE(u.email, ''), '@', 1), p.created_by::text) AS created_by_name,
+  COALESCE(u.email, '') AS created_by_email,
+  p.professor_id,
+  COALESCE(p.professor_review_status, 'NONE') AS professor_review_status,
+  p.faculty_id,
+  p.visibility,
+  p.group_id,
+  ` + retakeExpr + `,
+  COALESCE(p.image_key, '') AS image_key,
+  p.default_cover_variant,
+  p.image_updated_at,
+  p.created_at,
+  p.updated_at`
+}
+
+func projectsReviewSummaryRetakeExpr(includeRetake bool) string {
+	if includeRetake {
+		return "MAX(p.retake_count) AS retake_count"
+	}
+	return "0 AS retake_count"
 }
 
 func (r *ProjectsRepo) Create(ctx context.Context, title, description string, facultyID uuid.UUID, visibility string, groupID *uuid.UUID, createdBy uuid.UUID) (uuid.UUID, error) {
@@ -72,26 +105,8 @@ func (r *ProjectsRepo) GetByID(ctx context.Context, id uuid.UUID) (domain.Projec
 		return domain.Project{}, err
 	}
 
-	const q = `
-SELECT
-  p.id,
-  p.title,
-  p.description,
-  p.status,
-  p.is_public,
-  p.created_by,
-  COALESCE(NULLIF(TRIM(up.full_name), ''), split_part(COALESCE(u.email, ''), '@', 1), p.created_by::text) AS created_by_name,
-  COALESCE(u.email, '') AS created_by_email,
-  p.professor_id,
-  COALESCE(p.professor_review_status, 'NONE') AS professor_review_status,
-  p.faculty_id,
-  p.visibility,
-  p.group_id,
-  COALESCE(p.image_key, '') AS image_key,
-  p.default_cover_variant,
-  p.image_updated_at,
-  p.created_at,
-  p.updated_at
+	q := `
+SELECT` + projectsRepoProjectColumns(true) + `
 FROM projects p
 LEFT JOIN users u ON u.id = p.created_by
 LEFT JOIN user_profiles up ON up.user_id = p.created_by
@@ -117,12 +132,44 @@ WHERE p.tenant_id = $1
 		&p.FacultyID,
 		&p.Visibility,
 		&groupID,
+		&p.RetakeCount,
 		&p.ImageKey,
 		&p.DefaultCoverVariant,
 		&imageUpdatedAt,
 		&p.CreatedAt,
 		&p.UpdatedAt,
 	)
+	if isUndefinedColumnErr(err, "retake_count") {
+		legacyQ := `
+SELECT` + projectsRepoProjectColumns(false) + `
+FROM projects p
+LEFT JOIN users u ON u.id = p.created_by
+LEFT JOIN user_profiles up ON up.user_id = p.created_by
+WHERE p.tenant_id = $1
+  AND p.id = $2;
+`
+		err = r.db.QueryRow(ctx, legacyQ, tenantID, id).Scan(
+			&p.ID,
+			&p.Title,
+			&p.Description,
+			&p.Status,
+			&p.IsPublic,
+			&p.CreatedBy,
+			&p.CreatedByName,
+			&p.CreatedByEmail,
+			&professorID,
+			&p.ProfessorReviewStatus,
+			&p.FacultyID,
+			&p.Visibility,
+			&groupID,
+			&p.RetakeCount,
+			&p.ImageKey,
+			&p.DefaultCoverVariant,
+			&imageUpdatedAt,
+			&p.CreatedAt,
+			&p.UpdatedAt,
+		)
+	}
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.Project{}, projects.ErrNotFound
@@ -197,12 +244,13 @@ func (r *ProjectsRepo) GetProjectReviewSummary(ctx context.Context, projectID uu
 		return nil, err
 	}
 
-	const q = `
+	q := `
 SELECT
   COUNT(c.id) AS total,
   COALESCE(SUM(CASE WHEN r.is_met = TRUE THEN 1 ELSE 0 END), 0) AS met,
   COALESCE(SUM(CASE WHEN c.id IS NOT NULL THEN GREATEST(c.weight, 1) ELSE 0 END), 0) AS weight_total,
   COALESCE(SUM(CASE WHEN r.is_met = TRUE THEN GREATEST(c.weight, 1) ELSE 0 END), 0) AS weight_met,
+  ` + projectsReviewSummaryRetakeExpr(true) + `,
   MAX(r.updated_at) AS reviewed_at,
   COALESCE(NULLIF(TRIM(up.full_name), ''), split_part(COALESCE(u.email, ''), '@', 1), 'Преподаватель') AS reviewer
 FROM projects p
@@ -223,10 +271,38 @@ GROUP BY reviewer;
 		met         int
 		weightTotal int
 		weightMet   int
+		retakeCount int
 		reviewedAt  *time.Time
 		reviewer    string
 	)
-	if err := r.db.QueryRow(ctx, q, tenantID, projectID).Scan(&total, &met, &weightTotal, &weightMet, &reviewedAt, &reviewer); err != nil {
+	if err := r.db.QueryRow(ctx, q, tenantID, projectID).Scan(&total, &met, &weightTotal, &weightMet, &retakeCount, &reviewedAt, &reviewer); err != nil {
+		if isUndefinedColumnErr(err, "retake_count") {
+			legacyQ := `
+SELECT
+  COUNT(c.id) AS total,
+  COALESCE(SUM(CASE WHEN r.is_met = TRUE THEN 1 ELSE 0 END), 0) AS met,
+  COALESCE(SUM(CASE WHEN c.id IS NOT NULL THEN GREATEST(c.weight, 1) ELSE 0 END), 0) AS weight_total,
+  COALESCE(SUM(CASE WHEN r.is_met = TRUE THEN GREATEST(c.weight, 1) ELSE 0 END), 0) AS weight_met,
+  ` + projectsReviewSummaryRetakeExpr(false) + `,
+  MAX(r.updated_at) AS reviewed_at,
+  COALESCE(NULLIF(TRIM(up.full_name), ''), split_part(COALESCE(u.email, ''), '@', 1), 'Преподаватель') AS reviewer
+FROM projects p
+LEFT JOIN users u ON u.id = p.professor_id
+LEFT JOIN user_profiles up ON up.user_id = p.professor_id
+LEFT JOIN project_criteria c ON c.project_id = p.id
+LEFT JOIN project_criterion_reviews r
+  ON r.project_id = p.id
+ AND r.criterion_id = c.id
+ AND r.professor_id = p.professor_id
+WHERE p.tenant_id = $1
+  AND p.id = $2
+GROUP BY reviewer;
+`
+			err = r.db.QueryRow(ctx, legacyQ, tenantID, projectID).Scan(&total, &met, &weightTotal, &weightMet, &retakeCount, &reviewedAt, &reviewer)
+		}
+		if err == nil {
+			goto summaryReady
+		}
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
@@ -236,12 +312,13 @@ GROUP BY reviewer;
 		return nil, err
 	}
 
-	score := "0.0"
+summaryReady:
 	passPercent := 0
 	if weightTotal > 0 {
 		passPercent = int(math.Round(float64(weightMet*100) / float64(weightTotal)))
-		score = fmt.Sprintf("%.1f", float64(weightMet*5)/float64(weightTotal))
 	}
+	passPercent = max(0, passPercent-domain.RetakePenaltyPercent(retakeCount))
+	score := domain.ReviewScoreFromPercent(passPercent)
 
 	return &projects.ReviewSummary{
 		Score:       score,
@@ -303,26 +380,8 @@ func (r *ProjectsRepo) ListByCreator(ctx context.Context, createdBy uuid.UUID) (
 		return nil, err
 	}
 
-	const q = `
-SELECT
-  p.id,
-  p.title,
-  p.description,
-  p.status,
-  p.is_public,
-  p.created_by,
-  COALESCE(NULLIF(TRIM(up.full_name), ''), split_part(COALESCE(u.email, ''), '@', 1), p.created_by::text) AS created_by_name,
-  COALESCE(u.email, '') AS created_by_email,
-  p.professor_id,
-  COALESCE(p.professor_review_status, 'NONE') AS professor_review_status,
-  p.faculty_id,
-  p.visibility,
-  p.group_id,
-  COALESCE(p.image_key, '') AS image_key,
-  p.default_cover_variant,
-  p.image_updated_at,
-  p.created_at,
-  p.updated_at
+	q := `
+SELECT` + projectsRepoProjectColumns(true) + `
 FROM projects p
 LEFT JOIN users u ON u.id = p.created_by
 LEFT JOIN user_profiles up ON up.user_id = p.created_by
@@ -352,6 +411,39 @@ WHERE p.tenant_id = $1
 ORDER BY p.updated_at DESC, p.created_at DESC;
 `
 	rows, err := r.db.Query(ctx, q, tenantID, createdBy)
+	if isUndefinedColumnErr(err, "retake_count") {
+		legacyQ := `
+SELECT` + projectsRepoProjectColumns(false) + `
+FROM projects p
+LEFT JOIN users u ON u.id = p.created_by
+LEFT JOIN user_profiles up ON up.user_id = p.created_by
+WHERE p.tenant_id = $1
+  AND (
+    p.created_by = $2
+    OR EXISTS (
+      SELECT 1
+      FROM project_members pm
+      WHERE pm.project_id = p.id
+        AND pm.tenant_id = p.tenant_id
+        AND pm.user_id = $2
+        AND pm.status = 'ACTIVE'
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM role_assignments ra
+      JOIN roles r ON r.id = ra.role_id
+      WHERE ra.user_id = $2
+        AND ra.tenant_id = p.tenant_id
+        AND ra.scope_type = 'PROJECT'
+        AND ra.scope_id = p.id
+        AND (ra.expires_at IS NULL OR ra.expires_at > now())
+        AND r.code = 'PROJECT_PROFESSOR'
+    )
+  )
+ORDER BY p.updated_at DESC, p.created_at DESC;
+`
+		rows, err = r.db.Query(ctx, legacyQ, tenantID, createdBy)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -378,6 +470,7 @@ ORDER BY p.updated_at DESC, p.created_at DESC;
 			&p.FacultyID,
 			&p.Visibility,
 			&groupID,
+			&p.RetakeCount,
 			&p.ImageKey,
 			&p.DefaultCoverVariant,
 			&imageUpdatedAt,
@@ -406,26 +499,8 @@ func (r *ProjectsRepo) ListByFaculty(ctx context.Context, facultyID uuid.UUID, u
 		return nil, err
 	}
 
-	const q = `
-SELECT
-  p.id,
-  p.title,
-  p.description,
-  p.status,
-  p.is_public,
-  p.created_by,
-  COALESCE(NULLIF(TRIM(up.full_name), ''), split_part(COALESCE(u.email, ''), '@', 1), p.created_by::text) AS created_by_name,
-  COALESCE(u.email, '') AS created_by_email,
-  p.professor_id,
-  COALESCE(p.professor_review_status, 'NONE') AS professor_review_status,
-  p.faculty_id,
-  p.visibility,
-  p.group_id,
-  COALESCE(p.image_key, '') AS image_key,
-  p.default_cover_variant,
-  p.image_updated_at,
-  p.created_at,
-  p.updated_at
+	q := `
+SELECT` + projectsRepoProjectColumns(true) + `
 FROM projects p
 LEFT JOIN users u ON u.id = p.created_by
 LEFT JOIN user_profiles up ON up.user_id = p.created_by
@@ -450,6 +525,34 @@ WHERE p.tenant_id = $1
 ORDER BY p.updated_at DESC, p.created_at DESC;
 `
 	rows, err := r.db.Query(ctx, q, tenantID, facultyID, userID)
+	if isUndefinedColumnErr(err, "retake_count") {
+		legacyQ := `
+SELECT` + projectsRepoProjectColumns(false) + `
+FROM projects p
+LEFT JOIN users u ON u.id = p.created_by
+LEFT JOIN user_profiles up ON up.user_id = p.created_by
+WHERE p.tenant_id = $1
+  AND p.faculty_id = $2
+  AND (
+    p.is_public = TRUE
+    OR p.created_by = $3
+    OR EXISTS (
+      SELECT 1 FROM project_members pm
+      WHERE pm.project_id = p.id AND pm.tenant_id = p.tenant_id
+        AND pm.user_id = $3 AND pm.status = 'ACTIVE'
+    )
+    OR EXISTS (
+      SELECT 1 FROM role_assignments ra
+      JOIN roles r ON r.id = ra.role_id
+      WHERE ra.user_id = $3 AND ra.tenant_id = p.tenant_id
+        AND ra.scope_type = 'PROJECT' AND ra.scope_id = p.id
+        AND r.code IN ('PROJECT_PROFESSOR', 'TEAM_LEAD', 'CO_LEAD')
+    )
+  )
+ORDER BY p.updated_at DESC, p.created_at DESC;
+`
+		rows, err = r.db.Query(ctx, legacyQ, tenantID, facultyID, userID)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -476,6 +579,7 @@ ORDER BY p.updated_at DESC, p.created_at DESC;
 			&p.FacultyID,
 			&p.Visibility,
 			&groupID,
+			&p.RetakeCount,
 			&p.ImageKey,
 			&p.DefaultCoverVariant,
 			&imageUpdatedAt,
@@ -504,26 +608,8 @@ func (r *ProjectsRepo) ListPublic(ctx context.Context, userID uuid.UUID) ([]doma
 		return nil, err
 	}
 
-	const q = `
-SELECT
-  p.id,
-  p.title,
-  p.description,
-  p.status,
-  p.is_public,
-  p.created_by,
-  COALESCE(NULLIF(TRIM(up.full_name), ''), split_part(COALESCE(u.email, ''), '@', 1), p.created_by::text) AS created_by_name,
-  COALESCE(u.email, '') AS created_by_email,
-  p.professor_id,
-  COALESCE(p.professor_review_status, 'NONE') AS professor_review_status,
-  p.faculty_id,
-  p.visibility,
-  p.group_id,
-  COALESCE(p.image_key, '') AS image_key,
-  p.default_cover_variant,
-  p.image_updated_at,
-  p.created_at,
-  p.updated_at
+	q := `
+SELECT` + projectsRepoProjectColumns(true) + `
 FROM projects p
 LEFT JOIN users u ON u.id = p.created_by
 LEFT JOIN user_profiles up ON up.user_id = p.created_by
@@ -540,6 +626,26 @@ WHERE p.tenant_id = $1
 ORDER BY p.created_at DESC;
 `
 	rows, err := r.db.Query(ctx, q, tenantID, userID)
+	if isUndefinedColumnErr(err, "retake_count") {
+		legacyQ := `
+SELECT` + projectsRepoProjectColumns(false) + `
+FROM projects p
+LEFT JOIN users u ON u.id = p.created_by
+LEFT JOIN user_profiles up ON up.user_id = p.created_by
+WHERE p.tenant_id = $1
+  AND (
+    p.is_public = TRUE
+    OR p.created_by = $2
+    OR EXISTS (
+      SELECT 1 FROM project_members pm
+      WHERE pm.project_id = p.id AND pm.tenant_id = p.tenant_id
+        AND pm.user_id = $2 AND pm.status = 'ACTIVE'
+    )
+  )
+ORDER BY p.created_at DESC;
+`
+		rows, err = r.db.Query(ctx, legacyQ, tenantID, userID)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -566,6 +672,7 @@ ORDER BY p.created_at DESC;
 			&p.FacultyID,
 			&p.Visibility,
 			&groupID,
+			&p.RetakeCount,
 			&p.ImageKey,
 			&p.DefaultCoverVariant,
 			&imageUpdatedAt,

@@ -11,6 +11,11 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	SystemTaskPositionTeamLeadCode = "TEAM_LEAD"
+	SystemTaskPositionTeamLeadName = "Тимлид"
+)
+
 func normalizeStackCodes(input []string) []string {
 	seen := make(map[string]struct{}, len(input))
 	out := make([]string, 0, len(input))
@@ -47,6 +52,10 @@ func normalizePositionCode(code, name string) string {
 	v = strings.ReplaceAll(v, "-", "_")
 	v = strutil.TruncateUTF8(v, 40)
 	return v
+}
+
+func isSystemTaskPositionCode(code string) bool {
+	return strings.ToUpper(strings.TrimSpace(code)) == SystemTaskPositionTeamLeadCode
 }
 
 func normalizeSearchQuery(raw string) string {
@@ -118,6 +127,35 @@ func (s *Service) ensurePositionExists(ctx context.Context, projectID, positionI
 	return capacity, nil
 }
 
+func (s *Service) ensureTeamLeadTaskPosition(ctx context.Context, projectID uuid.UUID) (Position, error) {
+	return s.positionsRepo.EnsureProjectPosition(ctx, projectID, SystemTaskPositionTeamLeadCode, SystemTaskPositionTeamLeadName, 1)
+}
+
+func (s *Service) ensureMemberAssignablePosition(ctx context.Context, projectID, positionID uuid.UUID) error {
+	position, err := s.positionsRepo.GetProjectPosition(ctx, projectID, positionID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return fmt.Errorf("%w: unknown position_id", ErrInvalidInput)
+		}
+		return err
+	}
+	if isSystemTaskPositionCode(position.Code) {
+		return fmt.Errorf("%w: reserved position_id", ErrInvalidInput)
+	}
+	return nil
+}
+
+func (s *Service) isProjectTeamLead(ctx context.Context, userID, projectID uuid.UUID) (bool, error) {
+	p, err := s.projectByID(ctx, projectID)
+	if err != nil {
+		return false, err
+	}
+	if p.CreatedBy == userID {
+		return true, nil
+	}
+	return s.projectsRepo.HasProjectRole(ctx, userID, projectID, SystemTaskPositionTeamLeadCode)
+}
+
 func (s *Service) ensurePositionCapacity(ctx context.Context, projectID, positionID uuid.UUID, excludeUserID *uuid.UUID) error {
 	capacity, err := s.ensurePositionExists(ctx, projectID, positionID)
 	if err != nil {
@@ -136,6 +174,24 @@ func (s *Service) ensurePositionCapacity(ctx context.Context, projectID, positio
 }
 
 func (s *Service) ensureAssigneeMatchesPosition(ctx context.Context, projectID, userID, positionID uuid.UUID) error {
+	position, err := s.positionsRepo.GetProjectPosition(ctx, projectID, positionID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return fmt.Errorf("%w: unknown position_id", ErrInvalidInput)
+		}
+		return err
+	}
+	if isSystemTaskPositionCode(position.Code) {
+		ok, err := s.isProjectTeamLead(ctx, userID, projectID)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return fmt.Errorf("%w: assignee must be project team lead", ErrInvalidInput)
+		}
+		return nil
+	}
+
 	status, assignedPositionID, err := s.membersRepo.GetProjectMemberStatusAndPosition(ctx, projectID, userID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {

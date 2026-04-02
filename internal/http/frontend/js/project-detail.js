@@ -18,6 +18,7 @@
 
   const ASSIGNABLE_LIFECYCLE_ROLES = new Set(["CO_LEAD", "RECRUITER", "TASK_MANAGER"]);
   const SYSTEM_LIFECYCLE_ROLES = new Set(["TEAM_LEAD", "MEMBER", "INVITED_MEMBER", "PROJECT_PROFESSOR"]);
+  const SYSTEM_TASK_POSITION_CODES = new Set(["TEAM_LEAD"]);
   const PRIMARY_LIFECYCLE_FLOW = ["DRAFT", "RECRUITMENT", "ACTIVE", "GRADING", "COMPLETED"];
   const DEFAULT_PROJECT_COVERS = [
     "https://images.pexels.com/photos/16129724/pexels-photo-16129724.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600",
@@ -378,6 +379,18 @@
     return hasProjectPermission("project.invite_professor");
   }
 
+  function canCreateTasksInProject() {
+    return canViewWorkspace() && hasProjectPermission("task.create");
+  }
+
+  function canAssignTasksInProject() {
+    return canViewWorkspace() && hasProjectPermission("task.assign");
+  }
+
+  function canUpdateTasksInProject() {
+    return canViewWorkspace() && hasProjectPermission("task.update");
+  }
+
   function decodePayload(token) {
     const parts = token.split(".");
     if (parts.length < 2) throw new Error("invalid JWT");
@@ -712,7 +725,40 @@
     return allMembers().filter((m) => String(m.status || "").toUpperCase() === "ACTIVE");
   }
 
+  function normalizePositionCode(code) {
+    return String(code || "").trim().toUpperCase();
+  }
+
+  function isSystemTaskPositionCode(code) {
+    return SYSTEM_TASK_POSITION_CODES.has(normalizePositionCode(code));
+  }
+
+  function projectPositionByID(positionID) {
+    const id = String(positionID || "");
+    return (Array.isArray(state.positions) ? state.positions : []).find((p) => String(p.id || "") === id) || null;
+  }
+
+  function isTeamLeadTaskPositionID(positionID) {
+    const position = projectPositionByID(positionID);
+    return Boolean(position) && isSystemTaskPositionCode(position.code);
+  }
+
+  function memberAssignablePositions() {
+    return (Array.isArray(state.positions) ? state.positions : []).filter((p) => !isSystemTaskPositionCode(p.code));
+  }
+
+  function teamLeadMembers() {
+    const leadID = String(state.project?.created_by || "");
+    return activeMembers().filter((m) => {
+      const memberID = String(m.user_id || "");
+      return Boolean(memberID) && (memberID === leadID || normalizePositionCode(m.position_code) === "TEAM_LEAD");
+    });
+  }
+
   function membersByPosition(positionID) {
+    if (isTeamLeadTaskPositionID(positionID)) {
+      return teamLeadMembers();
+    }
     return activeMembers().filter((m) => String(m.position_id || "") === String(positionID));
   }
 
@@ -762,6 +808,27 @@
       : 0;
   }
 
+  function taskDueDate(task) {
+    if (!task || !task.due_at) return null;
+    const due = new Date(task.due_at);
+    return Number.isNaN(due.getTime()) ? null : due;
+  }
+
+  function isTaskDone(task) {
+    return String(task?.status || "").toUpperCase() === "DONE";
+  }
+
+  function isTaskOverdue(task) {
+    const due = taskDueDate(task);
+    return Boolean(due) && !isTaskDone(task) && due.getTime() < Date.now();
+  }
+
+  function overdueTasksCount() {
+    return Array.isArray(state.tasks)
+      ? state.tasks.filter((task) => isTaskOverdue(task)).length
+      : 0;
+  }
+
   function gradedCriteriaCount() {
     return Array.isArray(state.gradingItems)
       ? state.gradingItems.filter((item) => item && item.is_met !== null && item.is_met !== undefined).length
@@ -793,6 +860,7 @@
       professorAccepted: professorStatusCode === "ACCEPTED",
       tasksTotal,
       tasksDone,
+      overdueTasks: overdueTasksCount(),
       gradedCriteria: Math.max(gradedCriteriaCount(), Number(publicSummary?.total || 0)),
     };
   }
@@ -829,10 +897,10 @@
         return "Проект запущен. Следующий шаг: создать и выполнить задачи перед отправкой на оценивание.";
       }
       if (!snapshot.professorAccepted) {
-        return `Проект в работе. Завершено ${snapshot.tasksDone}/${snapshot.tasksTotal} задач, но преподаватель еще не подтвердил участие.`;
+        return `Проект в работе. Завершено ${snapshot.tasksDone}/${snapshot.tasksTotal} задач, но преподаватель еще не подтвердил участие.${snapshot.overdueTasks > 0 ? ` Просрочено: ${snapshot.overdueTasks}.` : ""}`;
       }
       if (snapshot.tasksDone < snapshot.tasksTotal) {
-        return `Проект в работе. Закройте все задачи: сейчас выполнено ${snapshot.tasksDone}/${snapshot.tasksTotal}.`;
+        return `Проект в работе. Закройте все задачи: сейчас выполнено ${snapshot.tasksDone}/${snapshot.tasksTotal}.${snapshot.overdueTasks > 0 ? ` Просрочено: ${snapshot.overdueTasks}.` : ""}`;
       }
       return "Все задачи закрыты: проект можно отправлять преподавателю на оценивание.";
     }
@@ -911,17 +979,28 @@
     return out;
   }
 
-  function projectPositionOptions(selectedID) {
-    if (state.positions.length === 0) {
+  function projectPositionOptions(selectedID, options = {}) {
+    const includeSystemTaskPositions = Boolean(options.includeSystemTaskPositions);
+    const placeholder = Object.prototype.hasOwnProperty.call(options, "placeholder")
+      ? String(options.placeholder || "")
+      : "Выберите роль";
+    const positions = includeSystemTaskPositions
+      ? (Array.isArray(state.positions) ? state.positions : [])
+      : memberAssignablePositions();
+
+    if (positions.length === 0) {
       return '<option value="">Нет ролей</option>';
     }
 
-    const options = ['<option value="">Выберите роль</option>'];
-    state.positions.forEach((p) => {
+    const html = [];
+    if (placeholder) {
+      html.push(`<option value="">${escapeHTML(placeholder)}</option>`);
+    }
+    positions.forEach((p) => {
       const selected = String(p.id) === String(selectedID) ? "selected" : "";
-      options.push(`<option value="${escapeHTML(p.id)}" ${selected}>${escapeHTML(p.name)} (${escapeHTML(p.code)})</option>`);
+      html.push(`<option value="${escapeHTML(p.id)}" ${selected}>${escapeHTML(p.name)} (${escapeHTML(p.code)})</option>`);
     });
-    return options.join("");
+    return html.join("");
   }
 
   function assigneeOptions(positionID, selectedUserID) {
@@ -976,12 +1055,24 @@
     return weight > 0 ? weight : 1;
   }
 
+  function projectRetakeCount() {
+    const count = Number(state.project && state.project.retake_count ? state.project.retake_count : 0);
+    return Number.isFinite(count) && count > 0 ? Math.round(count) : 0;
+  }
+
+  function projectRetakePenaltyPercent() {
+    const explicit = Number(state.project && state.project.retake_penalty_percent ? state.project.retake_penalty_percent : 0);
+    return Number.isFinite(explicit) && explicit >= 0 ? Math.round(explicit) : 0;
+  }
+
   function reviewSummaryData() {
     const criteria = Array.isArray(state.criteria) ? state.criteria : [];
     const grading = gradingByCriterion();
     const publicSummary = state.project && typeof state.project.review_summary === "object"
       ? state.project.review_summary
       : null;
+    const retakeCount = projectRetakeCount();
+    const penaltyPercent = projectRetakePenaltyPercent();
 
     if ((!criteria.length || grading.size === 0) && publicSummary) {
       const reviewedAt = publicSummary.reviewed_at ? new Date(publicSummary.reviewed_at) : null;
@@ -996,6 +1087,8 @@
         reviewedAt: reviewedAt && !Number.isNaN(reviewedAt.getTime()) ? reviewedAt : null,
         overall: "Итоговая оценка опубликована. Детализация критериев доступна только участникам команды.",
         hasReview: Number(publicSummary.total || 0) > 0,
+        retakeCount,
+        penaltyPercent,
       };
     }
 
@@ -1035,8 +1128,9 @@
     });
 
     const total = criteria.length;
-    const passPercent = weightTotal > 0 ? Math.round((weightMet * 100) / weightTotal) : 0;
-    const score = weightTotal > 0 ? ((weightMet * 5) / weightTotal).toFixed(1) : "0.0";
+    const rawPassPercent = weightTotal > 0 ? Math.round((weightMet * 100) / weightTotal) : 0;
+    const passPercent = Math.max(0, rawPassPercent - penaltyPercent);
+    const score = (passPercent * 5 / 100).toFixed(1);
     const reviewer = state.professorSummary?.full_name || state.professorSummary?.email || "Преподаватель";
 
     let overall = "Комментарий преподавателя пока не добавлен.";
@@ -1069,6 +1163,8 @@
       reviewedAt: latest,
       overall,
       hasReview: reviewed > 0 || comments.length > 0,
+      retakeCount,
+      penaltyPercent,
     };
   }
 
@@ -1552,6 +1648,7 @@
 
     const currentUser = String(localStorage.getItem(LS_USER) || "");
     const canManageTeam = hasProjectPermission("member.approve");
+    const hasMemberPositions = memberAssignablePositions().length > 0;
 
     filtered.forEach((m) => {
       const status = String(m.status || "").toUpperCase();
@@ -1559,13 +1656,11 @@
       const statusLabel = status === "APPLIED" ? "INVITED" : status;
       const github = `https://github.com/${slugify(getDisplayName(m.user_id))}`;
       const isLeadRow = String(m.user_id) === String(state.project?.created_by || "");
-      const roleOptions = isLeadRow
-        ? `<option value="">Тимлид</option>${projectPositionOptions("").replace('<option value="">Выберите роль</option>', "")}`
-        : projectPositionOptions(m.position_id || "");
+      const roleOptions = isLeadRow ? '<option value="">Тимлид</option>' : projectPositionOptions(m.position_id || "");
       const roleSelectDisabled = !canManageTeam || isLeadRow || status !== "ACTIVE";
       const canApprove = canManageTeam && status === "APPLIED";
       const canRejectApplication = canManageTeam && status === "APPLIED";
-      const canSetPosition = canManageTeam && status === "ACTIVE" && !isLeadRow && state.positions.length > 0;
+      const canSetPosition = canManageTeam && status === "ACTIVE" && !isLeadRow && hasMemberPositions;
       const canRemoveMember = canManageTeam && !isLeadRow && (status === "ACTIVE" || status === "INVITED");
       const canRespondInvite = status === "INVITED" && String(m.user_id) === currentUser;
       const canManagePerms = status === "ACTIVE" && !isLeadRow && canManageAccess();
@@ -1653,14 +1748,17 @@
 
   function renderProgress() {
     const isActive = isProjectActive();
-    const canCreateTasks = canViewWorkspace() && isCurrentUserLead() && isActive;
+    const canCreateTasks = canCreateTasksInProject() && isActive;
     const doneCount = state.tasks.filter((t) => String(t.status || "").toUpperCase() === "DONE").length;
     const total = state.tasks.length;
     const percent = total > 0 ? Math.round((doneCount * 100) / total) : 0;
+    const overdueCount = overdueTasksCount();
 
     ui.activeProgressWrap.hidden = !isActive;
     ui.progressBadge.className = `status-pill ${isActive ? "active" : "muted"}`;
-    ui.progressBadge.textContent = isActive ? `Прогресс открыт · ${percent}%` : "Прогресс закрыт до ACTIVE";
+    ui.progressBadge.textContent = isActive
+      ? `Прогресс открыт · ${percent}%${overdueCount > 0 ? ` · просрочено ${overdueCount}` : ""}`
+      : "Прогресс закрыт до ACTIVE";
 
     if (isActive) {
       ui.progressPercent.textContent = `${percent}%`;
@@ -1668,7 +1766,7 @@
     }
 
     ui.openTaskModalBtn.disabled = !canCreateTasks;
-    if (!canViewWorkspace() || !isCurrentUserLead()) {
+    if (!canCreateTasksInProject()) {
       ui.openTaskModalBtn.title = "Создание задач доступно только участникам проекта с правом управления";
     } else {
       ui.openTaskModalBtn.title = isActive ? "" : "Создание задач доступно только после ACTIVE";
@@ -1699,6 +1797,7 @@
       stacks: state.stacks.map((s) => s.code),
       members_active: activeMembers().length,
       tasks_total: state.tasks.length,
+      tasks_overdue: overdueTasksCount(),
       criteria_count: state.readiness ? state.readiness.criteria_count : 0,
       readiness: state.readiness
         ? {
@@ -1720,18 +1819,22 @@
 
   function createTaskCard(task) {
     const card = document.createElement("article");
-    card.className = "task-item";
+    const overdue = isTaskOverdue(task);
+    card.className = overdue ? "task-item task-item--overdue" : "task-item";
     card.setAttribute("data-task-id", task.id || "");
 
     const status = String(task.status || "OPEN").toUpperCase();
     const tags = taskTags(task);
-    const isLead = isCurrentUserLead();
+    const canAssignTasks = canAssignTasksInProject();
+    const canUpdateTasks = canUpdateTasksInProject();
     const isAssignee = isCurrentUserAssignee(task);
+    const dueLabel = task.due_at ? formatDate(task.due_at) : "не задан";
     let controlsHTML = "";
 
-    if (isLead) {
-      controlsHTML =
-        `<div class="task-controls">` +
+    if (canAssignTasks || canUpdateTasks) {
+      controlsHTML = `<div class="task-controls">`;
+      if (canUpdateTasks) {
+        controlsHTML +=
           `<div class="task-control-row">` +
             `<select data-task-status>` +
               `<option value="OPEN" ${status === "OPEN" ? "selected" : ""}>OPEN</option>` +
@@ -1739,14 +1842,22 @@
               `<option value="DONE" ${status === "DONE" ? "selected" : ""}>DONE</option>` +
             `</select>` +
             `<button class="ghost-btn" data-task-action="status">Статус</button>` +
-          `</div>` +
+          `</div>`;
+      }
+      if (canAssignTasks) {
+        controlsHTML +=
           `<div class="task-control-row">` +
             `<select data-task-assignee>${assigneeOptions(task.position_id, task.assignee_user_id || "")}</select>` +
             `<button class="ghost-btn" data-task-action="assign">Назначить</button>` +
-          `</div>` +
-          (isAssignee && status === "OPEN" ? `<button class="primary-btn" data-task-action="claim">Взять</button>` : "") +
-          (isAssignee && status === "IN_PROGRESS" ? `<button class="primary-btn" data-task-action="complete-open">Выполнено</button>` : "") +
-        `</div>`;
+          `</div>`;
+      }
+      if (isAssignee && status === "OPEN") {
+        controlsHTML += `<button class="primary-btn" data-task-action="claim">Взять</button>`;
+      }
+      if (isAssignee && status === "IN_PROGRESS") {
+        controlsHTML += `<button class="primary-btn" data-task-action="complete-open">Выполнено</button>`;
+      }
+      controlsHTML += `</div>`;
     } else if (isAssignee) {
       if (status === "OPEN") {
         controlsHTML =
@@ -1770,7 +1881,9 @@
       `<p>${escapeHTML(task.description || "Описание отсутствует")}</p>` +
       `<p>Роль: ${escapeHTML(task.position_name || task.position_code || "-")}</p>` +
       `<p>Исполнитель: ${escapeHTML(task.assignee_user_id ? getDisplayName(task.assignee_user_id) : "не назначен")}</p>` +
-      `<div class="task-tags">${tags.map((t) => `<span class="tag">${escapeHTML(t)}</span>`).join("")}</div>` +
+      `<p class="task-deadline ${overdue ? "is-overdue" : ""}">Срок: ${escapeHTML(dueLabel)}</p>` +
+      `<div class="task-tags">${tags.map((t) => `<span class="tag">${escapeHTML(t)}</span>`).join("")}${overdue ? '<span class="tag tag-danger">Просрочено</span>' : ""}</div>` +
+      (overdue ? `<div class="task-note overdue">Срок истек, пока задача не завершена.</div>` : "") +
       controlsHTML +
       `<div class="task-timeline-wrap">` +
         `<p class="task-timeline-head">Лента задачи</p>` +
@@ -1849,7 +1962,10 @@
       const status = projectStatusCode();
       const summary = reviewSummaryData();
       if (summary.hasReview) {
-        ui.criteriaReviewHint.textContent = `Проверено: ${summary.met}/${summary.total}. Итоговый балл: ${summary.score}/5.0 (${summary.passPercent}%).`;
+        const penaltyNote = summary.penaltyPercent > 0 ? ` С учетом пересдачи: -${summary.penaltyPercent}%.` : "";
+        ui.criteriaReviewHint.textContent = `Проверено: ${summary.met}/${summary.total}. Итоговый балл: ${summary.score}/5.0 (${summary.passPercent}%).${penaltyNote}`;
+      } else if (status === "ACTIVE" && projectRetakeCount() > 0) {
+        ui.criteriaReviewHint.textContent = "Проект возвращен на пересдачу. После доработки команда сможет снова отправить его преподавателю.";
       } else if (status === "REVIEW" || status === "GRADING" || status === "COMPLETED" || status === "ARCHIVE") {
         ui.criteriaReviewHint.textContent = "Проект ожидает преподавательскую проверку. Итоговая оценка появится после завершения оценки.";
       } else {
@@ -1905,6 +2021,9 @@
       if ((status === "COMPLETED" || status === "ARCHIVE") && summary.hasReview) {
         ui.reviewStatusPill.className = "status-pill active";
         ui.reviewStatusPill.textContent = "Проверено преподавателем";
+      } else if (status === "ACTIVE" && projectRetakeCount() > 0) {
+        ui.reviewStatusPill.className = "status-pill review";
+        ui.reviewStatusPill.textContent = "На пересдаче";
       } else if (status === "GRADING") {
         ui.reviewStatusPill.className = "status-pill review";
         ui.reviewStatusPill.textContent = summary.hasReview ? "Идет оценивание" : "На оценивании";
@@ -1916,9 +2035,15 @@
 
     if (ui.reviewIntro) {
       if (summary.hasReview) {
-        ui.reviewIntro.textContent = `Ревью по критериям сохранено. Выполнено: ${summary.met}/${summary.total}.`;
+        if (status === "ACTIVE" && projectRetakeCount() > 0) {
+          ui.reviewIntro.textContent = `Проект возвращен на пересдачу. Предыдущая проверка сохранена как ориентир для команды${summary.penaltyPercent > 0 ? `, текущий штраф: ${summary.penaltyPercent}%.` : "."}`;
+        } else {
+          ui.reviewIntro.textContent = `Ревью по критериям сохранено. Выполнено: ${summary.met}/${summary.total}.${summary.penaltyPercent > 0 ? ` Итог учитывает штраф ${summary.penaltyPercent}% за пересдачу.` : ""}`;
+        }
       } else if (status === "GRADING") {
         ui.reviewIntro.textContent = "Проект отправлен преподавателю на оценивание. Результаты появятся после проверки.";
+      } else if (status === "ACTIVE" && projectRetakeCount() > 0) {
+        ui.reviewIntro.textContent = "Преподаватель вернул проект на доработку. После повторной сдачи итоговая оценка будет немного снижена.";
       } else {
         ui.reviewIntro.textContent = "После завершения проекта преподаватель выставляет оценки по критериям. Здесь отображаются результаты ревью.";
       }
@@ -1991,7 +2116,7 @@
       ui.positionForm.hidden = !workspaceMode || !isCurrentUserLead();
     }
     if (ui.openTaskModalBtn) {
-      ui.openTaskModalBtn.hidden = !workspaceMode || !isCurrentUserLead();
+      ui.openTaskModalBtn.hidden = !workspaceMode || !hasProjectPermission("task.create");
     }
 
     if (ui.applyHint) {
@@ -2134,7 +2259,8 @@
   }
 
   function renderTaskModalSelects() {
-    ui.taskModalPositionSelect.innerHTML = projectPositionOptions("");
+    syncTaskModalStatusOptions();
+    ui.taskModalPositionSelect.innerHTML = projectPositionOptions("", { includeSystemTaskPositions: true });
     syncTaskModalAssignees();
   }
 
@@ -2143,7 +2269,22 @@
     ui.taskModalAssigneeSelect.innerHTML = assigneeOptions(positionID, "");
   }
 
+  function syncTaskModalStatusOptions() {
+    if (!ui.taskModalStatusSelect) return;
+    const canUpdateTasks = canUpdateTasksInProject();
+    const current = String(ui.taskModalStatusSelect.value || "OPEN").toUpperCase();
+    ui.taskModalStatusSelect.innerHTML = [
+      '<option value="OPEN">Backlog</option>',
+      canUpdateTasks ? '<option value="IN_PROGRESS">В работе</option>' : "",
+    ].join("");
+    ui.taskModalStatusSelect.value = current === "IN_PROGRESS" && canUpdateTasks ? "IN_PROGRESS" : "OPEN";
+  }
+
   function openTaskModal() {
+    if (!canCreateTasksInProject()) {
+      setNotice("У вас нет права создавать задачи в этом проекте.", true);
+      return;
+    }
     if (!isProjectActive()) {
       setNotice("Создание задач доступно только после перевода проекта в ACTIVE.", true);
       return;
@@ -2274,8 +2415,14 @@
     const positionID = ui.taskModalPositionSelect.value;
     let assigneeUserID = ui.taskModalAssigneeSelect.value;
 
+    if (!canCreateTasksInProject()) {
+      throw new Error("У вас нет права создавать задачи в этом проекте.");
+    }
     if (!title || !positionID) {
       throw new Error("Заполните название задачи и роль.");
+    }
+    if (status === "IN_PROGRESS" && !canUpdateTasksInProject()) {
+      throw new Error("Переводить новую задачу сразу в IN_PROGRESS может только участник с правом изменения статуса.");
     }
 
     if (status === "IN_PROGRESS" && !assigneeUserID) {

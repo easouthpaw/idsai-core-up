@@ -10,6 +10,8 @@
 
   const EDITABLE_STATUSES = new Set(["REVIEW", "GRADING"]);
   const FINALIZABLE_STATUSES = new Set(["GRADING"]);
+  const RETAKE_PENALTY_PER_ATTEMPT = 5;
+  const RETAKE_PENALTY_CAP = 25;
 
   const ui = {
     projectTitle: document.getElementById("projectTitle"),
@@ -25,10 +27,13 @@
     summaryCoverage: document.getElementById("summaryCoverage"),
     summaryMet: document.getElementById("summaryMet"),
     summaryScore: document.getElementById("summaryScore"),
+    summaryPenalty: document.getElementById("summaryPenalty"),
     gradingProgressFill: document.getElementById("gradingProgressFill"),
     gradingProgressText: document.getElementById("gradingProgressText"),
+    returnForRetakeBtn: document.getElementById("returnForRetakeBtn"),
     publishGradingBtn: document.getElementById("publishGradingBtn"),
     saveGradingBtn: document.getElementById("saveGradingBtn"),
+    teamActivityList: document.getElementById("teamActivityList"),
     pageStatus: document.getElementById("pageStatus"),
   };
 
@@ -39,6 +44,9 @@
     project: null,
     readiness: null,
     criteria: [],
+    members: [],
+    tasks: [],
+    taskActivities: [],
     grading: new Map(),
     canEdit: false,
     canPublish: false,
@@ -53,6 +61,49 @@
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
+  }
+
+  function extractItems(payload) {
+    if (Array.isArray(payload)) return payload;
+    if (payload && Array.isArray(payload.items)) return payload.items;
+    return [];
+  }
+
+  function retakeCount(project = state.project) {
+    const count = Number(project && project.retake_count ? project.retake_count : 0);
+    return Number.isFinite(count) && count > 0 ? Math.round(count) : 0;
+  }
+
+  function retakePenaltyPercent(project = state.project) {
+    const explicit = Number(project && project.retake_penalty_percent ? project.retake_penalty_percent : 0);
+    if (Number.isFinite(explicit) && explicit >= 0) {
+      return Math.round(explicit);
+    }
+    return Math.min(RETAKE_PENALTY_CAP, retakeCount(project) * RETAKE_PENALTY_PER_ATTEMPT);
+  }
+
+  function retakeWord(count) {
+    const mod10 = count % 10;
+    const mod100 = count % 100;
+    if (mod10 === 1 && mod100 !== 11) return "пересдача";
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return "пересдачи";
+    return "пересдач";
+  }
+
+  function displayName(userID, fallbackEmail) {
+    const normalizedUserID = String(userID || "").trim();
+    const normalizedEmail = String(fallbackEmail || "").trim();
+    const member = extractItems(state.members).find((item) => String(item && item.user_id || "") === normalizedUserID);
+    if (member) {
+      const fullName = String(member.full_name || "").trim();
+      if (fullName) return fullName;
+      const email = String(member.email || "").trim();
+      if (email) return email;
+    }
+    if (normalizedUserID && state.project && normalizedUserID === String(state.project.created_by || "")) {
+      return state.project.created_by_name || state.project.created_by_email || normalizedEmail || "Лидер проекта";
+    }
+    return normalizedEmail || "Участник";
   }
 
   function setStatus(message, isError) {
@@ -246,9 +297,11 @@
     const status = statusMeta(project.status);
     const reviewerState = reviewCode(project);
     const owner = project.created_by_name || project.created_by_email || "Команда";
+    const retakes = retakeCount(project);
+    const retakeMeta = retakes > 0 ? ` · Пересдачи: ${retakes}` : "";
 
     ui.projectTitle.textContent = project.title || "Без названия";
-    ui.projectMeta.textContent = `Автор: ${owner} · Обновлен: ${formatDate(project.updated_at || project.created_at)} · Ревью: ${reviewerState}`;
+    ui.projectMeta.textContent = `Автор: ${owner} · Обновлен: ${formatDate(project.updated_at || project.created_at)} · Ревью: ${reviewerState}${retakeMeta}`;
     ui.projectStatusBadge.textContent = status.label;
     ui.projectStatusBadge.className = `status-pill ${status.tone}`;
 
@@ -275,6 +328,7 @@
     const professorState = reviewCode(project);
     const criteriaCount = Number(readiness.criteria_count || state.criteria.length || 0);
     const membersReady = `${Number(readiness.active_members || 0)}/${Number(readiness.required_members || 0)}`;
+    const retakes = retakeCount(project);
 
     let title = "Контекст оценивания";
     let text = "Состояние проекта определяет, что преподаватель может сделать прямо сейчас.";
@@ -286,11 +340,18 @@
       title = "Этап подготовки к активной фазе";
       text = "Оценивание уже можно черновиком заполнять, но основной акцент здесь на полноте критериев и готовности команды.";
     } else if (status === "ACTIVE") {
-      title = "Команда в активной работе";
-      text = "Ревью-форма пока закрыта. Следующий преподавательский шаг появится после отправки проекта на финальную оценку.";
+      if (retakes > 0) {
+        title = "Проект возвращен на доработку";
+        text = "Команда исправляет замечания после пересдачи. Когда проект снова отправят на финальное ревью, итоговая оценка будет учитывать небольшой штраф.";
+      } else {
+        title = "Команда в активной работе";
+        text = "Ревью-форма пока закрыта. Следующий преподавательский шаг появится после отправки проекта на финальную оценку.";
+      }
     } else if (status === "GRADING") {
-      title = "Проект открыт для финального ревью";
-      text = "Отметьте каждый критерий, добавьте точечные комментарии и завершите оценивание только после полного покрытия чек-листа.";
+      title = retakes > 0 ? "Повторное финальное ревью" : "Проект открыт для финального ревью";
+      text = retakes > 0
+        ? "Это повторная попытка после пересдачи. Можно завершить оценивание или вернуть проект на еще одну доработку."
+        : "Отметьте каждый критерий, добавьте точечные комментарии и завершите оценивание только после полного покрытия чек-листа.";
     } else if (status === "COMPLETED") {
       title = "Оценивание уже завершено";
       text = "Страница остается полезной как итоговый отчет: можно просмотреть критерии, покрытие и комментарии без редактирования.";
@@ -304,6 +365,7 @@
         guideChip(`Ревью: ${professorState}`, professorState === "ACCEPTED" ? "done" : professorState === "PENDING" ? "current" : "blocked"),
         guideChip(`Команда: ${membersReady}`, Number(readiness.required_members || 0) > 0 && Number(readiness.active_members || 0) >= Number(readiness.required_members || 0) ? "done" : "current"),
         guideChip(`Критерии: ${criteriaCount}`, criteriaCount > 0 ? "done" : "blocked"),
+        guideChip(`Пересдачи: ${retakes}`, retakes > 0 ? "current" : "done"),
       ].join("");
     }
   }
@@ -323,6 +385,7 @@
     }
 
     const readiness = state.readiness || {};
+    const retakes = retakeCount(project);
     const items = [
       {
         label: "Команда",
@@ -343,6 +406,11 @@
         label: "Режим страницы",
         value: state.canEdit ? "Редактирование доступно" : state.canPublish ? "Готово к завершению" : "Только просмотр",
         tone: state.canEdit ? "done" : state.gradingRestricted ? "blocked" : "current",
+      },
+      {
+        label: "Пересдачи",
+        value: retakes > 0 ? `${retakes} · штраф ${retakePenaltyPercent(project)}%` : "Без штрафа",
+        tone: retakes > 0 ? "current" : "done",
       },
     ];
 
@@ -375,12 +443,24 @@
     });
 
     const coverage = total > 0 ? Math.round((answered * 100) / total) : 0;
-    const score = weightTotal > 0 ? Math.round((weightMet * 100) / weightTotal) : 0;
+    const rawScore = weightTotal > 0 ? Math.round((weightMet * 100) / weightTotal) : 0;
+    const penalty = retakePenaltyPercent();
+    const score = Math.max(0, rawScore - penalty);
     state.isComplete = total > 0 && answered === total;
 
     ui.summaryCoverage.textContent = `${coverage}%`;
     ui.summaryMet.textContent = `${met}/${total}`;
     ui.summaryScore.textContent = `${score}/100`;
+    if (ui.summaryPenalty) {
+      if (penalty > 0) {
+        const attempts = retakeCount();
+        ui.summaryPenalty.hidden = false;
+        ui.summaryPenalty.textContent = `Финальный результат уже учитывает ${attempts} ${retakeWord(attempts)}: -${penalty} баллов от итоговой оценки.`;
+      } else {
+        ui.summaryPenalty.hidden = true;
+        ui.summaryPenalty.textContent = "";
+      }
+    }
 
     if (ui.gradingProgressFill) {
       ui.gradingProgressFill.style.width = `${coverage}%`;
@@ -388,6 +468,136 @@
     if (ui.gradingProgressText) {
       ui.gradingProgressText.textContent = `${coverage}%`;
     }
+  }
+
+  function renderActionButtons() {
+    const status = statusCode(state.project);
+    const canReturn = status === "GRADING" && state.canPublish;
+    if (ui.returnForRetakeBtn) {
+      ui.returnForRetakeBtn.disabled = !canReturn;
+    }
+    if (ui.saveGradingBtn) {
+      ui.saveGradingBtn.disabled = !state.canEdit;
+    }
+    if (ui.publishGradingBtn) {
+      ui.publishGradingBtn.disabled = !(state.canPublish && state.isComplete);
+    }
+    if (status === "COMPLETED") {
+      if (ui.returnForRetakeBtn) ui.returnForRetakeBtn.disabled = true;
+      if (ui.saveGradingBtn) ui.saveGradingBtn.disabled = true;
+      if (ui.publishGradingBtn) ui.publishGradingBtn.disabled = true;
+    }
+  }
+
+  function buildTeamActivityRows() {
+    const rows = new Map();
+    const activeMembers = extractItems(state.members).filter((item) => String(item && item.status || "").toUpperCase() === "ACTIVE");
+
+    activeMembers.forEach((member) => {
+      const userID = String(member.user_id || "").trim();
+      if (!userID) return;
+      rows.set(userID, {
+        userID,
+        name: displayName(userID, member.email),
+        email: String(member.email || "").trim(),
+        completed: 0,
+        inProgress: 0,
+        events: 0,
+        attachments: 0,
+        score: 0,
+        progress: 0,
+      });
+    });
+
+    if (state.project && state.project.created_by && !rows.has(String(state.project.created_by))) {
+      const ownerID = String(state.project.created_by);
+      rows.set(ownerID, {
+        userID: ownerID,
+        name: displayName(ownerID, state.project.created_by_email),
+        email: String(state.project.created_by_email || "").trim(),
+        completed: 0,
+        inProgress: 0,
+        events: 0,
+        attachments: 0,
+        score: 0,
+        progress: 0,
+      });
+    }
+
+    extractItems(state.tasks).forEach((task) => {
+      const assigneeID = String(task && task.assignee_user_id || "").trim();
+      if (!assigneeID || !rows.has(assigneeID)) return;
+      const entry = rows.get(assigneeID);
+      const taskStatus = String(task.status || "").toUpperCase();
+      if (taskStatus === "DONE") {
+        entry.completed += 1;
+      } else if (taskStatus === "IN_PROGRESS") {
+        entry.inProgress += 1;
+      }
+    });
+
+    extractItems(state.taskActivities).forEach((item) => {
+      const actorID = String(item && item.actor_user_id || "").trim();
+      if (!actorID || !rows.has(actorID)) return;
+      const entry = rows.get(actorID);
+      entry.events += 1;
+      entry.attachments += Array.isArray(item.attachments) ? item.attachments.length : 0;
+    });
+
+    const values = Array.from(rows.values()).map((entry) => {
+      entry.score = (entry.completed * 6) + (entry.inProgress * 2) + entry.events + Math.min(entry.attachments, 4);
+      return entry;
+    });
+
+    const maxScore = values.reduce((best, entry) => Math.max(best, entry.score), 0);
+    values.forEach((entry) => {
+      entry.progress = maxScore > 0 ? Math.max(6, Math.round((entry.score * 100) / maxScore)) : 0;
+    });
+
+    return values.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (b.completed !== a.completed) return b.completed - a.completed;
+      return a.name.localeCompare(b.name, "ru");
+    });
+  }
+
+  function renderTeamActivity() {
+    if (!ui.teamActivityList) return;
+
+    const rows = buildTeamActivityRows();
+    if (!rows.length) {
+      ui.teamActivityList.innerHTML = `
+        <article class="team-activity-empty">
+          <strong>Пока нет данных для сводки</strong>
+          <p>Когда в проекте появятся задачи и события, здесь отобразится вклад участников.</p>
+        </article>
+      `;
+      return;
+    }
+
+    ui.teamActivityList.innerHTML = rows.map((entry, index) => {
+      const summary = [];
+      if (entry.completed > 0) summary.push(`${entry.completed} закрыто`);
+      if (entry.inProgress > 0) summary.push(`${entry.inProgress} в работе`);
+      if (entry.events > 0) summary.push(`${entry.events} событий`);
+      const meta = summary.length ? summary.join(" • ") : "Пока без зафиксированной активности";
+      const rank = index === 0 && entry.score > 0 ? "Лидирует" : `Уровень ${entry.progress}%`;
+
+      return `
+        <article class="team-activity-item">
+          <div class="team-activity-item__head">
+            <div>
+              <strong>${escapeHTML(entry.name)}</strong>
+              <p>${escapeHTML(meta)}</p>
+            </div>
+            <span class="team-activity-item__rank">${escapeHTML(rank)}</span>
+          </div>
+          <div class="team-activity-track" aria-hidden="true">
+            <span style="width:${Math.max(0, Math.min(100, entry.progress))}%"></span>
+          </div>
+        </article>
+      `;
+    }).join("");
   }
 
   function renderRestrictedState(title, text, tone) {
@@ -413,10 +623,9 @@
         "Эта страница останется рабочим местом ревьюера, но сами отметки станут доступны после перехода проекта в REVIEW или GRADING.",
         "blocked"
       );
-      ui.saveGradingBtn.disabled = true;
-      ui.publishGradingBtn.disabled = true;
       state.isComplete = false;
       renderSummary();
+      renderActionButtons();
       return;
     }
 
@@ -426,10 +635,9 @@
         "Сначала откройте страницу критериев и соберите чек-лист оценки. После этого форма ревью автоматически станет осмысленной.",
         "current"
       );
-      ui.saveGradingBtn.disabled = true;
-      ui.publishGradingBtn.disabled = true;
       state.isComplete = false;
       renderSummary();
+      renderActionButtons();
       return;
     }
 
@@ -467,14 +675,8 @@
       `;
     }).join("");
 
-    ui.saveGradingBtn.disabled = !state.canEdit;
     renderSummary();
-    ui.publishGradingBtn.disabled = !(state.canPublish && state.isComplete);
-
-    if (status === "COMPLETED") {
-      ui.saveGradingBtn.disabled = true;
-      ui.publishGradingBtn.disabled = true;
-    }
+    renderActionButtons();
   }
 
   async function loadPageData() {
@@ -482,26 +684,36 @@
       state.project = null;
       state.readiness = null;
       state.criteria = [];
+      state.members = [];
+      state.tasks = [];
+      state.taskActivities = [];
       applyGradingPayload([]);
       renderProjectPicker();
       renderProjectHeader();
       renderStagePanel();
       renderGuidanceList();
       renderGradingList();
+      renderTeamActivity();
       setStatus("Нет доступных проектов для оценивания.", true);
       return;
     }
 
     try {
-      const [project, criteria, readiness] = await Promise.all([
+      const [project, criteria, readiness, membersResp, tasksResp, taskActivityResp] = await Promise.all([
         request("GET", `/v2/projects/${state.projectID}`, undefined, { skipAccessAlert: true }),
         request("GET", `/v2/projects/${state.projectID}/criteria`, undefined, { skipAccessAlert: true }),
         request("GET", `/v2/projects/${state.projectID}/readiness`, undefined, { skipAccessAlert: true }).catch(() => null),
+        request("GET", `/v2/projects/${state.projectID}/members`, undefined, { skipAccessAlert: true }).catch(() => []),
+        request("GET", `/v2/projects/${state.projectID}/tasks`, undefined, { skipAccessAlert: true }).catch(() => []),
+        request("GET", `/v2/projects/${state.projectID}/tasks/activity`, undefined, { skipAccessAlert: true }).catch(() => ({ items: [] })),
       ]);
 
       state.project = project;
       state.criteria = Array.isArray(criteria) ? criteria : [];
       state.readiness = readiness && typeof readiness === "object" ? readiness : null;
+      state.members = extractItems(membersResp);
+      state.tasks = extractItems(tasksResp);
+      state.taskActivities = extractItems(taskActivityResp);
       state.gradingRestricted = false;
 
       try {
@@ -532,10 +744,13 @@
     renderStagePanel();
     renderGuidanceList();
     renderGradingList();
+    renderTeamActivity();
 
     if (state.gradingRestricted || !state.canEdit) {
       if (status === "COMPLETED") {
         setStatus("Оценивание завершено. Страница работает как итоговый отчет по проекту.", false);
+      } else if (status === "ACTIVE" && retakeCount() > 0) {
+        setStatus(`Проект возвращен на пересдачу. При следующем финале будет учтен штраф ${retakePenaltyPercent()}%.`, false);
       } else if (status === "ACTIVE") {
         setStatus("Команда еще работает над проектом. Форма оценки откроется после отправки на ревью.", false);
       } else {
@@ -588,7 +803,41 @@
     } catch (err) {
       setStatus(err.message || String(err), true);
     } finally {
-      ui.saveGradingBtn.disabled = !state.canEdit;
+      renderActionButtons();
+    }
+  }
+
+  async function returnForRetake() {
+    if (!state.projectID) {
+      setStatus("Сначала выберите проект.", true);
+      return;
+    }
+    if (!state.canPublish) {
+      setStatus("Вернуть на пересдачу можно только на этапе финального оценивания.", true);
+      return;
+    }
+
+    const nextRetakeCount = retakeCount() + 1;
+    const nextPenalty = Math.min(RETAKE_PENALTY_CAP, nextRetakeCount * RETAKE_PENALTY_PER_ATTEMPT);
+    const confirmed = await confirmAction({
+      title: "Отправить на пересдачу",
+      message: `Проект вернется в ACTIVE. После повторной сдачи итоговая оценка будет включать штраф ${nextPenalty}% (всего пересдач: ${nextRetakeCount}).`,
+      confirmText: "Вернуть на пересдачу",
+      danger: true,
+    });
+    if (!confirmed) return;
+
+    if (ui.returnForRetakeBtn) {
+      ui.returnForRetakeBtn.disabled = true;
+    }
+    try {
+      await request("POST", `/v2/projects/${state.projectID}/grading/return`, {}, { skipAccessAlert: true });
+      await loadPageData();
+      setStatus(`Проект отправлен на пересдачу. Текущий накопленный штраф: ${retakePenaltyPercent()}%.`, false);
+    } catch (err) {
+      setStatus(err.message || String(err), true);
+    } finally {
+      renderActionButtons();
     }
   }
 
@@ -608,7 +857,9 @@
 
     const confirmed = await confirmAction({
       title: "Завершить оценивание",
-      message: "Проект будет переведен в завершенный статус, а итоговые оценки зафиксируются в карточке проекта.",
+      message: retakePenaltyPercent() > 0
+        ? `Проект будет переведен в завершенный статус, а итоговая оценка зафиксируется с учетом штрафа ${retakePenaltyPercent()}% за пересдачу.`
+        : "Проект будет переведен в завершенный статус, а итоговые оценки зафиксируются в карточке проекта.",
       confirmText: "Завершить оценивание",
       danger: true,
     });
@@ -618,11 +869,16 @@
     try {
       await request("POST", `/v2/projects/${state.projectID}/grading/publish`, {}, { skipAccessAlert: true });
       await loadPageData();
-      setStatus("Оценивание завершено. Итог закреплен в проекте.", false);
+      setStatus(
+        retakePenaltyPercent() > 0
+          ? `Оценивание завершено. Итог закреплен в проекте с учетом штрафа ${retakePenaltyPercent()}%.`
+          : "Оценивание завершено. Итог закреплен в проекте.",
+        false,
+      );
     } catch (err) {
       setStatus(err.message || String(err), true);
     } finally {
-      ui.publishGradingBtn.disabled = !(state.canPublish && state.isComplete);
+      renderActionButtons();
     }
   }
 
@@ -677,6 +933,12 @@
     if (ui.publishGradingBtn) {
       ui.publishGradingBtn.addEventListener("click", () => {
         void publishGrading();
+      });
+    }
+
+    if (ui.returnForRetakeBtn) {
+      ui.returnForRetakeBtn.addEventListener("click", () => {
+        void returnForRetake();
       });
     }
   }

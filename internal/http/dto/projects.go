@@ -38,6 +38,8 @@ type ProjectResponse struct {
 	ImageURL              string                        `json:"image_url,omitempty"`
 	HasCustomImage        bool                          `json:"has_custom_image"`
 	DefaultCoverVariant   int                           `json:"default_cover_variant"`
+	RetakeCount           int                           `json:"retake_count"`
+	RetakePenaltyPercent  int                           `json:"retake_penalty_percent"`
 	CreatedAt             time.Time                     `json:"created_at"`
 	UpdatedAt             time.Time                     `json:"updated_at"`
 	ViewerAccess          *ProjectViewerAccessResponse  `json:"viewer_access,omitempty"`
@@ -106,6 +108,8 @@ func ProjectResponseFromDomain(p domain.Project) ProjectResponse {
 		ImageURL:              strings.TrimSpace(p.ImageURL),
 		HasCustomImage:        strings.TrimSpace(p.ImageKey) != "",
 		DefaultCoverVariant:   p.DefaultCoverVariant,
+		RetakeCount:           p.RetakeCount,
+		RetakePenaltyPercent:  domain.RetakePenaltyPercent(p.RetakeCount),
 		CreatedAt:             p.CreatedAt,
 		UpdatedAt:             p.UpdatedAt,
 	}

@@ -3,6 +3,7 @@ package projectflow
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"idsai-core-up/internal/domain"
@@ -93,11 +94,17 @@ func (s *Service) CreatePosition(ctx context.Context, userID, projectID uuid.UUI
 	if code == "" {
 		return Position{}, ErrInvalidInput
 	}
+	if isSystemTaskPositionCode(code) {
+		return Position{}, fmt.Errorf("%w: reserved position code", ErrInvalidInput)
+	}
 
 	return s.positionsRepo.CreateProjectPosition(ctx, projectID, code, name, capacity)
 }
 
 func (s *Service) ListPositions(ctx context.Context, projectID uuid.UUID) ([]Position, error) {
+	if _, err := s.ensureTeamLeadTaskPosition(ctx, projectID); err != nil {
+		return nil, err
+	}
 	return s.positionsRepo.ListProjectPositions(ctx, projectID)
 }
 
@@ -195,6 +202,9 @@ func (s *Service) ApproveMember(ctx context.Context, userID, projectID, memberUs
 		return Member{}, ErrRecruitmentOpen
 	}
 	if positionID != nil {
+		if err := s.ensureMemberAssignablePosition(ctx, projectID, *positionID); err != nil {
+			return Member{}, err
+		}
 		if err := s.ensurePositionCapacity(ctx, projectID, *positionID, &memberUserID); err != nil {
 			return Member{}, err
 		}
@@ -271,6 +281,9 @@ func (s *Service) SetMemberPosition(ctx context.Context, userID, projectID, memb
 	if err := s.requireProjectPermission(ctx, userID, "member.approve", projectID); err != nil {
 		return Member{}, err
 	}
+	if err := s.ensureMemberAssignablePosition(ctx, projectID, positionID); err != nil {
+		return Member{}, err
+	}
 	if err := s.ensurePositionCapacity(ctx, projectID, positionID, &memberUserID); err != nil {
 		return Member{}, err
 	}
@@ -298,6 +311,9 @@ func (s *Service) RespondMemberInvite(ctx context.Context, userID, projectID uui
 			return Member{}, err
 		}
 		if invitePositionID != nil {
+			if err := s.ensureMemberAssignablePosition(ctx, projectID, *invitePositionID); err != nil {
+				return Member{}, err
+			}
 			if err := s.ensurePositionCapacity(ctx, projectID, *invitePositionID, &userID); err != nil {
 				return Member{}, err
 			}

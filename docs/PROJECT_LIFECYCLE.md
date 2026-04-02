@@ -70,8 +70,9 @@ stateDiagram-v2
 | 12 | Запуск проекта | `POST /v2/projects/:id/approve` | `project.approve` | Фактически `REVIEW` или `RECRUITMENT` | `readiness.can_activate` должен быть `true` | Проект переводится в `ACTIVE` |
 | 13 | Работа с задачами | `POST /v2/projects/:id/tasks`, `PATCH /v2/projects/:id/tasks/:task_id/status`, `PATCH /v2/projects/:id/tasks/:task_id/assignee`, `POST /v2/projects/:id/tasks/:task_id/claim`, `POST /v2/projects/:id/tasks/:task_id/complete` | `task.create`/`task.update`/`task.assign`/`task.claim` | Только `ACTIVE` | Claim: только `OPEN` и соответствие позиции; Complete: только назначенный исполнитель и статус `IN_PROGRESS` | Задачи проходят `OPEN -> IN_PROGRESS -> DONE`; пишутся activity logs; у complete сохраняется submission |
 | 14 | Отправка на оценивание | `POST /v2/projects/:id/grading/submit` | `project.submit_for_review` **или** активный участник проекта | Только `ACTIVE` | Нужен назначенный преподаватель с `professor_review_status=ACCEPTED`; задач >= 1; все задачи `DONE` | Проект переводится в `GRADING` |
-| 15 | Оценивание и финал | `PUT /v2/projects/:id/grading`, `POST /v2/projects/:id/grading/publish` | `grading.mark_criteria` / `grading.publish` | `PUT`: `REVIEW` или `GRADING`; `publish`: только `GRADING` | Publish только назначенным профессором; критериев > 0; по каждому критерию должна стоять оценка (`is_met` не null) | Проект переводится в `ARCHIVE` (завершен) |
-| 16 | Удаление проекта владельцем | `DELETE /v2/projects/:id` | Только owner (`created_by`) | Любой | Проверяется владелец | Проект удаляется; project-scope роли очищаются |
+| 15 | Возврат на пересдачу | `POST /v2/projects/:id/grading/return` | `grading.publish` | Только `GRADING` | Действие доступно только назначенному преподавателю | Проект возвращается в `ACTIVE`; `retake_count += 1`; следующая итоговая оценка получает штраф |
+| 16 | Оценивание и финал | `PUT /v2/projects/:id/grading`, `POST /v2/projects/:id/grading/publish` | `grading.mark_criteria` / `grading.publish` | `PUT`: `REVIEW` или `GRADING`; `publish`: только `GRADING` | Publish только назначенным профессором; критериев > 0; по каждому критерию должна стоять оценка (`is_met` не null) | Проект переводится в `COMPLETED`; итоговая оценка учитывает штраф `5%` за каждую пересдачу (cap `25%`) |
+| 17 | Удаление проекта владельцем | `DELETE /v2/projects/:id` | Только owner (`created_by`) | Любой | Проверяется владелец | Проект удаляется; project-scope роли очищаются |
 
 ## 4. Ключевые формулы/блокеры
 
@@ -91,17 +92,22 @@ stateDiagram-v2
 - есть хотя бы одна задача не в `DONE`.
 
 ### 4.3 Блокер публикации оценки (`POST /grading/publish`)
-Проект не перейдет в `ARCHIVE`, если:
+Проект не перейдет в `COMPLETED`, если:
 - статус не `GRADING`;
 - действие выполняет не назначенный преподаватель;
 - критерии не настроены;
 - не проставлены оценки по всем критериям.
 
+### 4.4 Возврат на пересдачу (`POST /grading/return`)
+Проект не вернется в `ACTIVE`, если:
+- статус не `GRADING`;
+- действие выполняет не назначенный преподаватель.
+
 ## 5. Админское ручное управление статусом
 
 Админ может вручную менять `project.status`:
 - `PATCH /v2/admin/projects/:id/status`
-- Допустимые значения: `DRAFT | REVIEW | RECRUITMENT | ACTIVE | GRADING | ARCHIVE`
+- Допустимые значения: `DRAFT | REVIEW | RECRUITMENT | ACTIVE | GRADING | COMPLETED | ARCHIVE`
 
 Это bypass обычного flow и используется как операционный override.
 

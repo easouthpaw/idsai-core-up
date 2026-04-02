@@ -172,7 +172,7 @@ func (r *ProjectFlowRepo) RespondProfessorInvite(
 	if accept {
 		nextStatus = "ACCEPTED"
 	}
-	const q = `
+	q := `
 UPDATE projects
 SET professor_review_status = $4,
     professor_responded_at = now(),
@@ -181,10 +181,23 @@ WHERE id = $1
   AND tenant_id = $2
   AND professor_id = $3
   AND professor_review_status = 'PENDING'
-RETURNING id, title, description, status, is_public, created_by, professor_id,
-          professor_review_status, faculty_id, visibility, group_id, created_at, updated_at;
+RETURNING ` + projectFlowProjectColumns(true) + `;
 `
 	p, err := scanProjectRow(r.db.QueryRow(ctx, q, projectID, tenantID, professorID, nextStatus))
+	if isUndefinedColumnErr(err, "retake_count") {
+		legacyQ := `
+UPDATE projects
+SET professor_review_status = $4,
+    professor_responded_at = now(),
+    updated_at = now()
+WHERE id = $1
+  AND tenant_id = $2
+  AND professor_id = $3
+  AND professor_review_status = 'PENDING'
+RETURNING ` + projectFlowProjectColumns(false) + `;
+`
+		p, err = scanProjectRow(r.db.QueryRow(ctx, legacyQ, projectID, tenantID, professorID, nextStatus))
+	}
 	return p, mapProjectFlowErr(err)
 }
 
@@ -199,9 +212,8 @@ func (r *ProjectFlowRepo) ListProfessorReviewInvites(
 		return nil, err
 	}
 
-	const q = `
-SELECT id, title, description, status, is_public, created_by, professor_id,
-       professor_review_status, faculty_id, visibility, group_id, created_at, updated_at
+	q := `
+SELECT ` + projectFlowProjectColumns(true) + `
 FROM projects
 WHERE tenant_id = $1
   AND professor_id = $2
@@ -211,6 +223,19 @@ ORDER BY updated_at DESC
 LIMIT $4;
 `
 	rows, err := r.db.Query(ctx, q, tenantID, professorID, term, limit)
+	if isUndefinedColumnErr(err, "retake_count") {
+		legacyQ := `
+SELECT ` + projectFlowProjectColumns(false) + `
+FROM projects
+WHERE tenant_id = $1
+  AND professor_id = $2
+  AND professor_review_status = 'PENDING'
+  AND ($3 = '' OR lower(title) LIKE '%' || $3 || '%' OR lower(description) LIKE '%' || $3 || '%')
+ORDER BY updated_at DESC
+LIMIT $4;
+`
+		rows, err = r.db.Query(ctx, legacyQ, tenantID, professorID, term, limit)
+	}
 	if err != nil {
 		return nil, err
 	}
