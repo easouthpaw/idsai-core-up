@@ -372,6 +372,28 @@ WHERE t.tenant_id = $1
 	return nil
 }
 
+func (r *ProjectFlowRepo) DeleteTask(ctx context.Context, projectID, taskID uuid.UUID) error {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	const q = `
+DELETE FROM tasks
+WHERE tenant_id = $1
+  AND project_id = $2
+  AND id = $3;
+`
+	ct, err := r.db.Exec(ctx, q, tenantID, projectID, taskID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return projectflow.ErrNotFound
+	}
+	return nil
+}
+
 func (r *ProjectFlowRepo) InsertTaskActivity(
 	ctx context.Context,
 	projectID, taskID uuid.UUID,

@@ -27,6 +27,7 @@
     groupChangeBox: document.getElementById("groupChangeBox"),
     requestDepartmentInput: document.getElementById("requestDepartmentInput"),
     requestGroupInput: document.getElementById("requestGroupInput"),
+    requestGroupPreview: document.getElementById("requestGroupPreview"),
     submitGroupChangeBtn: document.getElementById("submitGroupChangeBtn"),
     groupChangeStatus: document.getElementById("groupChangeStatus"),
     groupRequestsList: document.getElementById("groupRequestsList"),
@@ -48,7 +49,6 @@
 
   const groupsState = {
     departments: [],
-    groupsByDepartment: new Map(),
   };
 
   function escapeHTML(value) {
@@ -99,6 +99,39 @@
     }
     btn.disabled = Boolean(loading);
     btn.textContent = loading ? loadingText : btn.dataset.baseText;
+  }
+
+  function buildGroupCode(departmentCode, rawGroup) {
+    const department = String(departmentCode || "").trim().toUpperCase();
+    const value = String(rawGroup || "").trim().toUpperCase();
+    if (!department || !value) return "";
+    if (/^\d{1,4}$/.test(value)) {
+      return `${department}-${value}`;
+    }
+    return value;
+  }
+
+  function updateRequestedGroupState(options = {}) {
+    const keepValue = Boolean(options.keepValue);
+    const departmentCode = String(ui.requestDepartmentInput?.value || "").trim().toUpperCase();
+    const hasDepartment = Boolean(departmentCode);
+
+    if (ui.requestGroupInput) {
+      ui.requestGroupInput.disabled = !hasDepartment;
+      ui.requestGroupInput.placeholder = hasDepartment ? "Например 101" : "Сначала выберите кафедру";
+      if (!hasDepartment || !keepValue) {
+        ui.requestGroupInput.value = hasDepartment && keepValue ? ui.requestGroupInput.value : "";
+      }
+    }
+
+    const rawGroup = String(ui.requestGroupInput?.value || "").trim().toUpperCase();
+    if (ui.requestGroupPreview) {
+      ui.requestGroupPreview.textContent = hasDepartment && rawGroup
+        ? buildGroupCode(departmentCode, rawGroup)
+        : hasDepartment
+          ? `${departmentCode}-...`
+          : "-";
+    }
   }
 
   function toProfilePayload(data) {
@@ -275,53 +308,23 @@
     });
   }
 
-  function setGroupOptions(items) {
-    if (!ui.requestGroupInput) return;
-    const list = Array.isArray(items) ? items : [];
-    ui.requestGroupInput.innerHTML = "";
-    const first = document.createElement("option");
-    first.value = "";
-    first.textContent = list.length ? "Выберите группу" : "Нет доступных групп";
-    ui.requestGroupInput.appendChild(first);
-
-    list.forEach((item) => {
-      const option = document.createElement("option");
-      option.value = String(item.group_code || "").toUpperCase();
-      option.textContent = String(item.group_code || "").toUpperCase();
-      ui.requestGroupInput.appendChild(option);
-    });
-    ui.requestGroupInput.disabled = list.length === 0;
-  }
-
   async function loadDepartments() {
     const data = await request("GET", "/v2/auth/departments");
     const departments = Array.isArray(data.departments) ? data.departments : [];
     groupsState.departments = departments;
     setDepartmentOptions(departments);
-  }
-
-  async function loadGroupsByDepartment(departmentCode) {
-    const key = String(departmentCode || "").trim().toUpperCase();
-    if (!key) {
-      setGroupOptions([]);
-      return;
-    }
-    if (groupsState.groupsByDepartment.has(key)) {
-      setGroupOptions(groupsState.groupsByDepartment.get(key));
-      return;
-    }
-
-    const data = await request("GET", `/v2/auth/departments/${encodeURIComponent(key)}/groups`);
-    const groups = Array.isArray(data.groups) ? data.groups : [];
-    groupsState.groupsByDepartment.set(key, groups);
-    setGroupOptions(groups);
+    updateRequestedGroupState();
   }
 
   async function submitGroupChangeRequest() {
     const departmentCode = String(ui.requestDepartmentInput?.value || "").trim().toUpperCase();
-    const groupCode = String(ui.requestGroupInput?.value || "").trim().toUpperCase();
+    const groupCode = buildGroupCode(departmentCode, ui.requestGroupInput?.value);
     if (!departmentCode || !groupCode) {
-      setStatus(ui.groupChangeStatus, "Выберите кафедру и группу.", "err");
+      setStatus(ui.groupChangeStatus, "Выберите кафедру и введите номер группы.", "err");
+      return;
+    }
+    if (!/^[A-Z]{2,8}-\d{1,4}$/.test(groupCode)) {
+      setStatus(ui.groupChangeStatus, "Номер группы должен содержать от 1 до 4 цифр.", "err");
       return;
     }
 
@@ -539,10 +542,12 @@
 
     if (ui.requestDepartmentInput) {
       ui.requestDepartmentInput.addEventListener("change", () => {
-        const departmentCode = String(ui.requestDepartmentInput.value || "").trim().toUpperCase();
-        void loadGroupsByDepartment(departmentCode).catch((err) => {
-          setStatus(ui.groupChangeStatus, err.message || String(err), "err");
-        });
+        updateRequestedGroupState();
+      });
+    }
+    if (ui.requestGroupInput) {
+      ui.requestGroupInput.addEventListener("input", () => {
+        updateRequestedGroupState({ keepValue: true });
       });
     }
     if (ui.submitGroupChangeBtn) {
@@ -573,9 +578,9 @@
         const currentDepartment = String(auth.getCachedProfile()?.department_code || "").toUpperCase();
         if (currentDepartment && ui.requestDepartmentInput) {
           ui.requestDepartmentInput.value = currentDepartment;
-          await loadGroupsByDepartment(currentDepartment);
+          updateRequestedGroupState({ keepValue: true });
         } else {
-          setGroupOptions([]);
+          updateRequestedGroupState();
         }
         await loadGroupRequests();
       }

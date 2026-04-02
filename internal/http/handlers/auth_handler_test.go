@@ -115,6 +115,10 @@ func (f *authHandlerRepo) FindGroupByCodeInDepartment(ctx context.Context, tenan
 	return uuid.New(), nil
 }
 
+func (f *authHandlerRepo) CreateGroupInDepartment(ctx context.Context, tenantID, facultyID, departmentID uuid.UUID, groupCode string, groupNumber int) (uuid.UUID, error) {
+	return uuid.New(), nil
+}
+
 func (f *authHandlerRepo) ListDepartments(ctx context.Context, tenantID uuid.UUID) ([]auth.Department, error) {
 	return f.departments, nil
 }

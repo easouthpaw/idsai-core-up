@@ -68,6 +68,41 @@ WHERE tenant_id = $1
 	return groupID, err
 }
 
+func (r *AuthRepo) CreateGroupInDepartment(
+	ctx context.Context,
+	tenantID, facultyID, departmentID uuid.UUID,
+	groupCode string,
+	groupNumber int,
+) (uuid.UUID, error) {
+	const q = `
+INSERT INTO student_groups(
+  tenant_id,
+  faculty_id,
+  department_id,
+  code,
+  name,
+  year,
+  group_code,
+  group_number,
+  created_at,
+  updated_at
+)
+VALUES ($1, $2, $3, $4, $4, NULL, $4, $5, now(), now())
+ON CONFLICT (tenant_id, group_code)
+DO UPDATE SET updated_at = student_groups.updated_at
+RETURNING id;
+`
+	var groupID uuid.UUID
+	err := r.db.QueryRow(ctx, q, tenantID, facultyID, departmentID, groupCode, groupNumber).Scan(&groupID)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+			return uuid.Nil, svc.ErrGroupMismatch
+		}
+	}
+	return groupID, err
+}
+
 func (r *AuthRepo) ListDepartments(ctx context.Context, tenantID uuid.UUID) ([]svc.Department, error) {
 	const q = `
 SELECT d.id, d.faculty_id, d.code, d.name, d.created_at

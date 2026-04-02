@@ -16,6 +16,7 @@ type fakeRepo struct {
 	tenantID              uuid.UUID
 	user                  User
 	findUserErr           error
+	findGroupErr          error
 	createdUser           CreateUserParams
 	createUserCount       int
 	refreshInsertCount    int
@@ -24,6 +25,10 @@ type fakeRepo struct {
 	resetToken            AuthTokenRecord
 	insertAuthTokenCount  int
 	invalidateTokenCount  int
+	createdGroupID        uuid.UUID
+	createdGroupCode      string
+	createdGroupNumber    int
+	profileGroupID        uuid.UUID
 }
 
 func (f *fakeRepo) FindTenantByCode(ctx context.Context, tenantCode string) (uuid.UUID, error) {
@@ -37,6 +42,9 @@ func (f *fakeRepo) CreateUser(ctx context.Context, in CreateUserParams) (uuid.UU
 }
 
 func (f *fakeRepo) CreateProfile(ctx context.Context, tenantID, userID uuid.UUID, fullName string, facultyID, departmentID uuid.UUID, groupID *uuid.UUID) error {
+	if groupID != nil {
+		f.profileGroupID = *groupID
+	}
 	return nil
 }
 
@@ -111,7 +119,19 @@ func (f *fakeRepo) FindDepartment(ctx context.Context, tenantID uuid.UUID, depar
 }
 
 func (f *fakeRepo) FindGroupByCodeInDepartment(ctx context.Context, tenantID, departmentID uuid.UUID, groupCode string) (uuid.UUID, error) {
+	if f.findGroupErr != nil {
+		return uuid.Nil, f.findGroupErr
+	}
 	return uuid.New(), nil
+}
+
+func (f *fakeRepo) CreateGroupInDepartment(ctx context.Context, tenantID, facultyID, departmentID uuid.UUID, groupCode string, groupNumber int) (uuid.UUID, error) {
+	if f.createdGroupID == uuid.Nil {
+		f.createdGroupID = uuid.New()
+	}
+	f.createdGroupCode = groupCode
+	f.createdGroupNumber = groupNumber
+	return f.createdGroupID, nil
 }
 
 func (f *fakeRepo) ListDepartments(ctx context.Context, tenantID uuid.UUID) ([]Department, error) {
@@ -294,6 +314,30 @@ func TestRegisterStudentAutoVerifiesWhenEnabled(t *testing.T) {
 	require.NotNil(t, repo.createdUser.EmailVerifiedAt)
 	require.Zero(t, repo.invalidateTokenCount)
 	require.Zero(t, repo.insertAuthTokenCount)
+}
+
+func TestRegisterStudentCreatesMissingGroupFromManualNumber(t *testing.T) {
+	repo := &fakeRepo{
+		tenantID:     uuid.New(),
+		findGroupErr: ErrGroupNotFound,
+	}
+	svc := NewService(repo, Config{
+		JWTSecret: "01234567890123456789012345678901",
+	})
+
+	err := svc.RegisterStudent(
+		context.Background(),
+		"CORE",
+		"student@example.edu",
+		"DemoPass123!",
+		"Student User",
+		"CS",
+		"101",
+	)
+	require.NoError(t, err)
+	require.Equal(t, "CS-101", repo.createdGroupCode)
+	require.Equal(t, 101, repo.createdGroupNumber)
+	require.Equal(t, repo.createdGroupID, repo.profileGroupID)
 }
 
 func TestRequestPasswordResetRejectsUnknownAccount(t *testing.T) {

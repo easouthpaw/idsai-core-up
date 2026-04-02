@@ -9,9 +9,9 @@
   const forgotPasswordBtn = document.getElementById("forgotPasswordBtn");
   const regDepartmentEl = document.getElementById("regDepartment");
   const regGroupEl = document.getElementById("regGroup");
+  const regGroupPreviewEl = document.getElementById("regGroupPreview");
   const registrationState = {
     departments: [],
-    groupsByDepartment: new Map(),
   };
 
   function showConfirmDialog(options) {
@@ -137,6 +137,38 @@
     return auth.targetByProfile(profile);
   }
 
+  function buildGroupCode(departmentCode, rawGroup) {
+    const department = String(departmentCode || "").trim().toUpperCase();
+    const value = String(rawGroup || "").trim().toUpperCase();
+    if (!department || !value) return "";
+    if (/^\d{1,4}$/.test(value)) {
+      return `${department}-${value}`;
+    }
+    return value;
+  }
+
+  function updateRegistrationGroupField() {
+    const departmentCode = String(regDepartmentEl?.value || "").trim().toUpperCase();
+    const rawGroup = String(regGroupEl?.value || "").trim().toUpperCase();
+    const hasDepartment = Boolean(departmentCode);
+
+    if (regGroupEl) {
+      regGroupEl.disabled = !hasDepartment;
+      regGroupEl.placeholder = hasDepartment ? "Например 101" : "Сначала выберите кафедру";
+      if (!hasDepartment) {
+        regGroupEl.value = "";
+      }
+    }
+
+    if (regGroupPreviewEl) {
+      regGroupPreviewEl.textContent = hasDepartment && rawGroup
+        ? buildGroupCode(departmentCode, rawGroup)
+        : hasDepartment
+          ? `${departmentCode}-...`
+          : "-";
+    }
+  }
+
   async function callJSON(url, payload) {
     return auth.requestJSON(url, {
       method: "POST",
@@ -145,23 +177,6 @@
       skipAuthRefresh: true,
       skipAuthRedirect: true,
     });
-  }
-
-  function setGroupOptions(items) {
-    const list = Array.isArray(items) ? items : [];
-    regGroupEl.innerHTML = "";
-    const first = document.createElement("option");
-    first.value = "";
-    first.textContent = list.length ? "Выберите группу" : "Нет доступных групп";
-    regGroupEl.appendChild(first);
-
-    list.forEach((item) => {
-      const opt = document.createElement("option");
-      opt.value = String(item.group_code || "").toUpperCase();
-      opt.textContent = String(item.group_code || "").toUpperCase();
-      regGroupEl.appendChild(opt);
-    });
-    regGroupEl.disabled = list.length === 0;
   }
 
   function setDepartmentOptions(items) {
@@ -194,31 +209,7 @@
     const items = Array.isArray(data.departments) ? data.departments : [];
     registrationState.departments = items;
     setDepartmentOptions(items);
-  }
-
-  async function loadGroupsByDepartment(departmentCode) {
-    const key = String(departmentCode || "").trim().toUpperCase();
-    if (!key) {
-      setGroupOptions([]);
-      return;
-    }
-    if (registrationState.groupsByDepartment.has(key)) {
-      setGroupOptions(registrationState.groupsByDepartment.get(key));
-      return;
-    }
-
-    const { resp, data } = await auth.requestJSON(`/v2/auth/departments/${encodeURIComponent(key)}/groups`, {
-      method: "GET",
-      skipAuthRefresh: true,
-      skipAuthRedirect: true,
-    });
-    if (!resp.ok) {
-      throw new Error((data && data.error) || "Не удалось загрузить группы");
-    }
-
-    const items = Array.isArray(data.groups) ? data.groups : [];
-    registrationState.groupsByDepartment.set(key, items);
-    setGroupOptions(items);
+    updateRegistrationGroupField();
   }
 
   async function resendVerification(email) {
@@ -282,13 +273,17 @@
   async function register() {
     const fullName = document.getElementById("regFullName").value.trim();
     const department = String(regDepartmentEl.value || "").trim().toUpperCase();
-    const groupCode = String(regGroupEl.value || "").trim().toUpperCase();
+    const groupCode = buildGroupCode(department, regGroupEl.value);
     const email = document.getElementById("regEmail").value.trim();
     const password = document.getElementById("regPassword").value;
     const password2 = document.getElementById("regPassword2").value;
 
     if (!email || !password || !department || !groupCode) {
-      setStatus("Заполни обязательные поля регистрации", false);
+      setStatus("Заполните обязательные поля и укажите номер группы.", false);
+      return;
+    }
+    if (!/^[A-Z]{2,8}-\d{1,4}$/.test(groupCode)) {
+      setStatus("Номер группы должен содержать от 1 до 4 цифр.", false);
       return;
     }
     if (password !== password2) {
@@ -489,17 +484,13 @@
 
   handleQueryState();
   regDepartmentEl?.addEventListener("change", () => {
-    const departmentCode = String(regDepartmentEl.value || "").trim().toUpperCase();
-    loadGroupsByDepartment(departmentCode).catch((e) => {
-      setStatus("Не удалось загрузить группы кафедры", false);
-      showJSON(e.message || String(e));
-    });
+    updateRegistrationGroupField();
+  });
+  regGroupEl?.addEventListener("input", () => {
+    updateRegistrationGroupField();
   });
 
   loadDepartments()
-    .then(() => {
-      setGroupOptions([]);
-    })
     .catch((e) => {
       setStatus("Не удалось загрузить кафедры для регистрации", false);
       showJSON(e.message || String(e));

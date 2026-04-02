@@ -85,9 +85,17 @@
             </div>
             <div>
               <label for="regGroup">Группа</label>
-              <select id="regGroup" name="group" autocomplete="off" disabled>
-                <option value="">Сначала выберите кафедру</option>
-              </select>
+              <input
+                id="regGroup"
+                type="text"
+                name="group"
+                autocomplete="off"
+                inputmode="numeric"
+                maxlength="4"
+                placeholder="Сначала выберите кафедру"
+                disabled
+              />
+              <p class="field-note">Код группы: <span id="regGroupPreview">-</span></p>
             </div>
           </div>
 

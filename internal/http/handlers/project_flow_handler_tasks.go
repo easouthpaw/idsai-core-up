@@ -215,3 +215,24 @@ func (h *ProjectFlowHandler) CompleteTask(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, dto.ProjectFlowTaskResponseFromService(item))
 }
+
+func (h *ProjectFlowHandler) DeleteTask(c *gin.Context) {
+	uid, ok := parseUserID(c)
+	if !ok {
+		return
+	}
+	pid, ok := parseProjectID(c)
+	if !ok {
+		return
+	}
+	tid, ok := parseUserIDParam(c, "task_id")
+	if !ok {
+		return
+	}
+
+	if err := h.svc.DeleteTask(c.Request.Context(), uid, pid, tid); err != nil {
+		handleFlowErr(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}

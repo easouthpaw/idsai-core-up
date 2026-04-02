@@ -42,8 +42,8 @@ var AssignableRoles = []AccessCatalogItem{
 	{
 		Code:            "TASK_MANAGER",
 		Name:            "Task Manager",
-		Description:     "Может создавать и назначать задачи в проекте.",
-		PermissionCodes: []string{"task.create", "task.assign"},
+		Description:     "Может создавать, назначать и удалять задачи в проекте.",
+		PermissionCodes: []string{"task.create", "task.assign", "task.delete"},
 	},
 }
 

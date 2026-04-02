@@ -398,6 +398,18 @@ input:focus-visible, select:focus-visible {
   gap: 18px;
 }
 
+.field-note {
+  margin: 8px 0 0;
+  color: #8a96aa;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.field-note span {
+  color: #172845;
+  font: 700 13px "IBM Plex Mono", ui-monospace, monospace;
+}
+
 .mini-row {
   margin-top: 12px;
   display: flex;

@@ -150,6 +150,11 @@
   font-size: 12px;
 }
 
+.field-hint span {
+  color: #0f172a;
+  font-weight: 700;
+}
+
 .email-actions {
   display: flex;
   gap: 8px;

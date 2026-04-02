@@ -290,6 +290,10 @@ func (d *projectFlowTestDeps) ClaimTask(ctx context.Context, projectID, taskID, 
 	return nil
 }
 
+func (d *projectFlowTestDeps) DeleteTask(ctx context.Context, projectID, taskID uuid.UUID) error {
+	return nil
+}
+
 func (d *projectFlowTestDeps) InsertTaskActivity(ctx context.Context, projectID, taskID uuid.UUID, actorUserID *uuid.UUID, eventType, fromStatus, toStatus, title, comment string, attachments []string) error {
 	return nil
 }

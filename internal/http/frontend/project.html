@@ -81,6 +81,32 @@
             </header>
             <div class="card-body lifecycle-body">
               <div id="lifecycleTimeline" class="lifecycle-timeline" aria-label="Жизненный цикл проекта"></div>
+              <section id="stageSpotlight" class="stage-spotlight" aria-live="polite">
+                <div class="stage-spotlight-head">
+                  <div>
+                    <p class="stage-spotlight-kicker">Следующий переход</p>
+                    <h3 id="stageSpotlightTitle">Что нужно для следующего этапа</h3>
+                    <p id="stageSpotlightCopy" class="stage-spotlight-copy">Покажем только ближайшие требования, чтобы команде было проще двигаться по этапам.</p>
+                  </div>
+                  <div class="stage-spotlight-badges">
+                    <span id="stageCurrentBadge" class="stage-spotlight-badge">Сейчас: подготовка</span>
+                    <span id="stageNextBadge" class="stage-spotlight-badge accent">Дальше: набор</span>
+                  </div>
+                </div>
+
+                <div class="stage-spotlight-grid">
+                  <div id="readinessList" class="stage-checklist" aria-label="Требования следующего этапа"></div>
+
+                  <div class="stage-spotlight-side">
+                    <div id="pipelineStatusNote" class="pipeline-status-note" hidden></div>
+                    <div class="stage-actions">
+                      <button id="openRecruitmentBtn" class="ghost-btn" type="button" hidden>Открыть набор</button>
+                      <button id="approveProjectBtn" class="primary-btn" type="button" hidden>Дать разрешение на запуск</button>
+                      <button id="completeProjectBtn" class="ghost-btn" type="button" hidden>Отправить на оценивание</button>
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
           </article>
 
@@ -148,12 +174,7 @@
                     <div id="professorSearchResults" class="search-results" hidden></div>
                     <div id="professorIdentity" class="professor-identity" hidden></div>
                   </div>
-
-                  <div id="readinessList" class="readiness-list"></div>
-                  <div id="pipelineStatusNote" class="pipeline-status-note" hidden></div>
-                  <button id="openRecruitmentBtn" class="ghost-btn" type="button" hidden>Открыть набор (RECRUITMENT)</button>
-                  <button id="approveProjectBtn" class="primary-btn" type="button" hidden>Дать разрешение на запуск и запустить</button>
-                  <button id="completeProjectBtn" class="ghost-btn" type="button" hidden>Отправить на оценивание (GRADING)</button>
+                  <p class="muted-text">Назначение преподавателя и состав команды управляются здесь, а главные действия по этапу вынесены в верхний цветной блок.</p>
                 </div>
               </article>
             </div>
@@ -177,6 +198,7 @@
               </div>
             </header>
 
+            <div id="teamStageHint" class="tab-stage-hint"></div>
             <div class="team-table-wrap">
               <table class="team-table">
                 <thead>
@@ -233,6 +255,7 @@
                 </div>
               </header>
 
+              <div id="tasksStageHint" class="tab-stage-hint tab-stage-hint--compact"></div>
               <div class="kanban-board">
                 <section class="kanban-col">
                   <header class="kanban-head">К выполнению <span id="countTodo">0</span></header>
@@ -289,6 +312,7 @@
                 <span id="criteriaCountMeta">0 критериев</span>
               </header>
               <div class="card-body">
+                <div id="criteriaStageHint" class="tab-stage-hint tab-stage-hint--compact"></div>
                 <div id="criteriaListView" class="criteria-list-view"></div>
               </div>
             </article>
@@ -440,11 +464,11 @@
             </select>
           </div>
           <div>
-            <label for="taskModalPrioritySelect">Приоритет</label>
+            <label for="taskModalPrioritySelect">Сложность</label>
             <select id="taskModalPrioritySelect" name="task_priority" autocomplete="off">
-              <option value="MEDIUM">Средний</option>
-              <option value="HIGH">Высокий</option>
-              <option value="LOW">Низкий</option>
+              <option value="MEDIUM">Средняя</option>
+              <option value="HIGH">Сложная</option>
+              <option value="LOW">Легкая</option>
             </select>
           </div>
         </div>

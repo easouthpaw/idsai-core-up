@@ -800,56 +800,290 @@ body.project-body {
   border-style: dashed;
 }
 
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+.stage-spotlight {
+  --spotlight-accent: #2563eb;
+  --spotlight-accent-soft: #dbeafe;
+  --spotlight-glow: rgba(37, 99, 235, 0.18);
+  margin-top: 18px;
+  position: relative;
+  border: 1px solid color-mix(in srgb, var(--spotlight-accent) 28%, white);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top right, var(--spotlight-glow) 0%, transparent 36%),
+    linear-gradient(145deg, #ffffff 0%, color-mix(in srgb, var(--spotlight-accent-soft) 50%, white) 100%);
+  padding: 18px;
+  overflow: hidden;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.1);
+  animation: stageSpotlightGlow 6s ease-in-out infinite;
 }
 
-.chip {
+.stage-spotlight::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 10%, rgba(255, 255, 255, 0.55) 48%, transparent 86%);
+  transform: translateX(-120%);
+  animation: stageSpotlightSheen 7.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.stage-spotlight > * {
+  position: relative;
+  z-index: 1;
+}
+
+.stage-spotlight--draft {
+  --spotlight-accent: #0f766e;
+  --spotlight-accent-soft: #ccfbf1;
+  --spotlight-glow: rgba(15, 118, 110, 0.18);
+}
+
+.stage-spotlight--recruitment {
+  --spotlight-accent: #2563eb;
+  --spotlight-accent-soft: #dbeafe;
+  --spotlight-glow: rgba(37, 99, 235, 0.18);
+}
+
+.stage-spotlight--active {
+  --spotlight-accent: #ea580c;
+  --spotlight-accent-soft: #ffedd5;
+  --spotlight-glow: rgba(234, 88, 12, 0.18);
+}
+
+.stage-spotlight--grading {
+  --spotlight-accent: #7c3aed;
+  --spotlight-accent-soft: #ede9fe;
+  --spotlight-glow: rgba(124, 58, 237, 0.18);
+}
+
+.stage-spotlight--completed {
+  --spotlight-accent: #16a34a;
+  --spotlight-accent-soft: #dcfce7;
+  --spotlight-glow: rgba(22, 163, 74, 0.18);
+}
+
+.stage-spotlight-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.stage-spotlight-kicker {
+  margin: 0 0 8px;
+  color: var(--spotlight-accent);
+  font: 700 11px "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.stage-spotlight h3 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.stage-spotlight-copy {
+  margin: 10px 0 0;
+  max-width: 720px;
+  color: #475467;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.stage-spotlight-badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.stage-spotlight-badge {
   display: inline-flex;
   align-items: center;
-  border: 1px solid #bbf7d0;
+  gap: 6px;
+  min-height: 34px;
   border-radius: 999px;
-  background: #ecfdf3;
-  color: #166534;
-  padding: 2px 8px;
-  font: 700 10px "IBM Plex Mono", ui-monospace, monospace;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(255, 255, 255, 0.75);
+  color: #334155;
+  padding: 0 14px;
+  font: 700 11px "IBM Plex Mono", ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
-.mini-team {
+.stage-spotlight-badge.accent {
+  border-color: color-mix(in srgb, var(--spotlight-accent) 24%, white);
+  background: color-mix(in srgb, var(--spotlight-accent-soft) 76%, white);
+  color: var(--spotlight-accent);
+}
+
+.stage-spotlight-grid {
   display: grid;
-  gap: 8px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.75fr);
+  gap: 18px;
+  align-items: start;
 }
 
-.mini-team-row {
+.stage-spotlight.is-full-width .stage-spotlight-grid {
+  grid-template-columns: 1fr;
+}
+
+.stage-spotlight-side {
   display: grid;
-  grid-template-columns: 28px 1fr;
-  gap: 8px;
-  align-items: center;
+  gap: 12px;
+  align-self: stretch;
 }
 
-.member-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+.stage-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.stage-actions .primary-btn,
+.stage-actions .ghost-btn {
+  min-height: 46px;
+  padding-inline: 18px;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+}
+
+.stage-checklist {
+  --background: rgba(255, 255, 255, 0.82);
+  --text: #1f2937;
+  --check: var(--spotlight-accent);
+  --disabled: #94a3b8;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 18px;
+  background: var(--background);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.05);
+  padding: 18px 20px;
   display: grid;
-  place-items: center;
-  background: #dbeafe;
-  color: #1d4ed8;
-  font: 700 10px "IBM Plex Mono", ui-monospace, monospace;
+  gap: 14px;
 }
 
-.member-name {
+.stage-checklist-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  padding: 14px 16px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.stage-checklist-item.is-done {
+  border-color: rgba(22, 163, 74, 0.16);
+  background: rgba(240, 253, 244, 0.78);
+}
+
+.stage-checklist label {
+  color: var(--text);
+  cursor: default;
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  transition: color 0.3s ease, transform 0.3s ease;
   margin: 0;
-  font-size: 13px;
-  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+  font: 700 16px "Manrope", sans-serif;
 }
 
-.member-role {
-  margin: 1px 0 0;
-  color: #667085;
-  font-size: 11px;
+.stage-checklist input[type="checkbox"] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  position: relative;
+  height: 18px;
+  width: 18px;
+  outline: none;
+  border: 0;
+  margin: 4px 0 0;
+  background: transparent;
+  display: grid;
+  align-items: center;
+  cursor: default;
+}
+
+.stage-checklist input[type="checkbox"]::before,
+.stage-checklist input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  height: 2px;
+  top: auto;
+  background: var(--check);
+  border-radius: 2px;
+}
+
+.stage-checklist input[type="checkbox"]::before {
+  width: 0;
+  right: 60%;
+  transform-origin: right bottom;
+}
+
+.stage-checklist input[type="checkbox"]::after {
+  width: 0;
+  left: 40%;
+  transform-origin: left bottom;
+}
+
+.stage-checklist input[type="checkbox"]:checked::before {
+  animation: checklist-check-01 0.4s ease forwards;
+}
+
+.stage-checklist input[type="checkbox"]:checked::after {
+  animation: checklist-check-02 0.4s ease forwards;
+}
+
+.stage-checklist input[type="checkbox"]:checked + label {
+  color: var(--disabled);
+  transform: translateX(3px);
+}
+
+.stage-checklist-title {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  color: #0f172a;
+  line-height: 1.45;
+}
+
+.stage-checklist-title::after {
+  content: "";
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  top: 54%;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--disabled);
+  transform: scaleX(0);
+  transform-origin: left center;
+  opacity: 0;
+}
+
+.stage-checklist-hint {
+  color: #64748b;
+  font: 500 13px "Manrope", sans-serif;
+  line-height: 1.55;
+}
+
+.stage-checklist input[type="checkbox"]:checked + label .stage-checklist-title {
+  color: var(--disabled);
+}
+
+.stage-checklist input[type="checkbox"]:checked + label .stage-checklist-title::after {
+  animation: checklist-title-slice 0.35s ease forwards;
+}
+
+.stage-checklist input[type="checkbox"]:checked + label .stage-checklist-hint {
+  color: #94a3b8;
 }
 
 .pipeline-body {
@@ -877,11 +1111,6 @@ body.project-body {
   border-color: #86efac;
   background: linear-gradient(180deg, #ecfdf3 0%, #dcfce7 100%);
   color: #166534;
-}
-
-.pipeline-actions {
-  display: flex;
-  gap: 8px;
 }
 
 .split-row {
@@ -998,88 +1227,56 @@ body.project-body {
   font-size: 11px;
 }
 
-.readiness-list {
-  margin: 0;
-  padding: 6px 2px 4px;
+.chips {
   display: flex;
-  gap: 0;
-  overflow-x: auto;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
-.readiness-item {
-  position: relative;
-  min-width: 160px;
-  padding: 14px 20px 8px 0;
-  background: transparent;
-  border: 0;
-  display: grid;
-  gap: 2px;
-}
-
-.readiness-item::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 2px;
-  width: 10px;
-  height: 10px;
+.chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #bbf7d0;
   border-radius: 999px;
-  border: 2px solid #cbd5e1;
-  background: #fff;
-}
-
-.readiness-item::after {
-  content: "";
-  position: absolute;
-  left: 12px;
-  top: 6px;
-  width: calc(100% - 12px);
-  height: 2px;
-  background: #dbe1ea;
-}
-
-.readiness-item:last-child::after {
-  display: none;
-}
-
-.readiness-item span {
-  color: #64748b;
+  background: #ecfdf3;
+  color: #166534;
+  padding: 2px 8px;
   font: 700 10px "IBM Plex Mono", ui-monospace, monospace;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
 }
 
-.readiness-item strong {
-  color: #0f172a;
-  font-size: 12px;
+.mini-team {
+  display: grid;
+  gap: 8px;
+}
+
+.mini-team-row {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.member-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font: 700 10px "IBM Plex Mono", ui-monospace, monospace;
+}
+
+.member-name {
+  margin: 0;
+  font-size: 13px;
   font-weight: 700;
 }
 
-.readiness-item.is-done::before {
-  border-color: #22c55e;
-  background: #22c55e;
-}
-
-.readiness-item.is-done::after {
-  background: #86efac;
-}
-
-.readiness-item.is-current::before {
-  border-color: #2563eb;
-  background: #2563eb;
-}
-
-.readiness-item.is-blocked::before {
-  border-color: #d1d5db;
-  background: #f8fafc;
-}
-
-.pipeline-body .primary-btn {
-  justify-self: start;
-}
-
-.pipeline-body .ghost-btn {
-  justify-self: start;
+.member-role {
+  margin: 1px 0 0;
+  color: #667085;
+  font-size: 11px;
 }
 
 .activity-list {
@@ -1232,6 +1429,61 @@ body.project-body {
   margin: 2px 0 0;
   color: #667085;
   font-size: 12px;
+}
+
+.tab-stage-hint {
+  --tab-hint-accent: #2563eb;
+  --tab-hint-soft: #dbeafe;
+  margin: 0 12px 12px;
+  border: 1px solid color-mix(in srgb, var(--tab-hint-accent) 20%, white);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, color-mix(in srgb, var(--tab-hint-soft) 60%, white) 100%);
+  padding: 14px 16px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.tab-stage-hint strong {
+  display: block;
+  margin: 0;
+  color: #0f172a;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.tab-stage-hint p {
+  margin: 6px 0 0;
+  color: #475467;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.tab-stage-hint--compact {
+  margin-bottom: 14px;
+}
+
+.tab-stage-hint--draft {
+  --tab-hint-accent: #0f766e;
+  --tab-hint-soft: #ccfbf1;
+}
+
+.tab-stage-hint--recruitment {
+  --tab-hint-accent: #2563eb;
+  --tab-hint-soft: #dbeafe;
+}
+
+.tab-stage-hint--active {
+  --tab-hint-accent: #ea580c;
+  --tab-hint-soft: #ffedd5;
+}
+
+.tab-stage-hint--grading {
+  --tab-hint-accent: #7c3aed;
+  --tab-hint-soft: #ede9fe;
+}
+
+.tab-stage-hint--completed {
+  --tab-hint-accent: #16a34a;
+  --tab-hint-soft: #dcfce7;
 }
 
 .invite-list {
@@ -1572,11 +1824,28 @@ body.project-body {
 
 .task-item {
   border: 1px solid var(--line-strong);
+  border-left-width: 4px;
+  border-left-color: transparent;
   border-radius: 8px;
   background: #fff;
   padding: 8px;
   display: grid;
   gap: 5px;
+}
+
+.task-item--priority-low {
+  border-left-color: #16a34a;
+  box-shadow: inset 0 1px 0 rgba(22, 163, 74, 0.08);
+}
+
+.task-item--priority-medium {
+  border-left-color: #d97706;
+  box-shadow: inset 0 1px 0 rgba(217, 119, 6, 0.08);
+}
+
+.task-item--priority-high {
+  border-left-color: #dc2626;
+  box-shadow: inset 0 1px 0 rgba(220, 38, 38, 0.08);
 }
 
 .task-item--overdue {
@@ -1614,6 +1883,24 @@ body.project-body {
 }
 
 .tag-danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.tag-priority--low {
+  border-color: #bbf7d0;
+  background: #ecfdf3;
+  color: #166534;
+}
+
+.tag-priority--medium {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.tag-priority--high {
   border-color: #fecaca;
   background: #fef2f2;
   color: #b91c1c;
@@ -2427,6 +2714,119 @@ textarea:focus {
   font-size: 12px;
 }
 
+@keyframes stageSpotlightGlow {
+  0%,
+  100% {
+    transform: translateY(0);
+    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.1);
+  }
+
+  50% {
+    transform: translateY(-2px);
+    box-shadow: 0 26px 52px rgba(15, 23, 42, 0.14);
+  }
+}
+
+@keyframes stageSpotlightSheen {
+  0%,
+  20% {
+    transform: translateX(-120%);
+  }
+
+  55%,
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+@keyframes checklist-move {
+  50% {
+    padding-left: 8px;
+    padding-right: 0;
+  }
+
+  100% {
+    padding-right: 4px;
+  }
+}
+
+@keyframes checklist-slice {
+  60% {
+    width: 100%;
+    left: 4px;
+  }
+
+  100% {
+    width: 100%;
+    left: -2px;
+    padding-left: 0;
+  }
+}
+
+@keyframes checklist-check-01 {
+  0% {
+    width: 4px;
+    top: auto;
+    transform: rotate(0);
+  }
+
+  50% {
+    width: 0;
+    top: auto;
+    transform: rotate(0);
+  }
+
+  51% {
+    width: 0;
+    top: 10px;
+    transform: rotate(45deg);
+  }
+
+  100% {
+    width: 5px;
+    top: 10px;
+    transform: rotate(45deg);
+  }
+}
+
+@keyframes checklist-check-02 {
+  0% {
+    width: 4px;
+    top: auto;
+    transform: rotate(0);
+  }
+
+  50% {
+    width: 0;
+    top: auto;
+    transform: rotate(0);
+  }
+
+  51% {
+    width: 0;
+    top: 10px;
+    transform: rotate(-45deg);
+  }
+
+  100% {
+    width: 10px;
+    top: 10px;
+    transform: rotate(-45deg);
+  }
+}
+
+@keyframes checklist-title-slice {
+  0% {
+    opacity: 0.4;
+    transform: scaleX(0.05);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
 @media (max-width: 1240px) {
   .overview-grid,
   .tasks-layout,
@@ -2445,6 +2845,14 @@ textarea:focus {
 
   .lifecycle-timeline {
     grid-auto-columns: minmax(240px, 72vw);
+  }
+
+  .stage-spotlight-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stage-spotlight-badges {
+    justify-content: flex-start;
   }
 }
 
@@ -2559,5 +2967,23 @@ textarea:focus {
 
   .lifecycle-step {
     min-height: 0;
+  }
+
+  .stage-spotlight-head {
+    flex-direction: column;
+  }
+
+  .stage-spotlight {
+    padding: 16px;
+  }
+
+  .stage-actions {
+    flex-direction: column;
+  }
+
+  .stage-actions .primary-btn,
+  .stage-actions .ghost-btn {
+    width: 100%;
+    justify-content: center;
   }
 }

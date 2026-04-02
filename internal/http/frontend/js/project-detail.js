@@ -49,6 +49,12 @@
     lifecycleSummary: document.getElementById("lifecycleSummary"),
     lifecycleCurrentStage: document.getElementById("lifecycleCurrentStage"),
     lifecycleTimeline: document.getElementById("lifecycleTimeline"),
+    stageSpotlight: document.getElementById("stageSpotlight"),
+    stageSpotlightSide: document.querySelector(".stage-spotlight-side"),
+    stageSpotlightTitle: document.getElementById("stageSpotlightTitle"),
+    stageSpotlightCopy: document.getElementById("stageSpotlightCopy"),
+    stageCurrentBadge: document.getElementById("stageCurrentBadge"),
+    stageNextBadge: document.getElementById("stageNextBadge"),
 
     tabButtons: Array.from(document.querySelectorAll(".tab-btn")),
     switchViewButtons: Array.from(document.querySelectorAll("[data-switch-view]")),
@@ -76,6 +82,9 @@
     teamMiniList: document.getElementById("teamMiniList"),
     readinessList: document.getElementById("readinessList"),
     activityList: document.getElementById("activityList"),
+    teamStageHint: document.getElementById("teamStageHint"),
+    tasksStageHint: document.getElementById("tasksStageHint"),
+    criteriaStageHint: document.getElementById("criteriaStageHint"),
 
     openRecruitmentBtn: document.getElementById("openRecruitmentBtn"),
     professorSearchInput: document.getElementById("professorSearchInput"),
@@ -389,6 +398,10 @@
 
   function canUpdateTasksInProject() {
     return canViewWorkspace() && hasProjectPermission("task.update");
+  }
+
+  function canDeleteTasksInProject() {
+    return canViewWorkspace() && hasProjectPermission("task.delete");
   }
 
   function decodePayload(token) {
@@ -947,6 +960,306 @@
     return "Впереди";
   }
 
+  function lifecycleStepTitle(code) {
+    const value = String(code || "").toUpperCase();
+    if (value === "RECRUITMENT") return "Набор команды";
+    if (value === "ACTIVE") return "Работа";
+    if (value === "GRADING") return "Оценивание";
+    if (value === "COMPLETED") return "Завершение";
+    return "Подготовка";
+  }
+
+  function stageGuideData() {
+    const snapshot = lifecycleSnapshot();
+    const status = normalizedLifecycleStatus(snapshot.statusCode);
+    const descriptionText = String(getReadmeText() || state.project?.description || "").trim();
+    const hasDescription = descriptionText.length >= 20;
+    const hasRoles = snapshot.requiredMembers > 0;
+    const hasCriteria = snapshot.criteriaCount > 0;
+    const tasksTotal = snapshot.tasksTotal;
+    const tasksDone = snapshot.tasksDone;
+    const allTasksDone = tasksTotal > 0 && tasksDone === tasksTotal;
+
+    if (status === "RECRUITMENT") {
+      return {
+        tone: "recruitment",
+        currentLabel: lifecycleStepTitle("RECRUITMENT"),
+        nextLabel: lifecycleStepTitle("ACTIVE"),
+        title: "Что нужно, чтобы перейти в работу",
+        copy: "Видны только требования ближайшего перехода. Выполненные пункты сразу зачеркиваются.",
+        items: [
+          {
+            label: "Набрать команду по всем ролям",
+            hint: `Сейчас занято ${snapshot.activeMembers} из ${snapshot.requiredMembers || 0} мест.`,
+            done: snapshot.requiredMembers > 0 && snapshot.activeMembers >= snapshot.requiredMembers,
+          },
+          {
+            label: "Подтвердить преподавателя",
+            hint: snapshot.hasProfessor ? `Статус приглашения: ${snapshot.professorLabel}.` : "Назначьте преподавателя на проект.",
+            done: snapshot.professorAccepted,
+          },
+          {
+            label: "Преподаватель должен добавить критерии оценки",
+            hint: hasCriteria
+              ? `Преподаватель уже настроил ${snapshot.criteriaCount} критериев.`
+              : "Критерии добавляет преподаватель на вкладке «Критерии». Команда здесь только сверяется с ними.",
+            done: hasCriteria,
+          },
+        ],
+      };
+    }
+
+    if (status === "ACTIVE") {
+      return {
+        tone: "active",
+        currentLabel: lifecycleStepTitle("ACTIVE"),
+        nextLabel: lifecycleStepTitle("GRADING"),
+        title: "Что нужно, чтобы отправить проект на оценивание",
+        copy: "Команда видит только то, что блокирует ближайшую сдачу проекта.",
+        items: [
+          {
+            label: "Подтверждение преподавателя сохранено",
+            hint: snapshot.hasProfessor ? `Текущий статус: ${snapshot.professorLabel}.` : "Сначала назначьте преподавателя.",
+            done: snapshot.professorAccepted,
+          },
+          {
+            label: "Создать хотя бы одну задачу",
+            hint: tasksTotal > 0
+              ? `В проекте уже ${tasksTotal} задач.`
+              : "Первую задачу обычно создает тимлид или task manager, иначе проект нельзя отправить на оценивание.",
+            done: tasksTotal > 0,
+          },
+          {
+            label: "Закрыть все задачи",
+            hint: tasksTotal > 0
+              ? `Готово ${tasksDone} из ${tasksTotal}.`
+              : "Сначала добавьте задачи в канбан. Это делает тимлид или task manager.",
+            done: allTasksDone,
+          },
+        ],
+      };
+    }
+
+    if (status === "GRADING") {
+      return {
+        tone: "grading",
+        currentLabel: lifecycleStepTitle("GRADING"),
+        nextLabel: lifecycleStepTitle("COMPLETED"),
+        title: "Что нужно, чтобы завершить проект",
+        copy: "На этом этапе команда видит только ближайшие требования до публикации итоговой оценки.",
+        items: [
+          {
+            label: "Критерии оценки настроены",
+            hint: `Всего критериев: ${snapshot.criteriaCount}.`,
+            done: hasCriteria,
+          },
+          {
+            label: "Оценки выставлены по всем критериям",
+            hint: `Сейчас проверено ${snapshot.gradedCriteria} из ${snapshot.criteriaCount}.`,
+            done: hasCriteria && snapshot.gradedCriteria >= snapshot.criteriaCount,
+          },
+        ],
+      };
+    }
+
+    if (status === "COMPLETED") {
+      return {
+        tone: "completed",
+        currentLabel: lifecycleStepTitle("COMPLETED"),
+        nextLabel: "Финал достигнут",
+        title: "Проект завершен",
+        copy: "Все обязательные шаги выполнены. Здесь остается только итоговый статус проекта.",
+        items: [
+          {
+            label: "Итоговая оценка опубликована",
+            hint: "Карточка проекта зафиксирована как завершенный кейс.",
+            done: true,
+          },
+        ],
+      };
+    }
+
+    return {
+      tone: "draft",
+      currentLabel: lifecycleStepTitle("DRAFT"),
+      nextLabel: lifecycleStepTitle("RECRUITMENT"),
+      title: "Что подготовить перед открытием набора",
+      copy: "Блок показывает только ближайший шаг, чтобы команде было понятнее, что делать прямо сейчас.",
+      items: [
+        {
+          label: "Заполнить описание или README проекта",
+          hint: hasDescription ? "Базовое описание проекта уже есть." : "Кратко опишите идею, стек и ожидаемый результат.",
+          done: hasDescription,
+        },
+        {
+          label: "Добавить хотя бы одну роль в команду",
+          hint: hasRoles ? `Сейчас в проекте ${snapshot.requiredMembers} ролей.` : "Создайте роли, чтобы открыть набор осознанно.",
+          done: hasRoles,
+        },
+      ],
+    };
+  }
+
+  function renderStageChecklist(items) {
+    if (!ui.readinessList) return;
+    const list = Array.isArray(items) ? items : [];
+    if (!list.length) {
+      ui.readinessList.innerHTML = '<div class="empty-state">Ближайшие требования пока не определены.</div>';
+      return;
+    }
+
+    ui.readinessList.innerHTML = list
+      .map((item, idx) => {
+        const id = `stage-check-${idx}`;
+        return (
+          `<div class="stage-checklist-item ${item.done ? "is-done" : "is-pending"}">` +
+            `<input id="${id}" type="checkbox" ${item.done ? "checked" : ""} disabled tabindex="-1" aria-hidden="true" />` +
+            `<label for="${id}">` +
+              `<span class="stage-checklist-title">${escapeHTML(item.label)}</span>` +
+              `<small class="stage-checklist-hint">${escapeHTML(item.hint || "")}</small>` +
+            `</label>` +
+          `</div>`
+        );
+      })
+      .join("");
+  }
+
+  function tabStageHints() {
+    const snapshot = lifecycleSnapshot();
+    const status = normalizedLifecycleStatus(snapshot.statusCode);
+    const tasksRemaining = Math.max(0, snapshot.tasksTotal - snapshot.tasksDone);
+    const criteriaReady = snapshot.criteriaCount > 0;
+
+    const team = (() => {
+      if (status === "RECRUITMENT") {
+        return {
+          tone: "recruitment",
+          title: "Сейчас главное закрыть все роли",
+          copy: `Активных участников ${snapshot.activeMembers} из ${snapshot.requiredMembers || 0}. Составом обычно управляют тимлид, ко-лид и рекрутер. Когда каждое место будет занято и преподаватель подтвердит участие, проект можно будет запускать.`,
+        };
+      }
+      if (status === "ACTIVE") {
+        return {
+          tone: "active",
+          title: "Команда уже в рабочем составе",
+          copy: "Проверьте, что у каждого участника есть своя роль и доступы. Если нужно, здесь же можно управлять составом и приглашениями.",
+        };
+      }
+      if (status === "GRADING") {
+        return {
+          tone: "grading",
+          title: "Состав команды должен быть понятен для оценки",
+          copy: "Во время оценивания обычно уже не меняют участников. Здесь важно, чтобы роли и вклад команды были отражены корректно.",
+        };
+      }
+      if (status === "COMPLETED") {
+        return {
+          tone: "completed",
+          title: "Это финальный состав команды",
+          copy: "Именно этот состав будет виден в завершенном кейсе проекта и в истории работы.",
+        };
+      }
+      return {
+        tone: "draft",
+        title: "Сначала подготовьте каркас команды",
+        copy: "Добавьте роли и количество мест заранее. Так при открытии набора студентам будет сразу понятно, кого именно вы ищете.",
+      };
+    })();
+
+    const tasks = (() => {
+      if (status === "ACTIVE") {
+        if (snapshot.tasksTotal === 0) {
+          return {
+            tone: "active",
+            title: "Создайте первую задачу",
+            copy: "Без задач проект нельзя отправить на оценивание. Первые карточки обычно создает тимлид или task manager, а затем распределяет их по ролям.",
+          };
+        }
+        if (tasksRemaining > 0) {
+          return {
+            tone: "active",
+            title: "Доведите канбан до конца",
+            copy: `Сейчас осталось закрыть ${tasksRemaining} задач. Перед отправкой на оценивание все карточки должны быть в колонке "Готово". Лишние задачи при необходимости может удалить тимлид или task manager.`,
+          };
+        }
+        return {
+          tone: "active",
+          title: "Все задачи уже закрыты",
+          copy: "Канбан готов. Если преподаватель уже подтвержден, проект можно отправлять на оценивание.",
+        };
+      }
+      if (status === "GRADING") {
+        return {
+          tone: "grading",
+          title: "Задачи здесь работают как история выполнения",
+          copy: "На этапе оценивания канбан нужен как подтверждение сделанной работы. Новые задачи обычно уже не добавляют.",
+        };
+      }
+      if (status === "COMPLETED") {
+        return {
+          tone: "completed",
+          title: "Канбан зафиксирован как история проекта",
+          copy: "Здесь можно посмотреть, как команда прошла путь от первых задач до завершения кейса.",
+        };
+      }
+      return {
+        tone: "draft",
+        title: "До запуска задачи можно не расписывать подробно",
+        copy: "Сначала соберите команду, преподавателя и критерии. Полноценный канбан удобнее вести, когда проект уже перешел в рабочую фазу.",
+      };
+    })();
+
+    const criteria = (() => {
+      if (status === "GRADING") {
+        return {
+          tone: "grading",
+          title: "По этим критериям идет финальная оценка",
+          copy: `Сейчас оценено ${snapshot.gradedCriteria} из ${snapshot.criteriaCount}. Критерии добавляет и заполняет преподаватель, а команда здесь видит итоговое состояние проверки.`,
+        };
+      }
+      if (status === "ACTIVE") {
+        return {
+          tone: criteriaReady ? "active" : "draft",
+          title: criteriaReady ? "Команда должна сверяться с критериями" : "Критерии еще не готовы",
+          copy: criteriaReady
+            ? `Сейчас в проекте ${snapshot.criteriaCount} критериев. Их добавляет преподаватель, а команда использует этот список как ориентир перед сдачей проекта.`
+            : "Без критериев проект упрется в блокер. Их должен добавить преподаватель до момента отправки проекта на проверку.",
+        };
+      }
+      if (status === "COMPLETED") {
+        return {
+          tone: "completed",
+          title: "Критерии уже отработали свою роль",
+          copy: "Здесь остается финальный набор требований, по которым преподаватель оценивал проект.",
+        };
+      }
+      return {
+        tone: criteriaReady ? "recruitment" : "draft",
+        title: criteriaReady ? "Критерии уже подготовлены" : "Подготовьте критерии заранее",
+        copy: criteriaReady
+          ? `В проекте уже есть ${snapshot.criteriaCount} критериев. Их подготовил преподаватель, поэтому команда заранее понимает ожидания.`
+          : "Без критериев проект не сможет перейти дальше. Их заранее добавляет преподаватель, а студенты здесь только видят готовый список.",
+      };
+    })();
+
+    return { team, tasks, criteria };
+  }
+
+  function renderTabStageHint(target, data) {
+    if (!target || !data) return;
+    target.className = `tab-stage-hint tab-stage-hint--${data.tone || "draft"}`;
+    target.innerHTML =
+      `<strong>${escapeHTML(data.title || "")}</strong>` +
+      `<p>${escapeHTML(data.copy || "")}</p>`;
+  }
+
+  function renderTabHints() {
+    const hints = tabStageHints();
+    renderTabStageHint(ui.teamStageHint, hints.team);
+    renderTabStageHint(ui.tasksStageHint, hints.tasks);
+    renderTabStageHint(ui.criteriaStageHint, hints.criteria);
+  }
+
   function isRecruitmentApplyMode() {
     const status = projectStatusCode();
     if (status !== "RECRUITMENT") return false;
@@ -1019,11 +1332,19 @@
     const meta = state.taskMeta[task.id] || {};
     const tags = [];
     if (task.position_code) tags.push(task.position_code);
-    if (meta.priority) tags.push(meta.priority);
     if (Array.isArray(meta.tags)) {
       meta.tags.slice(0, 2).forEach((t) => tags.push(String(t).toUpperCase()));
     }
     return tags;
+  }
+
+  function taskPriorityMeta(task) {
+    const meta = state.taskMeta[task.id] || {};
+    const code = String(meta.priority || "").trim().toUpperCase();
+    if (!code) return null;
+    if (code === "HIGH") return { code, tone: "high", label: "Сложная" };
+    if (code === "LOW") return { code, tone: "low", label: "Легкая" };
+    return { code: "MEDIUM", tone: "medium", label: "Средняя" };
   }
 
   function isCurrentUserAssignee(task) {
@@ -1447,98 +1768,68 @@
 
   function renderReadiness() {
     if (!ui.readinessList || !ui.approveProjectBtn) return;
-    ui.readinessList.innerHTML = "";
 
     const statusCode = projectStatusCode();
+    const normalizedStatus = normalizedLifecycleStatus(statusCode);
     const canManagePipeline = canViewWorkspace() && isCurrentUserLead();
     const canGrantLaunch = canViewWorkspace() && canApproveProjectLaunch();
-    const isPrelaunchStatus = statusCode !== "ACTIVE" && statusCode !== "GRADING" && statusCode !== "COMPLETED" && statusCode !== "ARCHIVE";
-    const canOpenRecruitment = canManagePipeline && (statusCode === "DRAFT" || statusCode === "REVIEW");
+    const isActivationStatus = statusCode !== "ACTIVE" && statusCode !== "GRADING" && statusCode !== "COMPLETED" && statusCode !== "ARCHIVE";
+    const canOpenRecruitment = canManagePipeline && normalizedStatus === "DRAFT";
+    const snapshot = lifecycleSnapshot();
+    const guide = stageGuideData();
+
+    if (ui.stageSpotlight) {
+      ui.stageSpotlight.hidden = false;
+      ui.stageSpotlight.className = `stage-spotlight stage-spotlight--${guide.tone}`;
+    }
+    if (ui.stageSpotlightTitle) {
+      ui.stageSpotlightTitle.textContent = guide.title;
+    }
+    if (ui.stageSpotlightCopy) {
+      ui.stageSpotlightCopy.textContent = guide.copy;
+    }
+    if (ui.stageCurrentBadge) {
+      ui.stageCurrentBadge.textContent = `Сейчас: ${guide.currentLabel}`;
+    }
+    if (ui.stageNextBadge) {
+      ui.stageNextBadge.textContent = `Дальше: ${guide.nextLabel}`;
+    }
+    renderStageChecklist(guide.items);
+
     if (ui.openRecruitmentBtn) {
       ui.openRecruitmentBtn.hidden = !canOpenRecruitment;
       ui.openRecruitmentBtn.disabled = !canOpenRecruitment;
+      ui.openRecruitmentBtn.textContent = "Открыть набор";
     }
+
     if (ui.pipelineStatusNote) {
       ui.pipelineStatusNote.hidden = true;
       ui.pipelineStatusNote.textContent = "";
       ui.pipelineStatusNote.className = "pipeline-status-note";
     }
 
+    const professorStatusCode = String(
+      state.readiness?.professor_status || state.project?.professor_review_status || "NONE"
+    ).toUpperCase();
+
     if (!state.readiness) {
-      ui.readinessList.innerHTML = '<div class="empty-state">Данные о готовности не загружены.</div>';
       ui.approveProjectBtn.hidden = !canGrantLaunch;
       ui.approveProjectBtn.disabled = true;
-      ui.approveProjectBtn.textContent = "Дать разрешение на запуск и запустить";
+      ui.approveProjectBtn.textContent = "Дать разрешение на запуск";
       ui.approveProjectBtn.title = "";
       if (ui.completeProjectBtn) {
         ui.completeProjectBtn.hidden = true;
         ui.completeProjectBtn.disabled = true;
         ui.completeProjectBtn.title = "";
       }
-      renderProfessorInviteArea(String(state.project?.professor_review_status || "NONE"));
+      renderProfessorInviteArea(professorStatusCode);
       return;
     }
 
-    const professorStatusCode = String(state.readiness.professor_status || state.project?.professor_review_status || "NONE").toUpperCase();
-    const professorStatusLabel = professorReviewLabel(
-      professorStatusCode,
-      Boolean(state.readiness.has_professor || state.project?.professor_id)
-    );
-
-    const hasEnoughMembers = Number(state.readiness.active_members || 0) >= Number(state.readiness.required_members || 0) &&
-      Number(state.readiness.required_members || 0) > 0;
     const professorAccepted = professorStatusCode === "ACCEPTED";
-    const hasCriteria = Number(state.readiness.criteria_count || 0) > 0;
-
-    const items = [
-      {
-        label: "Роли",
-        value: `${state.readiness.active_members}/${state.readiness.required_members}`,
-        stateClass: hasEnoughMembers ? "is-done" : Number(state.readiness.active_members || 0) > 0 ? "is-current" : "is-blocked",
-      },
-      {
-        label: "Преподаватель",
-        value: professorStatusLabel,
-        stateClass: professorAccepted ? "is-done" : professorStatusCode === "PENDING" ? "is-current" : "is-blocked",
-      },
-      {
-        label: "Критерии",
-        value: String(state.readiness.criteria_count),
-        stateClass: hasCriteria ? "is-done" : "is-blocked",
-      },
-      {
-        label: "Запуск",
-        value: state.readiness.can_activate ? "Готово" : "Не готово",
-        stateClass: state.readiness.can_activate ? "is-done" : hasEnoughMembers && professorAccepted && hasCriteria ? "is-current" : "is-blocked",
-      },
-    ];
-
-    items.forEach((item) => {
-      const row = document.createElement("div");
-      row.className = `readiness-item ${item.stateClass}`;
-      row.innerHTML = `<span>${escapeHTML(item.label)}</span><strong>${escapeHTML(item.value)}</strong>`;
-      ui.readinessList.appendChild(row);
-    });
-
-    if (ui.pipelineStatusNote && isPrelaunchStatus) {
-      if (canGrantLaunch) {
-        ui.pipelineStatusNote.hidden = false;
-        ui.pipelineStatusNote.className = `pipeline-status-note ${state.readiness.can_activate ? "pipeline-status-note--ready" : "pipeline-status-note--info"}`;
-        ui.pipelineStatusNote.textContent = state.readiness.can_activate
-          ? "Команда и критерии готовы. Как назначенный преподаватель, вы можете дать разрешение на запуск и перевести проект в ACTIVE."
-          : "Для запуска проект еще не готов. Проверьте состав команды, подтверждение ревью и критерии перед переводом в ACTIVE.";
-      } else if (canManagePipeline) {
-        ui.pipelineStatusNote.hidden = false;
-        ui.pipelineStatusNote.className = "pipeline-status-note";
-        ui.pipelineStatusNote.textContent = state.readiness.can_activate
-          ? "Команда готова к запуску. Следующий шаг за преподавателем: он должен дать разрешение на запуск и перевести проект в ACTIVE."
-          : "После выполнения всех условий проект запускает преподаватель. Доведите пайплайн до готовности и дождитесь его разрешения на старт.";
-      }
-    }
-
-    const canShowApprove = canGrantLaunch && isPrelaunchStatus;
+    const canShowApprove = canGrantLaunch && isActivationStatus;
     ui.approveProjectBtn.hidden = !canShowApprove;
-    ui.approveProjectBtn.textContent = "Дать разрешение на запуск и запустить";
+    ui.approveProjectBtn.textContent = "Дать разрешение на запуск";
     ui.approveProjectBtn.disabled = !state.readiness.can_activate;
     ui.approveProjectBtn.title = !canShowApprove
       ? ""
@@ -1556,6 +1847,7 @@
 
       const visible = statusCode === "ACTIVE" && isMember;
       ui.completeProjectBtn.hidden = !visible;
+      ui.completeProjectBtn.textContent = "Отправить на оценивание";
       if (!visible) {
         ui.completeProjectBtn.disabled = true;
         ui.completeProjectBtn.title = "";
@@ -1567,6 +1859,71 @@
         if (tasksTotal === 0) reasons.push("нет задач для проверки");
         if (tasksTotal > 0 && tasksDone < tasksTotal) reasons.push(`выполнено задач ${tasksDone}/${tasksTotal}`);
         ui.completeProjectBtn.title = readyForSubmit ? "" : `Нельзя отправить на оценивание: ${reasons.join(", ")}`;
+      }
+    }
+
+    if (ui.pipelineStatusNote) {
+      let note = "";
+      let noteClass = "pipeline-status-note pipeline-status-note--info";
+
+      if (normalizedStatus === "DRAFT") {
+        if (canOpenRecruitment) {
+          note = "Когда базовая структура готова, откройте набор и начните собирать команду.";
+        } else if (canViewWorkspace()) {
+          note = "Открыть набор может тимлид проекта. Подготовьте описание и роли, чтобы следующий шаг был очевиден для команды.";
+        }
+      } else if (normalizedStatus === "RECRUITMENT") {
+        if (canGrantLaunch && state.readiness.can_activate) {
+          note = "Все условия собраны. Преподаватель может дать разрешение и перевести проект в рабочую фазу.";
+          noteClass = "pipeline-status-note pipeline-status-note--ready";
+        } else if (canGrantLaunch) {
+          note = "Для запуска еще не хватает обязательных условий. Проверьте чеклист слева и доберите недостающие пункты.";
+        } else if (canManagePipeline && state.readiness.can_activate) {
+          note = "Команда готова. Следующий шаг за преподавателем: дать разрешение на запуск.";
+          noteClass = "pipeline-status-note pipeline-status-note--ready";
+        } else if (canManagePipeline) {
+          note = "Доведите набор до готовности, и после этого преподаватель сможет запустить проект.";
+        }
+      } else if (normalizedStatus === "ACTIVE") {
+        if (snapshot.tasksTotal === 0) {
+          note = "Сначала создайте задачи в канбане, иначе проект нельзя будет отправить на оценивание.";
+        } else if (snapshot.tasksDone < snapshot.tasksTotal) {
+          note = `До сдачи осталось закрыть ${snapshot.tasksTotal - snapshot.tasksDone} задач.`;
+        } else if (!snapshot.professorAccepted) {
+          note = "Все задачи готовы, но нужно дождаться подтверждения преподавателя.";
+        } else {
+          note = "Проект готов к передаче на оценивание. Кнопка отправки вынесена рядом.";
+          noteClass = "pipeline-status-note pipeline-status-note--ready";
+        }
+      } else if (normalizedStatus === "GRADING") {
+        if (snapshot.criteriaCount === 0) {
+          note = "Преподавателю нужно сначала добавить критерии, иначе финальная оценка не будет опубликована.";
+        } else if (snapshot.gradedCriteria < snapshot.criteriaCount) {
+          note = `Пока проверено ${snapshot.gradedCriteria} из ${snapshot.criteriaCount} критериев.`;
+        } else {
+          note = "Все критерии заполнены. Осталось опубликовать итоговую оценку.";
+          noteClass = "pipeline-status-note pipeline-status-note--ready";
+        }
+      } else if (normalizedStatus === "COMPLETED") {
+        note = "Финальная оценка уже опубликована. Проект завершен.";
+        noteClass = "pipeline-status-note pipeline-status-note--ready";
+      }
+
+      ui.pipelineStatusNote.hidden = !note;
+      ui.pipelineStatusNote.className = noteClass;
+      ui.pipelineStatusNote.textContent = note;
+    }
+
+    if (ui.stageSpotlight) {
+      const hasSideContent = Boolean(
+        (ui.pipelineStatusNote && !ui.pipelineStatusNote.hidden) ||
+        (ui.openRecruitmentBtn && !ui.openRecruitmentBtn.hidden) ||
+        (ui.approveProjectBtn && !ui.approveProjectBtn.hidden) ||
+        (ui.completeProjectBtn && !ui.completeProjectBtn.hidden)
+      );
+      ui.stageSpotlight.classList.toggle("is-full-width", !hasSideContent);
+      if (ui.stageSpotlightSide) {
+        ui.stageSpotlightSide.hidden = !hasSideContent;
       }
     }
 
@@ -1820,18 +2177,23 @@
   function createTaskCard(task) {
     const card = document.createElement("article");
     const overdue = isTaskOverdue(task);
-    card.className = overdue ? "task-item task-item--overdue" : "task-item";
+    const priority = taskPriorityMeta(task);
+    const cardClasses = ["task-item"];
+    if (priority) cardClasses.push(`task-item--priority-${priority.tone}`);
+    if (overdue) cardClasses.push("task-item--overdue");
+    card.className = cardClasses.join(" ");
     card.setAttribute("data-task-id", task.id || "");
 
     const status = String(task.status || "OPEN").toUpperCase();
     const tags = taskTags(task);
     const canAssignTasks = canAssignTasksInProject();
     const canUpdateTasks = canUpdateTasksInProject();
+    const canDeleteTasks = canDeleteTasksInProject();
     const isAssignee = isCurrentUserAssignee(task);
     const dueLabel = task.due_at ? formatDate(task.due_at) : "не задан";
     let controlsHTML = "";
 
-    if (canAssignTasks || canUpdateTasks) {
+    if (canAssignTasks || canUpdateTasks || canDeleteTasks) {
       controlsHTML = `<div class="task-controls">`;
       if (canUpdateTasks) {
         controlsHTML +=
@@ -1857,6 +2219,9 @@
       if (isAssignee && status === "IN_PROGRESS") {
         controlsHTML += `<button class="primary-btn" data-task-action="complete-open">Выполнено</button>`;
       }
+      if (canDeleteTasks) {
+        controlsHTML += `<button class="ghost-btn danger-btn full" data-task-action="delete">Удалить задачу</button>`;
+      }
       controlsHTML += `</div>`;
     } else if (isAssignee) {
       if (status === "OPEN") {
@@ -1876,13 +2241,24 @@
       controlsHTML = `<div class="task-controls student-flow"><span class="task-note">Ожидайте назначения или обновлений.</span></div>`;
     }
 
+    let tagHTML = "";
+    if (priority) {
+      tagHTML += `<span class="tag tag-priority tag-priority--${priority.tone}">${escapeHTML(priority.label)}</span>`;
+    }
+    if (tags.length) {
+      tagHTML += tags.map((t) => `<span class="tag">${escapeHTML(t)}</span>`).join("");
+    }
+    if (overdue) {
+      tagHTML += '<span class="tag tag-danger">Просрочено</span>';
+    }
+
     card.innerHTML =
       `<h4>${escapeHTML(task.title || "Без названия")}</h4>` +
       `<p>${escapeHTML(task.description || "Описание отсутствует")}</p>` +
       `<p>Роль: ${escapeHTML(task.position_name || task.position_code || "-")}</p>` +
       `<p>Исполнитель: ${escapeHTML(task.assignee_user_id ? getDisplayName(task.assignee_user_id) : "не назначен")}</p>` +
       `<p class="task-deadline ${overdue ? "is-overdue" : ""}">Срок: ${escapeHTML(dueLabel)}</p>` +
-      `<div class="task-tags">${tags.map((t) => `<span class="tag">${escapeHTML(t)}</span>`).join("")}${overdue ? '<span class="tag tag-danger">Просрочено</span>' : ""}</div>` +
+      `<div class="task-tags">${tagHTML}</div>` +
       (overdue ? `<div class="task-note overdue">Срок истек, пока задача не завершена.</div>` : "") +
       controlsHTML +
       `<div class="task-timeline-wrap">` +
@@ -1939,7 +2315,7 @@
     }
 
     if (!criteria.length) {
-      ui.criteriaListView.innerHTML = '<div class="empty-state">Преподаватель еще не добавил критерии.</div>';
+      ui.criteriaListView.innerHTML = '<div class="empty-state">Преподаватель еще не добавил критерии. Студенты здесь только видят этот список и сверяются с ним.</div>';
     } else {
       ui.criteriaListView.innerHTML = criteria
         .map((item, idx) => {
@@ -1969,7 +2345,7 @@
       } else if (status === "REVIEW" || status === "GRADING" || status === "COMPLETED" || status === "ARCHIVE") {
         ui.criteriaReviewHint.textContent = "Проект ожидает преподавательскую проверку. Итоговая оценка появится после завершения оценки.";
       } else {
-        ui.criteriaReviewHint.textContent = "Оценивание появится после завершения проекта и запуска проверки преподавателем.";
+        ui.criteriaReviewHint.textContent = "Критерии настраивает преподаватель, а итоговое оценивание появится после завершения проекта и запуска проверки.";
       }
     }
   }
@@ -2180,6 +2556,7 @@
   function renderAll() {
     renderHero();
     renderOverview();
+    renderTabHints();
     renderTeamTable();
     renderInviteCandidates();
     renderTasks();
@@ -2766,6 +3143,30 @@
         assignee_user_id: assignee,
       });
       setNotice(`Исполнитель задачи ${shortID(taskID)} обновлен.`, false);
+      await refreshData();
+      return;
+    }
+
+    if (action === "delete") {
+      const titleNode = card.querySelector("h4");
+      const taskTitle = String(titleNode ? titleNode.textContent : "").trim();
+      const confirmed = await confirmAction({
+        title: "Удалить задачу",
+        message: taskTitle
+          ? `Задача «${taskTitle}» будет удалена вместе с ее историей выполнения.`
+          : "Задача будет удалена вместе с ее историей выполнения.",
+        confirmText: "Удалить задачу",
+        danger: true,
+      });
+      if (!confirmed) {
+        return;
+      }
+      await request("DELETE", `/v2/projects/${state.projectID}/tasks/${taskID}`);
+      if (state.taskMeta && state.taskMeta[taskID]) {
+        delete state.taskMeta[taskID];
+        saveJSON(taskMetaKey(), state.taskMeta);
+      }
+      setNotice(taskTitle ? `Задача «${taskTitle}» удалена.` : `Задача ${shortID(taskID)} удалена.`, false);
       await refreshData();
       return;
     }

@@ -13,6 +13,7 @@ import (
 	"math/big"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,6 +24,7 @@ import (
 const dummyPasswordHash = "$2a$10$6zP4Lb6Tx0Jj8N4A7JwK3eVj3ljmd725LLJoPLD114F8CbnMD4Hzy"
 
 var groupCodePattern = regexp.MustCompile(`^[A-Z]{2,8}-[0-9]{1,4}$`)
+var groupNumberPattern = regexp.MustCompile(`^[0-9]{1,4}$`)
 
 const (
 	maxProfileNameLen         = 120
@@ -193,6 +195,7 @@ type Repository interface {
 	RevokeUserRefreshTokens(ctx context.Context, tenantID, userID uuid.UUID) error
 	FindDepartment(ctx context.Context, tenantID uuid.UUID, departmentCode string) (departmentID uuid.UUID, facultyID uuid.UUID, err error)
 	FindGroupByCodeInDepartment(ctx context.Context, tenantID, departmentID uuid.UUID, groupCode string) (groupID uuid.UUID, err error)
+	CreateGroupInDepartment(ctx context.Context, tenantID, facultyID, departmentID uuid.UUID, groupCode string, groupNumber int) (groupID uuid.UUID, err error)
 	ListDepartments(ctx context.Context, tenantID uuid.UUID) ([]Department, error)
 	ListGroupsByDepartmentCode(ctx context.Context, tenantID uuid.UUID, departmentCode string) ([]StudentGroup, error)
 	InsertGroupChangeRequest(ctx context.Context, tenantID, studentID, currentGroupID, requestedGroupID uuid.UUID, createdAt time.Time) (GroupChangeRequest, error)
@@ -311,6 +314,50 @@ func (s *Service) RegistrationRequiresVerification() bool {
 	return !s.autoVerifyRegs
 }
 
+func normalizeDepartmentGroupCode(departmentCode, rawGroup string) string {
+	departmentCode = strings.ToUpper(strings.TrimSpace(departmentCode))
+	groupCode := strings.ToUpper(strings.TrimSpace(rawGroup))
+	if departmentCode == "" || groupCode == "" {
+		return groupCode
+	}
+	if groupNumberPattern.MatchString(groupCode) {
+		return departmentCode + "-" + groupCode
+	}
+	return groupCode
+}
+
+func groupNumberFromCode(groupCode string) (int, error) {
+	_, rawNumber, ok := strings.Cut(strings.ToUpper(strings.TrimSpace(groupCode)), "-")
+	if !ok || !groupNumberPattern.MatchString(rawNumber) {
+		return 0, ErrGroupMismatch
+	}
+	number, err := strconv.Atoi(rawNumber)
+	if err != nil || number <= 0 {
+		return 0, ErrGroupMismatch
+	}
+	return number, nil
+}
+
+func (s *Service) resolveOrCreateGroupByCode(
+	ctx context.Context,
+	tenantID, facultyID, departmentID uuid.UUID,
+	groupCode string,
+) (uuid.UUID, error) {
+	groupID, err := s.repo.FindGroupByCodeInDepartment(ctx, tenantID, departmentID, groupCode)
+	if err == nil {
+		return groupID, nil
+	}
+	if !errors.Is(err, ErrGroupNotFound) {
+		return uuid.Nil, err
+	}
+
+	groupNumber, err := groupNumberFromCode(groupCode)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return s.repo.CreateGroupInDepartment(ctx, tenantID, facultyID, departmentID, groupCode, groupNumber)
+}
+
 func (s *Service) RegisterStudent(ctx context.Context, tenantCode, email, password, fullName, departmentCode, groupCode string) error {
 	tenantCode = normalizeTenantCode(tenantCode)
 	tenantID, err := s.repo.FindTenantByCode(ctx, tenantCode)
@@ -321,7 +368,7 @@ func (s *Service) RegisterStudent(ctx context.Context, tenantCode, email, passwo
 	email = normalizeEmail(email)
 	fullName = strings.TrimSpace(fullName)
 	departmentCode = strings.ToUpper(strings.TrimSpace(departmentCode))
-	groupCode = strings.ToUpper(strings.TrimSpace(groupCode))
+	groupCode = normalizeDepartmentGroupCode(departmentCode, groupCode)
 	if email == "" || departmentCode == "" || groupCode == "" {
 		return ErrInvalidInput
 	}
@@ -336,7 +383,7 @@ func (s *Service) RegisterStudent(ctx context.Context, tenantCode, email, passwo
 	if err != nil {
 		return err
 	}
-	groupID, err := s.repo.FindGroupByCodeInDepartment(ctx, tenantID, deptID, groupCode)
+	groupID, err := s.resolveOrCreateGroupByCode(ctx, tenantID, facultyID, deptID, groupCode)
 	if err != nil {
 		return err
 	}
@@ -614,7 +661,7 @@ func (s *Service) SubmitGroupChangeRequest(
 	departmentCode, requestedGroupCode string,
 ) (GroupChangeRequest, error) {
 	departmentCode = strings.ToUpper(strings.TrimSpace(departmentCode))
-	requestedGroupCode = strings.ToUpper(strings.TrimSpace(requestedGroupCode))
+	requestedGroupCode = normalizeDepartmentGroupCode(departmentCode, requestedGroupCode)
 	if tenantID == uuid.Nil || userID == uuid.Nil || departmentCode == "" || requestedGroupCode == "" {
 		return GroupChangeRequest{}, ErrInvalidInput
 	}
@@ -630,11 +677,11 @@ func (s *Service) SubmitGroupChangeRequest(
 		return GroupChangeRequest{}, ErrInvalidInput
 	}
 
-	targetDeptID, _, err := s.repo.FindDepartment(ctx, tenantID, departmentCode)
+	targetDeptID, targetFacultyID, err := s.repo.FindDepartment(ctx, tenantID, departmentCode)
 	if err != nil {
 		return GroupChangeRequest{}, err
 	}
-	targetGroupID, err := s.repo.FindGroupByCodeInDepartment(ctx, tenantID, targetDeptID, requestedGroupCode)
+	targetGroupID, err := s.resolveOrCreateGroupByCode(ctx, tenantID, targetFacultyID, targetDeptID, requestedGroupCode)
 	if err != nil {
 		return GroupChangeRequest{}, err
 	}

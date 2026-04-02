@@ -208,3 +208,13 @@ func (s *Service) ClaimTask(ctx context.Context, userID, projectID, taskID uuid.
 	}
 	return nil
 }
+
+func (s *Service) DeleteTask(ctx context.Context, userID, projectID, taskID uuid.UUID) error {
+	if err := s.requireProjectPermission(ctx, userID, "task.delete", projectID); err != nil {
+		return err
+	}
+	if err := s.ensureActiveProject(ctx, projectID); err != nil {
+		return err
+	}
+	return s.tasksRepo.DeleteTask(ctx, projectID, taskID)
+}

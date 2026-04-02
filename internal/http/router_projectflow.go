@@ -60,6 +60,7 @@ func registerProjectFlowRoutes(
 	projectFlow.GET("/tasks", requireProject("task.view"), projectFlowH.ListTasks)
 	projectFlow.GET("/tasks/activity", requireProject("task.view"), projectFlowH.ListTaskActivities)
 	projectFlow.POST("/tasks", requireProject("task.create"), projectFlowH.CreateTask)
+	projectFlow.DELETE("/tasks/:task_id", requireProject("task.delete"), projectFlowH.DeleteTask)
 	projectFlow.PATCH("/tasks/:task_id/status", requireProject("task.update"), projectFlowH.UpdateTaskStatus)
 	projectFlow.PATCH("/tasks/:task_id/assignee", requireProject("task.assign"), projectFlowH.AssignTask)
 	projectFlow.POST("/tasks/:task_id/claim", requireProject("task.claim"), projectFlowH.ClaimTask)

@@ -92,6 +92,7 @@ type TasksRepository interface {
 	UpsertTaskSubmission(ctx context.Context, projectID, taskID, userID uuid.UUID, comment string, attachments []string) error
 	MarkTaskDone(ctx context.Context, projectID, taskID uuid.UUID) (uuid.UUID, error)
 	ClaimTask(ctx context.Context, projectID, taskID, userID uuid.UUID) error
+	DeleteTask(ctx context.Context, projectID, taskID uuid.UUID) error
 	InsertTaskActivity(ctx context.Context, projectID, taskID uuid.UUID, actorUserID *uuid.UUID, eventType, fromStatus, toStatus, title, comment string, attachments []string) error
 }
 

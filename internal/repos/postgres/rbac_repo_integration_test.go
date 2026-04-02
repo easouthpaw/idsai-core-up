@@ -96,8 +96,8 @@ VALUES (
 	require.NoError(t, err)
 	require.False(t, ok)
 
-	// Negative case: unknown permission
-	ok, err = repo.HasPermission(ctx, userID, "task.delete", rbac.Scope{
+	// Negative case: permission outside the role grant
+	ok, err = repo.HasPermission(ctx, userID, "admin.manage_rbac", rbac.Scope{
 		Type: rbac.ScopeProject,
 		ID:   &projectID,
 	}, now)

@@ -97,9 +97,17 @@
                 </div>
                 <div>
                   <label for="requestGroupInput">Новая группа</label>
-                  <select id="requestGroupInput" name="request_group" autocomplete="off" disabled>
-                    <option value="">Сначала выберите кафедру</option>
-                  </select>
+                  <input
+                    id="requestGroupInput"
+                    type="text"
+                    name="request_group"
+                    autocomplete="off"
+                    inputmode="numeric"
+                    maxlength="4"
+                    placeholder="Сначала выберите кафедру"
+                    disabled
+                  />
+                  <p class="field-hint">Код группы: <span id="requestGroupPreview">-</span></p>
                 </div>
               </div>
 
