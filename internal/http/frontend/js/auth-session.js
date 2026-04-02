@@ -517,6 +517,7 @@
     return new Promise((resolve) => {
       const backdrop = document.createElement("div");
       backdrop.className = "idsai-app-dialog-backdrop";
+      const formID = wantsForm ? `idsaiAppDialogForm-${Date.now()}` : "";
 
       const dialog = document.createElement("section");
       dialog.className = `idsai-app-dialog${options.danger ? " idsai-app-dialog--danger" : ""}`;
@@ -554,6 +555,7 @@
       const body = document.createElement(wantsForm ? "form" : "div");
       body.className = "idsai-app-dialog__body";
       if (wantsForm) {
+        body.id = formID;
         body.setAttribute("novalidate", "novalidate");
       }
 
@@ -625,6 +627,9 @@
       confirmBtn.type = wantsForm ? "submit" : "button";
       confirmBtn.className = `idsai-app-dialog__button idsai-app-dialog__button--primary${options.danger ? " idsai-app-dialog__button--danger" : ""}`;
       confirmBtn.textContent = confirmText || "Подтвердить";
+      if (wantsForm) {
+        confirmBtn.setAttribute("form", formID);
+      }
 
       if (showCancel) {
         actions.appendChild(cancelBtn);

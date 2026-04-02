@@ -39,6 +39,20 @@
     return "";
   }
 
+  function passwordResetRequestError(message) {
+    const text = String(message || "").trim().toLowerCase();
+    if (!text) {
+      return "Не удалось отправить письмо для сброса пароля.";
+    }
+    if (text.includes("account not found or unavailable for password reset")) {
+      return "Аккаунт с таким email не найден или для него недоступен сброс пароля.";
+    }
+    if (text.includes("too many attempts")) {
+      return "Слишком много попыток. Попробуйте немного позже.";
+    }
+    return "Не удалось отправить письмо для сброса пароля.";
+  }
+
   async function collectPasswordResetValues(options = {}) {
     const requireCode = Boolean(options.requireCode);
     const email = String(options.email || "").trim();
@@ -338,7 +352,8 @@
 
     const out = await callJSON("/v2/auth/password-reset/request", { email: normalizedEmail });
     if (!out.resp.ok) {
-      setStatus("Не удалось отправить письмо для сброса пароля.", false);
+      const errMessage = out.data && typeof out.data === "object" ? out.data.error : "";
+      setStatus(passwordResetRequestError(errMessage), false);
       showJSON(out.data);
       return;
     }

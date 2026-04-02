@@ -102,6 +102,8 @@ func writeAuthError(c *gin.Context, err error) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "token expired"})
 	case errors.Is(err, auth.ErrTokenInvalid):
 		c.JSON(http.StatusBadRequest, gin.H{"error": "token invalid"})
+	case errors.Is(err, auth.ErrPasswordResetUnavailable):
+		c.JSON(http.StatusNotFound, gin.H{"error": "account not found or unavailable for password reset"})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "auth operation failed"})
 	}

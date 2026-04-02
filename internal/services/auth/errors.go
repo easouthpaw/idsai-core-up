@@ -40,4 +40,5 @@ var (
 	ErrInvalidCurrentPassword    = errors.New("invalid current password")
 	ErrNoPendingEmail            = errors.New("no pending email")
 	ErrStorageUnavailable        = errors.New("storage unavailable")
+	ErrPasswordResetUnavailable  = errors.New("password reset unavailable")
 )

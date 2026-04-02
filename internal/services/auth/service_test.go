@@ -295,3 +295,36 @@ func TestRegisterStudentAutoVerifiesWhenEnabled(t *testing.T) {
 	require.Zero(t, repo.invalidateTokenCount)
 	require.Zero(t, repo.insertAuthTokenCount)
 }
+
+func TestRequestPasswordResetRejectsUnknownAccount(t *testing.T) {
+	repo := &fakeRepo{
+		tenantID:    uuid.New(),
+		findUserErr: ErrNotFound,
+	}
+	svc := NewService(repo, Config{
+		JWTSecret: "01234567890123456789012345678901",
+	})
+
+	err := svc.RequestPasswordReset(context.Background(), "127.0.0.1", "CORE", "missing@example.edu")
+	require.ErrorIs(t, err, ErrPasswordResetUnavailable)
+	require.Zero(t, repo.insertAuthTokenCount)
+}
+
+func TestRequestPasswordResetRejectsInactiveOrUnverifiedAccount(t *testing.T) {
+	repo := &fakeRepo{
+		tenantID: uuid.New(),
+		user: User{
+			ID:       uuid.New(),
+			TenantID: uuid.New(),
+			Email:    "pending@example.edu",
+			Status:   StatusPending,
+		},
+	}
+	svc := NewService(repo, Config{
+		JWTSecret: "01234567890123456789012345678901",
+	})
+
+	err := svc.RequestPasswordReset(context.Background(), "127.0.0.1", "CORE", "pending@example.edu")
+	require.ErrorIs(t, err, ErrPasswordResetUnavailable)
+	require.Zero(t, repo.insertAuthTokenCount)
+}

@@ -30,6 +30,9 @@ type authHandlerRepo struct {
 }
 
 func (f *authHandlerRepo) FindTenantByCode(ctx context.Context, tenantCode string) (uuid.UUID, error) {
+	if f.tenantID == uuid.Nil {
+		return uuid.Nil, auth.ErrNotFound
+	}
 	return f.tenantID, nil
 }
 
@@ -46,6 +49,9 @@ func (f *authHandlerRepo) GrantStudentFacultyRole(ctx context.Context, tenantID,
 }
 
 func (f *authHandlerRepo) FindUserByEmail(ctx context.Context, tenantID uuid.UUID, email string) (auth.User, error) {
+	if f.user.ID == uuid.Nil {
+		return auth.User{}, auth.ErrNotFound
+	}
 	return f.user, nil
 }
 
@@ -313,4 +319,31 @@ func TestAuthHandlerRegisterReturnsRegisteredWhenAutoVerifyEnabled(t *testing.T)
 
 	require.Equal(t, http.StatusAccepted, w.Code)
 	require.JSONEq(t, `{"status":"registered"}`, w.Body.String())
+}
+
+func TestAuthHandlerRequestPasswordResetReturnsNotFoundForMissingAccount(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	repo := &authHandlerRepo{tenantID: uuid.New()}
+	svc := auth.NewService(repo, auth.Config{
+		JWTSecret: "01234567890123456789012345678901",
+	})
+	h := NewAuthHandler(svc)
+
+	r := gin.New()
+	r.POST("/v2/auth/password-reset/request", h.RequestPasswordReset)
+
+	body, err := json.Marshal(map[string]string{
+		"email": "missing@example.edu",
+	})
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/v2/auth/password-reset/request", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+	require.JSONEq(t, `{"error":"account not found or unavailable for password reset"}`, w.Body.String())
 }

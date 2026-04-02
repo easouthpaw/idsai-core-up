@@ -938,7 +938,7 @@ func (s *Service) RequestPasswordReset(ctx context.Context, actorKey, tenantCode
 	tenantID, err := s.repo.FindTenantByCode(ctx, tenantCode)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			return nil
+			return ErrPasswordResetUnavailable
 		}
 		return err
 	}
@@ -946,12 +946,12 @@ func (s *Service) RequestPasswordReset(ctx context.Context, actorKey, tenantCode
 	u, err := s.repo.FindUserByEmail(ctx, tenantID, email)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			return nil
+			return ErrPasswordResetUnavailable
 		}
 		return err
 	}
 	if u.Status != StatusActive || u.EmailVerifiedAt == nil {
-		return nil
+		return ErrPasswordResetUnavailable
 	}
 
 	if err := s.repo.InvalidateAuthTokens(ctx, u.TenantID, u.ID, TokenPurposePasswordReset); err != nil {
