@@ -50,6 +50,10 @@
   const groupsState = {
     departments: [],
   };
+  const STATUS_ICON_HTML =
+    `<svg viewBox="0 0 24 24" fill="none" focusable="false" aria-hidden="true">` +
+      `<path d="M13 16h-1v-4h1m0-4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>` +
+    `</svg>`;
 
   function escapeHTML(value) {
     return String(value || "")
@@ -85,10 +89,13 @@
 
   function setStatus(el, message, kind) {
     if (!el) return;
-    el.textContent = message || "";
-    el.classList.remove("err", "ok");
-    if (kind === "err" || kind === "ok") {
-      el.classList.add(kind);
+    const tone = kind === "ok" || kind === "err" || kind === "info" || kind === "warn" ? kind : "";
+    el.innerHTML = message
+      ? `<span class="inline-status__icon" aria-hidden="true">${STATUS_ICON_HTML}</span><span class="inline-status__copy">${escapeHTML(message)}</span>`
+      : "";
+    el.classList.remove("err", "ok", "info", "warn");
+    if (tone) {
+      el.classList.add(tone);
     }
   }
 

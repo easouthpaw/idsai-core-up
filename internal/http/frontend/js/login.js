@@ -13,6 +13,19 @@
   const registrationState = {
     departments: [],
   };
+  const STATUS_ICON_HTML =
+    `<svg viewBox="0 0 24 24" fill="none" focusable="false" aria-hidden="true">` +
+      `<path d="M13 16h-1v-4h1m0-4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>` +
+    `</svg>`;
+
+  function escapeHTML(value) {
+    return String(value || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
 
   function showConfirmDialog(options) {
     if (auth && typeof auth.showConfirmDialog === "function") {
@@ -113,8 +126,10 @@
   }
 
   function setStatus(msg, ok) {
-    statusEl.textContent = msg;
     statusEl.className = "status " + (ok ? "ok" : "err");
+    statusEl.innerHTML = msg
+      ? `<span class="status__icon" aria-hidden="true">${STATUS_ICON_HTML}</span><span class="status__copy">${escapeHTML(msg)}</span>`
+      : "";
   }
 
   function showJSON(v) {

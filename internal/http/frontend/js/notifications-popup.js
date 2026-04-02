@@ -239,18 +239,64 @@
       .replaceAll("'", "&#039;");
   }
 
+  function notificationTone(item) {
+    const text = `${item?.type || ""} ${item?.title || ""} ${item?.body || ""}`.toLowerCase();
+    if (text.includes("retake") || text.includes("пересдач")) return "warning";
+    if (text.includes("rejected") || text.includes("отклон") || text.includes("removed") || text.includes("убрали")) return "error";
+    if (
+      text.includes("accepted") ||
+      text.includes("approved") ||
+      text.includes("created") ||
+      text.includes("updated") ||
+      text.includes("activated") ||
+      text.includes("published") ||
+      text.includes("finished") ||
+      text.includes("sent_to_grading") ||
+      text.includes("принят") ||
+      text.includes("создан") ||
+      text.includes("заверш") ||
+      text.includes("опублик")
+    ) {
+      return "success";
+    }
+    return "info";
+  }
+
+  function notificationIcon(tone) {
+    if (tone === "success") return "check_circle";
+    if (tone === "warning") return "warning";
+    if (tone === "error") return "error";
+    return "info";
+  }
+
+  function notificationToneLabel(tone) {
+    if (tone === "success") return "Успех";
+    if (tone === "warning") return "Внимание";
+    if (tone === "error") return "Ошибка";
+    return "Инфо";
+  }
+
   function panelItemMarkup(item) {
     const title = escapeHTML(item.title || "Уведомление");
     const body = escapeHTML(item.body || "Новое событие в системе.");
     const createdAt = escapeHTML(formatDate(item.created_at));
-    const itemCls = item.is_read ? "idsai-notify-item is-read" : "idsai-notify-item";
+    const tone = notificationTone(item);
+    const icon = notificationIcon(tone);
+    const toneLabel = notificationToneLabel(tone);
+    const itemCls = item.is_read
+      ? `idsai-notify-item idsai-notify-item--${tone} is-read`
+      : `idsai-notify-item idsai-notify-item--${tone}`;
     return `
       <article class="${itemCls}" data-id="${escapeHTML(item.id)}">
         <button class="idsai-notify-delete" type="button" data-act="delete" aria-label="Удалить">×</button>
         <button class="idsai-notify-open" type="button" data-act="open">
-          <h4>${title}</h4>
-          <p>${body}</p>
-          <time>${createdAt}</time>
+          <span class="idsai-notify-item-icon material-symbols-outlined" aria-hidden="true">${icon}</span>
+          <span class="idsai-notify-content">
+            <span class="idsai-notify-pill">${toneLabel}</span>
+            <h4>${title}</h4>
+            <p>${body}</p>
+            <time>${createdAt}</time>
+          </span>
         </button>
       </article>
     `;
@@ -268,12 +314,18 @@
   function toastMarkup(item) {
     const title = escapeHTML(item.title || "Уведомление");
     const body = escapeHTML(item.body || "Новое событие в системе.");
+    const tone = notificationTone(item);
+    const icon = notificationIcon(tone);
+    const toneLabel = notificationToneLabel(tone);
     return `
-      <article class="idsai-toast idsai-toast--light" data-id="${escapeHTML(item.id)}">
+      <article class="idsai-toast idsai-toast--${tone}" data-id="${escapeHTML(item.id)}">
         <div class="idsai-toast-head">
           <div class="idsai-toast-title-wrap">
-            <span class="idsai-toast-icon material-symbols-outlined" aria-hidden="true">info</span>
-            <h4 class="idsai-toast-title">${title}</h4>
+            <span class="idsai-toast-icon material-symbols-outlined" aria-hidden="true">${icon}</span>
+            <div class="idsai-toast-text">
+              <span class="idsai-toast-pill">${toneLabel}</span>
+              <h4 class="idsai-toast-title">${title}</h4>
+            </div>
           </div>
           <button type="button" class="idsai-toast-close" data-act="close" aria-label="Закрыть">×</button>
         </div>

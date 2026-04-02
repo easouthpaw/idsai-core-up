@@ -472,14 +472,55 @@ input:focus-visible, select:focus-visible {
 
 .status {
   margin-top: 10px;
-  min-height: 20px;
-  font: 700 13px "IBM Plex Mono", ui-monospace, monospace;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border-left: 4px solid #2563eb;
+  border-radius: 12px;
+  background: #eaf2ff;
+  color: #2456d3;
+  padding: 10px 12px;
+  font: 700 13px/1.5 "IBM Plex Mono", ui-monospace, monospace;
   white-space: pre-wrap;
   word-break: break-word;
+  transition: background 180ms ease, transform 180ms ease, box-shadow 180ms ease;
 }
 
-.status.ok { color: var(--ok); }
-.status.err { color: var(--err); }
+.status:empty {
+  display: none;
+}
+
+.status:hover {
+  transform: translateY(-1px) scale(1.01);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.1);
+}
+
+.status__icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+}
+
+.status__icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.status__copy {
+  min-width: 0;
+}
+
+.status.ok {
+  border-left-color: #16a34a;
+  background: #eaf8ef;
+  color: #166534;
+}
+
+.status.err {
+  border-left-color: #dc2626;
+  background: #feeceb;
+  color: #b42318;
+}
 
 .resp {
   margin: 8px 0 0;

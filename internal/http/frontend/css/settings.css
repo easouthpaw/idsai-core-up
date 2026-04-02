@@ -163,17 +163,66 @@
 
 .inline-status {
   margin: 0;
-  color: #475467;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border-left: 4px solid #2563eb;
+  border-radius: 12px;
+  background: #eaf2ff;
+  color: #2456d3;
+  padding: 10px 12px;
   font-size: 13px;
-  min-height: 20px;
+  line-height: 1.5;
+  transition: background 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+
+.inline-status:empty {
+  display: none;
+}
+
+.inline-status:hover {
+  transform: translateY(-1px) scale(1.01);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+}
+
+.inline-status__icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+}
+
+.inline-status__icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.inline-status__copy {
+  min-width: 0;
+  font-weight: 600;
 }
 
 .inline-status.err {
-  color: #dc2626;
+  border-left-color: #dc2626;
+  background: #feeceb;
+  color: #b42318;
 }
 
 .inline-status.ok {
-  color: #15803d;
+  border-left-color: #16a34a;
+  background: #eaf8ef;
+  color: #166534;
+}
+
+.inline-status.info {
+  border-left-color: #2563eb;
+  background: #eaf2ff;
+  color: #2456d3;
+}
+
+.inline-status.warn {
+  border-left-color: #d97706;
+  background: #fff4db;
+  color: #9a5b00;
 }
 
 .password-rules {

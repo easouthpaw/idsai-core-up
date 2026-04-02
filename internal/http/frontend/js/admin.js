@@ -580,19 +580,35 @@
 
     activityListEl.innerHTML = "";
     if (list.length === 0) {
-      activityListEl.innerHTML = "<li><div class=\"activity-title\"><i class=\"dot gray\"></i>Нет данных для отображения</div><span class=\"activity-time\">—</span></li>";
+      activityListEl.innerHTML = (
+        "<li class=\"activity-log activity-log--empty tone-gray\">" +
+          "<div class=\"activity-line\">" +
+            "<span class=\"activity-prompt\">$</span>" +
+            "<span class=\"activity-log-text\">Нет данных для отображения</span>" +
+          "</div>" +
+          "<div class=\"activity-meta-row\">" +
+            "<span class=\"activity-kind tone-gray\"><i class=\"dot gray\"></i>system</span>" +
+            "<span class=\"activity-time\">—</span>" +
+          "</div>" +
+        "</li>"
+      );
       return;
     }
 
     list.forEach((item) => {
       const li = document.createElement("li");
+      const kindLabel = item.kind === "project" ? "project" : "user";
       li.innerHTML = `
-        <div class="activity-title">
-          <i class="dot ${item.dot}"></i>
-          <span>${escapeHTML(item.text)}</span>
+        <div class="activity-line">
+          <span class="activity-prompt">${item.kind === "project" ? ">" : "$"}</span>
+          <span class="activity-log-text">${escapeHTML(item.text)}</span>
         </div>
-        <span class="activity-time">${escapeHTML(relativeTime(item.at))}</span>
+        <div class="activity-meta-row">
+          <span class="activity-kind tone-${escapeHTML(item.dot)}"><i class="dot ${escapeHTML(item.dot)}"></i>${escapeHTML(kindLabel)}</span>
+          <span class="activity-time">${escapeHTML(relativeTime(item.at))}</span>
+        </div>
       `;
+      li.className = `activity-log tone-${item.dot}`;
       activityListEl.appendChild(li);
     });
   }

@@ -28,6 +28,19 @@
     "https://images.pexels.com/photos/10499056/pexels-photo-10499056.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600",
     "https://images.pexels.com/photos/12899157/pexels-photo-12899157.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600",
   ];
+  const HINT_BADGE_HTML =
+    `<span class="hint-badge">` +
+      `<span class="hint-badge-icon" aria-hidden="true">` +
+        `<svg viewBox="0 0 20 20" fill="none" focusable="false" aria-hidden="true">` +
+          `<path d="M7.2 12.5h5.6M7.9 15.2h4.2M10 2.7a4.9 4.9 0 0 0-2.9 8.9c.5.4.8 1 .9 1.6h4c.1-.6.4-1.2.9-1.6A4.9 4.9 0 0 0 10 2.7Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>` +
+        `</svg>` +
+      `</span>` +
+      `<span>Подсказка</span>` +
+    `</span>`;
+  const ALERT_ICON_HTML =
+    `<svg viewBox="0 0 24 24" fill="none" focusable="false" aria-hidden="true">` +
+      `<path d="M13 16h-1v-4h1m0-4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>` +
+    `</svg>`;
 
   const ui = {
     profileAvatar: document.getElementById("profileAvatar"),
@@ -949,11 +962,15 @@
     if (stepIndex === -1) return "is-upcoming";
     if (currentIndex === -1) return stepIndex === 0 ? "is-current" : "is-upcoming";
     if (stepIndex < currentIndex) return "is-complete";
-    if (stepIndex === currentIndex) return "is-current";
+    if (stepIndex === currentIndex) {
+      if (code === "COMPLETED" && status === "COMPLETED") return "is-completed-current";
+      return "is-current";
+    }
     return "is-upcoming";
   }
 
   function lifecycleStateLabel(stepState, optional) {
+    if (stepState === "is-completed-current") return "Завершен";
     if (stepState === "is-current") return "Сейчас";
     if (stepState === "is-complete") return "Пройдено";
     if (optional) return "Опционально";
@@ -1247,8 +1264,10 @@
 
   function renderTabStageHint(target, data) {
     if (!target || !data) return;
-    target.className = `tab-stage-hint tab-stage-hint--${data.tone || "draft"}`;
+    const isCompact = target.classList.contains("tab-stage-hint--compact");
+    target.className = `tab-stage-hint tab-stage-hint--${data.tone || "draft"}${isCompact ? " tab-stage-hint--compact" : ""}`;
     target.innerHTML =
+      HINT_BADGE_HTML +
       `<strong>${escapeHTML(data.title || "")}</strong>` +
       `<p>${escapeHTML(data.copy || "")}</p>`;
   }
@@ -1258,6 +1277,13 @@
     renderTabStageHint(ui.teamStageHint, hints.team);
     renderTabStageHint(ui.tasksStageHint, hints.tasks);
     renderTabStageHint(ui.criteriaStageHint, hints.criteria);
+  }
+
+  function pipelineAlertHTML(message) {
+    return (
+      `<span class="pipeline-status-note__icon" aria-hidden="true">${ALERT_ICON_HTML}</span>` +
+      `<span class="pipeline-status-note__copy">${escapeHTML(message || "")}</span>`
+    );
   }
 
   function isRecruitmentApplyMode() {
@@ -1875,43 +1901,53 @@
       } else if (normalizedStatus === "RECRUITMENT") {
         if (canGrantLaunch && state.readiness.can_activate) {
           note = "Все условия собраны. Преподаватель может дать разрешение и перевести проект в рабочую фазу.";
-          noteClass = "pipeline-status-note pipeline-status-note--ready";
+          noteClass = "pipeline-status-note pipeline-status-note--success";
         } else if (canGrantLaunch) {
           note = "Для запуска еще не хватает обязательных условий. Проверьте чеклист слева и доберите недостающие пункты.";
+          noteClass = "pipeline-status-note pipeline-status-note--warning";
         } else if (canManagePipeline && state.readiness.can_activate) {
           note = "Команда готова. Следующий шаг за преподавателем: дать разрешение на запуск.";
-          noteClass = "pipeline-status-note pipeline-status-note--ready";
+          noteClass = "pipeline-status-note pipeline-status-note--success";
         } else if (canManagePipeline) {
           note = "Доведите набор до готовности, и после этого преподаватель сможет запустить проект.";
+          noteClass = "pipeline-status-note pipeline-status-note--warning";
         }
       } else if (normalizedStatus === "ACTIVE") {
-        if (snapshot.tasksTotal === 0) {
+        if (projectRetakeCount() > 0) {
+          note = "Проект возвращен на пересдачу. Закройте замечания преподавателя и отправьте его на оценивание повторно.";
+          noteClass = "pipeline-status-note pipeline-status-note--error";
+        } else if (snapshot.tasksTotal === 0) {
           note = "Сначала создайте задачи в канбане, иначе проект нельзя будет отправить на оценивание.";
+          noteClass = "pipeline-status-note pipeline-status-note--warning";
         } else if (snapshot.tasksDone < snapshot.tasksTotal) {
           note = `До сдачи осталось закрыть ${snapshot.tasksTotal - snapshot.tasksDone} задач.`;
+          noteClass = "pipeline-status-note pipeline-status-note--warning";
         } else if (!snapshot.professorAccepted) {
           note = "Все задачи готовы, но нужно дождаться подтверждения преподавателя.";
+          noteClass = "pipeline-status-note pipeline-status-note--warning";
         } else {
           note = "Проект готов к передаче на оценивание. Кнопка отправки вынесена рядом.";
-          noteClass = "pipeline-status-note pipeline-status-note--ready";
+          noteClass = "pipeline-status-note pipeline-status-note--success";
         }
       } else if (normalizedStatus === "GRADING") {
         if (snapshot.criteriaCount === 0) {
           note = "Преподавателю нужно сначала добавить критерии, иначе финальная оценка не будет опубликована.";
+          noteClass = "pipeline-status-note pipeline-status-note--warning";
         } else if (snapshot.gradedCriteria < snapshot.criteriaCount) {
           note = `Пока проверено ${snapshot.gradedCriteria} из ${snapshot.criteriaCount} критериев.`;
+          noteClass = "pipeline-status-note pipeline-status-note--warning";
         } else {
           note = "Все критерии заполнены. Осталось опубликовать итоговую оценку.";
-          noteClass = "pipeline-status-note pipeline-status-note--ready";
+          noteClass = "pipeline-status-note pipeline-status-note--success";
         }
       } else if (normalizedStatus === "COMPLETED") {
         note = "Финальная оценка уже опубликована. Проект завершен.";
-        noteClass = "pipeline-status-note pipeline-status-note--ready";
+        noteClass = "pipeline-status-note pipeline-status-note--success";
       }
 
       ui.pipelineStatusNote.hidden = !note;
       ui.pipelineStatusNote.className = noteClass;
-      ui.pipelineStatusNote.textContent = note;
+      ui.pipelineStatusNote.innerHTML = note ? pipelineAlertHTML(note) : "";
     }
 
     if (ui.stageSpotlight) {

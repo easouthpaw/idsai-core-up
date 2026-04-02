@@ -84,7 +84,16 @@
               <section id="stageSpotlight" class="stage-spotlight" aria-live="polite">
                 <div class="stage-spotlight-head">
                   <div>
-                    <p class="stage-spotlight-kicker">Следующий переход</p>
+                    <p class="stage-spotlight-kicker">
+                      <span class="hint-badge hint-badge--spotlight">
+                        <span class="hint-badge-icon" aria-hidden="true">
+                          <svg viewBox="0 0 20 20" fill="none" focusable="false" aria-hidden="true">
+                            <path d="M7.2 12.5h5.6M7.9 15.2h4.2M10 2.7a4.9 4.9 0 0 0-2.9 8.9c.5.4.8 1 .9 1.6h4c.1-.6.4-1.2.9-1.6A4.9 4.9 0 0 0 10 2.7Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                          </svg>
+                        </span>
+                        <span>Подсказка по этапу</span>
+                      </span>
+                    </p>
                     <h3 id="stageSpotlightTitle">Что нужно для следующего этапа</h3>
                     <p id="stageSpotlightCopy" class="stage-spotlight-copy">Покажем только ближайшие требования, чтобы команде было проще двигаться по этапам.</p>
                   </div>
@@ -98,7 +107,7 @@
                   <div id="readinessList" class="stage-checklist" aria-label="Требования следующего этапа"></div>
 
                   <div class="stage-spotlight-side">
-                    <div id="pipelineStatusNote" class="pipeline-status-note" hidden></div>
+                    <div id="pipelineStatusNote" class="pipeline-status-note" role="alert" aria-live="polite" hidden></div>
                     <div class="stage-actions">
                       <button id="openRecruitmentBtn" class="ghost-btn" type="button" hidden>Открыть набор</button>
                       <button id="approveProjectBtn" class="primary-btn" type="button" hidden>Дать разрешение на запуск</button>
