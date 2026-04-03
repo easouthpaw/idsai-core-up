@@ -5088,6 +5088,15 @@
       return source;
     }
 
+    match = source.match(/^(?:Проверено|Тексерілген|Reviewed):\s*(\d+)\/(\d+)\.\s+(?:Итоговый балл|Қорытынды балл|Final score):\s*([0-9.]+)\/5\.0\s+\((\d+)%\)\.(.*)$/);
+    if (match) {
+      const suffixRaw = String(match[5] || "").trim();
+      const suffix = suffixRaw ? ` ${translateText(suffixRaw)}` : "";
+      if (state.lang === "en") return `Reviewed: ${match[1]}/${match[2]}. Final score: ${match[3]}/5.0 (${match[4]}%).${suffix}`;
+      if (state.lang === "kk") return `Тексерілген: ${match[1]}/${match[2]}. Қорытынды балл: ${match[3]}/5.0 (${match[4]}%).${suffix}`;
+      return `Проверено: ${match[1]}/${match[2]}. Итоговый балл: ${match[3]}/5.0 (${match[4]}%).${suffix}`;
+    }
+
     match = source.match(/^Проверено:\s*(.+)$/);
     if (match) {
       if (state.lang === "en") return `Reviewed: ${match[1]}`;
@@ -5948,12 +5957,13 @@
       return source;
     }
 
-    match = source.match(/^Проверено:\s*(\d+)\/(\d+)\.\s+Итоговый балл:\s*([0-9.]+)\/5\.0\s+\((\d+)%\)\.(.*)$/);
+    match = source.match(/^(?:Проверено|Тексерілген|Reviewed):\s*(\d+)\/(\d+)\.\s+(?:Итоговый балл|Қорытынды балл|Final score):\s*([0-9.]+)\/5\.0\s+\((\d+)%\)\.(.*)$/);
     if (match) {
-      const suffix = match[5] ? ` ${match[5].trim()}` : "";
+      const suffixRaw = String(match[5] || "").trim();
+      const suffix = suffixRaw ? ` ${translateText(suffixRaw)}` : "";
       if (state.lang === "en") return `Reviewed: ${match[1]}/${match[2]}. Final score: ${match[3]}/5.0 (${match[4]}%).${suffix}`;
-      if (state.lang === "kk") return `Тексерілді: ${match[1]}/${match[2]}. Қорытынды балл: ${match[3]}/5.0 (${match[4]}%).${suffix}`;
-      return source;
+      if (state.lang === "kk") return `Тексерілген: ${match[1]}/${match[2]}. Қорытынды балл: ${match[3]}/5.0 (${match[4]}%).${suffix}`;
+      return `Проверено: ${match[1]}/${match[2]}. Итоговый балл: ${match[3]}/5.0 (${match[4]}%).${suffix}`;
     }
 
     match = source.match(/^Ревью по критериям сохранено\. Выполнено:\s*(\d+)\/(\d+)\.(.*)$/);
