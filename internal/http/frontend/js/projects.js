@@ -1,5 +1,6 @@
 (() => {
   const auth = window.IDSAIAuth;
+  const i18n = window.IDSAI18n;
   const roleSidebar = window.IDSAIRoleSidebar;
   const LS_ACCESS = "idsai_access_token";
   const LS_REFRESH = "idsai_refresh_token";
@@ -59,7 +60,7 @@
   let publicProjects = [];
 
   function logLine(text) {
-    const now = new Date().toLocaleTimeString();
+    const now = i18n ? i18n.formatTime(Date.now()) : new Date().toLocaleTimeString();
     const previous = (consoleLogEl.textContent || "").trim();
     const line = `[${now}] ${text}`;
     consoleLogEl.textContent = previous ? `${previous}\n${line}` : line;
@@ -211,7 +212,7 @@
   function formatDate(raw) {
     if (!raw) return "-";
     try {
-      return new Date(raw).toLocaleString();
+      return i18n ? i18n.formatDateTime(raw) : new Date(raw).toLocaleString();
     } catch (_) {
       return String(raw);
     }
@@ -631,7 +632,7 @@
         const na = parseInt(a, 10);
         const nb = parseInt(b, 10);
         if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
-        return a.localeCompare(b);
+        return i18n ? i18n.compareStrings(a, b) : a.localeCompare(b);
       });
 
     groupNumberEl.innerHTML = "";

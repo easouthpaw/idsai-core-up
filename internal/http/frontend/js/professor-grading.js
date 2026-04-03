@@ -1,5 +1,6 @@
 (() => {
   const auth = window.IDSAIAuth;
+  const i18n = window.IDSAI18n;
 
   function confirmAction(options) {
     if (auth && typeof auth.showConfirmDialog === "function") {
@@ -171,7 +172,7 @@
   function formatDate(value) {
     if (!value) return "—";
     try {
-      return new Date(value).toLocaleString("ru-RU");
+      return i18n ? i18n.formatDateTime(value) : new Date(value).toLocaleString("ru-RU");
     } catch (_) {
       return String(value);
     }
@@ -557,7 +558,7 @@
     return values.sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
       if (b.completed !== a.completed) return b.completed - a.completed;
-      return a.name.localeCompare(b.name, "ru");
+      return i18n ? i18n.compareStrings(a.name, b.name) : a.name.localeCompare(b.name, "ru");
     });
   }
 

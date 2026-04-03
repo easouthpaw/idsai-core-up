@@ -1,5 +1,6 @@
 (() => {
   const auth = window.IDSAIAuth;
+  const i18n = window.IDSAI18n;
   const roleSidebar = window.IDSAIRoleSidebar;
   const LS_ACCESS = "idsai_access_token";
   const LS_REFRESH = "idsai_refresh_token";
@@ -383,19 +384,20 @@
     if (!raw) return "-";
     const dt = new Date(raw);
     if (Number.isNaN(dt.getTime())) return "-";
-    return dt.toLocaleDateString("ru-RU");
+    return i18n ? i18n.formatDate(dt) : dt.toLocaleDateString("ru-RU");
   }
 
   function formatDateTime(raw) {
     if (!raw) return "-";
     const dt = new Date(raw);
     if (Number.isNaN(dt.getTime())) return "-";
-    return dt.toLocaleString("ru-RU");
+    return i18n ? i18n.formatDateTime(dt) : dt.toLocaleString("ru-RU");
   }
 
   function relativeTime(rawOrEpoch) {
     const ts = typeof rawOrEpoch === "number" ? rawOrEpoch : new Date(rawOrEpoch).getTime();
-    if (!Number.isFinite(ts) || ts <= 0) return "недавно";
+    if (!Number.isFinite(ts) || ts <= 0) return i18n ? i18n.t("только что") : "недавно";
+    if (i18n) return i18n.relativeTime(ts);
 
     const diffMs = Date.now() - ts;
     const mins = Math.floor(diffMs / 60000);

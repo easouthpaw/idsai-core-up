@@ -2,6 +2,7 @@
   "use strict";
 
   const auth = window.IDSAIAuth;
+  const i18n = window.IDSAI18n;
   const API = "/v2/kb";
 
   function notify(message, kind = "info") {
@@ -60,6 +61,7 @@
 
   function relativeTime(dateStr) {
     if (!dateStr) return "";
+    if (i18n) return i18n.relativeTime(dateStr);
     const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
     if (diff < 60) return "только что";
     if (diff < 3600) return `${Math.floor(diff / 60)} мин. назад`;

@@ -1,5 +1,6 @@
 (() => {
   const auth = window.IDSAIAuth;
+  const i18n = window.IDSAI18n;
 
   const ui = {
     profGreeting: document.getElementById("profGreeting"),
@@ -74,7 +75,7 @@
   function formatDate(value) {
     if (!value) return "—";
     try {
-      return new Date(value).toLocaleString("ru-RU");
+      return i18n ? i18n.formatDateTime(value) : new Date(value).toLocaleString("ru-RU");
     } catch (_) {
       return String(value);
     }

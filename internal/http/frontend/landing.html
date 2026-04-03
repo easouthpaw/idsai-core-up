@@ -8,6 +8,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/dev/static/css/landing.css" />
+  <link rel="stylesheet" href="/dev/static/css/site-preferences.css" />
+  <script>
+    (() => {
+      try {
+        const lang = localStorage.getItem("idsai_site_lang");
+        if (lang) document.documentElement.lang = lang;
+      } catch (_) {}
+    })();
+  </script>
 </head>
 <body class="landing-body">
   <div class="bg-glow" aria-hidden="true"></div>
@@ -195,6 +204,7 @@ $ idsai status
     </nav>
   </footer>
 
+  <script src="/dev/static/js/site-preferences.js" defer></script>
   <script src="/dev/static/js/landing.js" defer></script>
 </body>
 </html>

@@ -1,5 +1,6 @@
 (() => {
   const auth = window.IDSAIAuth;
+  const i18n = window.IDSAI18n;
   const roleSidebar = window.IDSAIRoleSidebar;
   const LS_ACCESS = "idsai_access_token";
   const LS_REFRESH = "idsai_refresh_token";
@@ -355,7 +356,7 @@
     if (!raw) return "-";
     const d = new Date(raw);
     if (Number.isNaN(d.getTime())) return String(raw);
-    return d.toLocaleString();
+    return i18n ? i18n.formatDateTime(d) : d.toLocaleString();
   }
 
   function parseJSON(raw, fallback) {

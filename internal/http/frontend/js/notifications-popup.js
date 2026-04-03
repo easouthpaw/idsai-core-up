@@ -1,5 +1,6 @@
 (() => {
   const auth = window.IDSAIAuth;
+  const i18n = window.IDSAI18n;
   if (window.__idsaiNotificationsPopupInitialized) {
     return;
   }
@@ -137,9 +138,17 @@
   }
 
   function formatDate(value) {
-    if (!value) return "только что";
+    if (!value) return i18n ? i18n.t("только что") : "только что";
     const ts = Date.parse(value);
-    if (!Number.isFinite(ts)) return "только что";
+    if (!Number.isFinite(ts)) return i18n ? i18n.t("только что") : "только что";
+    if (i18n) {
+      return i18n.formatDateTime(ts, {
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
     return new Date(ts).toLocaleString("ru-RU", {
       day: "2-digit",
       month: "2-digit",

@@ -1,5 +1,6 @@
 (() => {
   const auth = window.IDSAIAuth;
+  const i18n = window.IDSAI18n;
   const roleSidebar = window.IDSAIRoleSidebar;
   const LS_STUDENT_NAME = "idsai_student_name";
   const LS_STUDENT_EMAIL = "idsai_student_email";
@@ -258,7 +259,7 @@
     if (!raw) return "—";
     const dt = new Date(raw);
     if (Number.isNaN(dt.getTime())) return "—";
-    return dt.toLocaleString("ru-RU");
+    return i18n ? i18n.formatDateTime(dt) : dt.toLocaleString("ru-RU");
   }
 
   function renderGroupRequests(items) {

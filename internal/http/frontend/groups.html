@@ -10,6 +10,15 @@
   <link rel="stylesheet" href="/dev/static/css/role-sidebar.css" />
   <link rel="stylesheet" href="/dev/static/css/groups.css" />
   <link rel="stylesheet" href="/dev/static/css/dev-theme.css" />
+  <link rel="stylesheet" href="/dev/static/css/site-preferences.css" />
+  <script>
+    (() => {
+      try {
+        const lang = localStorage.getItem("idsai_site_lang");
+        if (lang) document.documentElement.lang = lang;
+      } catch (_) {}
+    })();
+  </script>
 </head>
 <body class="groups-body role-admin">
   <div class="groups-layout">
@@ -115,6 +124,7 @@
     </main>
   </div>
 
+  <script src="/dev/static/js/site-preferences.js" defer></script>
   <script src="/dev/static/js/auth-session.js" defer></script>
   <script src="/dev/static/js/role-sidebar.js" defer></script>
   <script src="/dev/static/js/groups.js" defer></script>

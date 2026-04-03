@@ -1,5 +1,6 @@
 (() => {
   const auth = window.IDSAIAuth;
+  const i18n = window.IDSAI18n;
   const roleSidebar = window.IDSAIRoleSidebar;
 
   const ui = {
@@ -267,7 +268,7 @@
     if (!value) return "—";
     const dt = new Date(value);
     if (Number.isNaN(dt.getTime())) return "—";
-    return dt.toLocaleString("ru-RU");
+    return i18n ? i18n.formatDateTime(dt) : dt.toLocaleString("ru-RU");
   }
 
   function renderRequests(items) {

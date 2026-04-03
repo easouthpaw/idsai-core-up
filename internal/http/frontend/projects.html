@@ -12,6 +12,15 @@
   <link rel="stylesheet" href="/dev/static/css/role-sidebar.css" />
   <link rel="stylesheet" href="/dev/static/css/notifications-popup.css" />
   <link rel="stylesheet" href="/dev/static/css/dev-theme.css" />
+  <link rel="stylesheet" href="/dev/static/css/site-preferences.css" />
+  <script>
+    (() => {
+      try {
+        const lang = localStorage.getItem("idsai_site_lang");
+        if (lang) document.documentElement.lang = lang;
+      } catch (_) {}
+    })();
+  </script>
 </head>
 <body class="projects-body">
   <div class="layout">
@@ -117,11 +126,11 @@
       <div class="modal-grid two">
         <div>
           <label for="title">Название проекта</label>
-          <input id="title" name="title" type="text" autocomplete="off" placeholder="Название проекта" value="Demo Project" />
+          <input id="title" name="title" type="text" autocomplete="off" placeholder="Название проекта" />
         </div>
         <div>
           <label for="description">Краткое описание</label>
-          <input id="description" name="description" type="text" autocomplete="off" placeholder="Краткое описание" value="Created from projects dashboard" />
+          <input id="description" name="description" type="text" autocomplete="off" placeholder="Краткое описание" />
         </div>
       </div>
 
@@ -182,6 +191,7 @@
     </div>
   </div>
 
+  <script src="/dev/static/js/site-preferences.js" defer></script>
   <script src="/dev/static/js/auth-session.js" defer></script>
   <script src="/dev/static/js/role-sidebar.js" defer></script>
   <script src="/dev/static/js/notifications-popup.js?v=20260307-2" defer></script>
