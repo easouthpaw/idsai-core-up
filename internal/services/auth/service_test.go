@@ -350,7 +350,7 @@ func TestRequestPasswordResetRejectsUnknownAccount(t *testing.T) {
 	})
 
 	err := svc.RequestPasswordReset(context.Background(), "127.0.0.1", "CORE", "missing@example.edu")
-	require.ErrorIs(t, err, ErrPasswordResetUnavailable)
+	require.NoError(t, err)
 	require.Zero(t, repo.insertAuthTokenCount)
 }
 
@@ -369,6 +369,75 @@ func TestRequestPasswordResetRejectsInactiveOrUnverifiedAccount(t *testing.T) {
 	})
 
 	err := svc.RequestPasswordReset(context.Background(), "127.0.0.1", "CORE", "pending@example.edu")
-	require.ErrorIs(t, err, ErrPasswordResetUnavailable)
+	require.NoError(t, err)
 	require.Zero(t, repo.insertAuthTokenCount)
+}
+
+func TestRequestPasswordResetIssuesSeparateCodeAndLinkTokens(t *testing.T) {
+	now := time.Now().UTC()
+	repo := &fakeRepo{
+		tenantID: uuid.New(),
+		user: User{
+			ID:                uuid.New(),
+			TenantID:          uuid.New(),
+			Email:             "student@example.edu",
+			Status:            StatusActive,
+			EmailVerifiedAt:   &now,
+			PasswordChangedAt: now,
+		},
+	}
+	svc := NewService(repo, Config{
+		JWTSecret: "01234567890123456789012345678901",
+	})
+
+	err := svc.RequestPasswordReset(context.Background(), "127.0.0.1", "CORE", repo.user.Email)
+	require.NoError(t, err)
+	require.Equal(t, 1, repo.invalidateTokenCount)
+	require.Equal(t, 2, repo.insertAuthTokenCount)
+}
+
+func TestResetPasswordInvalidatesAllPasswordResetTokens(t *testing.T) {
+	repo := &fakeRepo{
+		resetToken: AuthTokenRecord{
+			ID:        uuid.New(),
+			TenantID:  uuid.New(),
+			UserID:    uuid.New(),
+			Purpose:   TokenPurposePasswordReset,
+			ExpiresAt: time.Now().UTC().Add(time.Minute),
+		},
+	}
+	svc := NewService(repo, Config{
+		JWTSecret: "01234567890123456789012345678901",
+	})
+
+	err := svc.ResetPassword(context.Background(), "raw-token", "new-password-123")
+	require.NoError(t, err)
+	require.Equal(t, 1, repo.invalidateTokenCount)
+	require.NotEmpty(t, repo.updatedPasswordHash)
+}
+
+func TestResetPasswordByCodeRateLimitedAfterFailures(t *testing.T) {
+	now := time.Now().UTC()
+	repo := &fakeRepo{
+		tenantID: uuid.New(),
+		user: User{
+			ID:                uuid.New(),
+			TenantID:          uuid.New(),
+			Email:             "student@example.edu",
+			Status:            StatusActive,
+			EmailVerifiedAt:   &now,
+			PasswordChangedAt: now,
+		},
+	}
+	svc := NewService(repo, Config{
+		JWTSecret: "01234567890123456789012345678901",
+	})
+
+	for range 5 {
+		err := svc.ResetPasswordByCode(context.Background(), "127.0.0.1", "CORE", repo.user.Email, "123456", "new-password-123")
+		require.ErrorIs(t, err, ErrTokenInvalid)
+	}
+
+	err := svc.ResetPasswordByCode(context.Background(), "127.0.0.1", "CORE", repo.user.Email, "123456", "new-password-123")
+	require.ErrorIs(t, err, ErrTooManyAttempts)
 }

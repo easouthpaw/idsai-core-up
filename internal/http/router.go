@@ -17,6 +17,7 @@ func NewRouter(
 	rbacSvc rbac.Authorizer,
 	projectsSvc *projects.Service,
 	projectFlowH *handlers.ProjectFlowHandler,
+	authStateReader middleware.UserAuthStateReader,
 	authHandler *handlers.AuthHandler,
 	adminHandler *handlers.AdminHandler,
 	notificationsH *handlers.NotificationsHandler,
@@ -37,7 +38,7 @@ func NewRouter(
 	})
 
 	v2 := r.Group("/v2")
-	authMW := middleware.AuthRequired(jwtSecret)
+	authMW := middleware.AuthRequired(jwtSecret, authStateReader)
 
 	registerPublicRoutes(v2, publicContactH)
 	registerAuthRoutes(v2, authMW, rbacSvc, authHandler)

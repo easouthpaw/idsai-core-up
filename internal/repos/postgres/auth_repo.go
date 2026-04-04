@@ -217,14 +217,15 @@ WHERE r.code = 'STUDENT'
 
 func (r *AuthRepo) FindUserByEmail(ctx context.Context, tenantID uuid.UUID, email string) (svc.User, error) {
 	const q = `
-SELECT
-  u.id,
-  u.tenant_id,
-  u.email,
-  COALESCE(u.pending_email, ''),
-  u.password_hash,
-  u.status,
-  p.faculty_id,
+	SELECT
+	  u.id,
+	  u.tenant_id,
+	  u.email,
+	  COALESCE(u.pending_email, ''),
+	  u.password_hash,
+	  u.password_changed_at,
+	  u.status,
+	  p.faculty_id,
   p.department_id,
   COALESCE(d.code, ''),
   p.group_id,
@@ -279,14 +280,15 @@ WHERE u.tenant_id = $1
 
 func (r *AuthRepo) FindUserByID(ctx context.Context, tenantID, userID uuid.UUID) (svc.User, error) {
 	const q = `
-SELECT
-  u.id,
-  u.tenant_id,
-  u.email,
-  COALESCE(u.pending_email, ''),
-  u.password_hash,
-  u.status,
-  p.faculty_id,
+	SELECT
+	  u.id,
+	  u.tenant_id,
+	  u.email,
+	  COALESCE(u.pending_email, ''),
+	  u.password_hash,
+	  u.password_changed_at,
+	  u.status,
+	  p.faculty_id,
   p.department_id,
   COALESCE(d.code, ''),
   p.group_id,
@@ -354,6 +356,20 @@ WHERE tenant_id = $1
 		return svc.ErrNotFound
 	}
 	return nil
+}
+
+func (r *AuthRepo) GetUserAuthState(ctx context.Context, tenantID, userID uuid.UUID) (svc.UserAuthState, error) {
+	var state svc.UserAuthState
+	err := r.db.QueryRow(ctx, `
+SELECT password_changed_at, status, email_verified_at
+FROM users
+WHERE tenant_id = $1
+  AND id = $2;
+`, tenantID, userID).Scan(&state.PasswordChangedAt, &state.Status, &state.EmailVerifiedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return svc.UserAuthState{}, svc.ErrNotFound
+	}
+	return state, err
 }
 
 func (r *AuthRepo) UpdateUserProfile(ctx context.Context, tenantID, userID uuid.UUID, in svc.ProfileUpdate, updatedAt time.Time) error {
@@ -1072,6 +1088,7 @@ func (r *AuthRepo) scanUser(ctx context.Context, q string, args ...any) (svc.Use
 		&out.Email,
 		&out.PendingEmail,
 		&out.PasswordHash,
+		&out.PasswordChangedAt,
 		&out.Status,
 		&out.FacultyID,
 		&out.DepartmentID,

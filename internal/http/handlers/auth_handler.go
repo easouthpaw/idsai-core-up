@@ -344,7 +344,7 @@ func (h *AuthHandler) PasswordResetConfirm(c *gin.Context) {
 	code := strings.TrimSpace(req.Code)
 	email := strings.TrimSpace(req.Email)
 	if code != "" && email != "" {
-		if err := h.svc.ResetPasswordByCode(c.Request.Context(), tenantCodeFromHeader(c), email, code, req.Password); err != nil {
+		if err := h.svc.ResetPasswordByCode(c.Request.Context(), actorKey(c), tenantCodeFromHeader(c), email, code, req.Password); err != nil {
 			writeAuthError(c, err)
 			return
 		}

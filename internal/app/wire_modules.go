@@ -21,6 +21,7 @@ import (
 )
 
 type wiredModules struct {
+	authRepo             *postgres.AuthRepo
 	authHandler          *handlers.AuthHandler
 	adminHandler         *handlers.AdminHandler
 	rbacAuthorizer       rbac.Authorizer
@@ -58,6 +59,7 @@ func wireModules(pool *pgxpool.Pool, cfg config.Config) wiredModules {
 	projectFlowModule.Handler.SetNotifier(notificationsModule.Service)
 
 	return wiredModules{
+		authRepo:             authModule.Repo,
 		authHandler:          authModule.Handler,
 		adminHandler:         adminModule.Handler,
 		rbacAuthorizer:       rbacModule.Authorizer,

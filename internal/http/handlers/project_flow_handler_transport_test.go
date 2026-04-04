@@ -340,6 +340,63 @@ func TestProjectFlowHandlerGetAccessCatalog_UsesTransportDTO(t *testing.T) {
 	require.JSONEq(t, mustJSON(t, dto.ListAccessCatalogResponse{Items: dto.ProjectFlowAccessCatalogItemResponsesFromService(projectflow.AssignableRoles)}), rec.Body.String())
 }
 
+func TestProjectFlowHandlerGetMemberAccess_UsesTransportDTO(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	projectID := uuid.New()
+	callerID := uuid.New()
+	targetUserID := uuid.New()
+	deps := &projectFlowTestDeps{
+		can:         true,
+		permissions: []string{"task.create", "task.assign"},
+		project: domain.Project{
+			CreatedBy: uuid.New(),
+		},
+	}
+	handler := newProjectFlowHandlerForTest(deps)
+	router := gin.New()
+	router.Use(withProjectFlowUser(callerID))
+	router.GET("/v2/projects/:project_id/members/:user_id/access", handler.GetMemberAccess)
+
+	req := httptest.NewRequest(http.MethodGet, "/v2/projects/"+projectID.String()+"/members/"+targetUserID.String()+"/access", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.JSONEq(t, mustJSON(t, dto.ProjectFlowMemberAccessResponseFromService(&projectflow.MemberAccess{
+		UserID:                   targetUserID.String(),
+		RoleCodes:                []string{"PROJECT_LEAD"},
+		ManagedRoleCodes:         []string{},
+		EffectivePermissionCodes: deps.permissions,
+	})), rec.Body.String())
+}
+
+func TestProjectFlowHandlerGetMemberAccess_DeniesBOLAForForeignMember(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	projectID := uuid.New()
+	callerID := uuid.New()
+	foreignUserID := uuid.New()
+	deps := &projectFlowTestDeps{
+		can: false,
+		project: domain.Project{
+			CreatedBy: uuid.New(),
+		},
+	}
+	handler := newProjectFlowHandlerForTest(deps)
+	router := gin.New()
+	router.Use(withProjectFlowUser(callerID))
+	router.GET("/v2/projects/:project_id/members/:user_id/access", handler.GetMemberAccess)
+
+	// BOLA simulation: a regular member swaps the path user_id for another member's identifier.
+	req := httptest.NewRequest(http.MethodGet, "/v2/projects/"+projectID.String()+"/members/"+foreignUserID.String()+"/access", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusForbidden, rec.Code)
+	require.JSONEq(t, `{"error":"forbidden"}`, rec.Body.String())
+}
+
 func TestProjectFlowHandlerMyPermissions_UsesTransportDTO(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

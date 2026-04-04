@@ -41,38 +41,45 @@ const (
 )
 
 type User struct {
-	ID               uuid.UUID
-	TenantID         uuid.UUID
-	Email            string
-	PendingEmail     string
-	PasswordHash     string
-	Status           string
-	FacultyID        uuid.UUID
-	DepartmentID     uuid.UUID
-	DepartmentCode   string
-	GroupID          *uuid.UUID
-	GroupCode        string
-	GroupNumber      *int
-	FullName         string
-	Headline         string
-	About            string
-	PreferredRole    string
-	Semester         string
-	Availability     string
-	Goals            string
-	GithubURL        string
-	Telegram         string
-	PortfolioURL     string
-	Stacks           []string
-	Interests        []string
-	ProfileUpdatedAt time.Time
-	IsAdmin          bool
-	IsProfessor      bool
-	EmailVerifiedAt  *time.Time
-	AvatarKey        string
-	PendingEmailAt   *time.Time
-	AvatarUpdatedAt  *time.Time
-	AvatarURL        string
+	ID                uuid.UUID
+	TenantID          uuid.UUID
+	Email             string
+	PendingEmail      string
+	PasswordHash      string
+	PasswordChangedAt time.Time
+	Status            string
+	FacultyID         uuid.UUID
+	DepartmentID      uuid.UUID
+	DepartmentCode    string
+	GroupID           *uuid.UUID
+	GroupCode         string
+	GroupNumber       *int
+	FullName          string
+	Headline          string
+	About             string
+	PreferredRole     string
+	Semester          string
+	Availability      string
+	Goals             string
+	GithubURL         string
+	Telegram          string
+	PortfolioURL      string
+	Stacks            []string
+	Interests         []string
+	ProfileUpdatedAt  time.Time
+	IsAdmin           bool
+	IsProfessor       bool
+	EmailVerifiedAt   *time.Time
+	AvatarKey         string
+	PendingEmailAt    *time.Time
+	AvatarUpdatedAt   *time.Time
+	AvatarURL         string
+}
+
+type UserAuthState struct {
+	PasswordChangedAt time.Time
+	Status            string
+	EmailVerifiedAt   *time.Time
 }
 
 type ProfileUpdate struct {
@@ -230,19 +237,20 @@ type Config struct {
 }
 
 type Service struct {
-	repo             Repository
-	jwtSecret        []byte
-	publicBaseURL    string
-	accessTTL        time.Duration
-	refreshTTL       time.Duration
-	verificationTTL  time.Duration
-	emailChangeTTL   time.Duration
-	passwordResetTTL time.Duration
-	autoVerifyRegs   bool
-	loginLimiter     *attemptLimiter
-	recoveryLimiter  *attemptLimiter
-	notifier         NotificationPublisher
-	storage          ObjectStorage
+	repo                Repository
+	jwtSecret           []byte
+	publicBaseURL       string
+	accessTTL           time.Duration
+	refreshTTL          time.Duration
+	verificationTTL     time.Duration
+	emailChangeTTL      time.Duration
+	passwordResetTTL    time.Duration
+	autoVerifyRegs      bool
+	loginLimiter        *attemptLimiter
+	recoveryLimiter     *attemptLimiter
+	resetConfirmLimiter *attemptLimiter
+	notifier            NotificationPublisher
+	storage             ObjectStorage
 }
 
 type NotificationPublisher interface {
@@ -276,17 +284,18 @@ func NewService(repo Repository, cfg Config) *Service {
 	}
 
 	return &Service{
-		repo:             repo,
-		jwtSecret:        []byte(cfg.JWTSecret),
-		publicBaseURL:    publicBaseURL,
-		accessTTL:        cfg.AccessTTL,
-		refreshTTL:       cfg.RefreshTTL,
-		verificationTTL:  cfg.VerificationTTL,
-		emailChangeTTL:   cfg.EmailChangeTTL,
-		passwordResetTTL: cfg.PasswordResetTTL,
-		autoVerifyRegs:   cfg.AutoVerifyRegistrants,
-		loginLimiter:     newAttemptLimiter(cfg.LoginAttemptWindow, cfg.MaxFailedLoginAttempts),
-		recoveryLimiter:  newAttemptLimiter(15*time.Minute, 5),
+		repo:                repo,
+		jwtSecret:           []byte(cfg.JWTSecret),
+		publicBaseURL:       publicBaseURL,
+		accessTTL:           cfg.AccessTTL,
+		refreshTTL:          cfg.RefreshTTL,
+		verificationTTL:     cfg.VerificationTTL,
+		emailChangeTTL:      cfg.EmailChangeTTL,
+		passwordResetTTL:    cfg.PasswordResetTTL,
+		autoVerifyRegs:      cfg.AutoVerifyRegistrants,
+		loginLimiter:        newAttemptLimiter(cfg.LoginAttemptWindow, cfg.MaxFailedLoginAttempts),
+		recoveryLimiter:     newAttemptLimiter(15*time.Minute, 5),
+		resetConfirmLimiter: newAttemptLimiter(15*time.Minute, 5),
 	}
 }
 
@@ -475,7 +484,7 @@ func (s *Service) Login(ctx context.Context, actorKey, tenantCode, email, passwo
 	}
 	u.AvatarURL = s.resolveAvatarURL(u.AvatarKey)
 
-	tokens, err := s.issueTokens(ctx, u.TenantID, u.ID, u.FacultyID, u.DepartmentID, u.IsAdmin, u.IsProfessor)
+	tokens, err := s.issueTokens(ctx, u.TenantID, u.ID, u.FacultyID, u.DepartmentID, u.IsAdmin, u.IsProfessor, u.PasswordChangedAt)
 	if err != nil {
 		return Session{}, err
 	}
@@ -517,7 +526,7 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (Session, er
 	}
 	u.AvatarURL = s.resolveAvatarURL(u.AvatarKey)
 
-	tokens, err := s.issueTokens(ctx, u.TenantID, u.ID, u.FacultyID, u.DepartmentID, u.IsAdmin, u.IsProfessor)
+	tokens, err := s.issueTokens(ctx, u.TenantID, u.ID, u.FacultyID, u.DepartmentID, u.IsAdmin, u.IsProfessor, u.PasswordChangedAt)
 	if err != nil {
 		return Session{}, err
 	}
@@ -985,7 +994,7 @@ func (s *Service) RequestPasswordReset(ctx context.Context, actorKey, tenantCode
 	tenantID, err := s.repo.FindTenantByCode(ctx, tenantCode)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			return ErrPasswordResetUnavailable
+			return nil
 		}
 		return err
 	}
@@ -993,12 +1002,12 @@ func (s *Service) RequestPasswordReset(ctx context.Context, actorKey, tenantCode
 	u, err := s.repo.FindUserByEmail(ctx, tenantID, email)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			return ErrPasswordResetUnavailable
+			return nil
 		}
 		return err
 	}
 	if u.Status != StatusActive || u.EmailVerifiedAt == nil {
-		return ErrPasswordResetUnavailable
+		return nil
 	}
 
 	if err := s.repo.InvalidateAuthTokens(ctx, u.TenantID, u.ID, TokenPurposePasswordReset); err != nil {
@@ -1009,15 +1018,22 @@ func (s *Service) RequestPasswordReset(ctx context.Context, actorKey, tenantCode
 	if err != nil {
 		return err
 	}
-	raw := scopedCodeToken(u.ID, code)
+	codeToken := scopedCodeToken(u.ID, code)
+	linkToken, err := randomToken(32)
+	if err != nil {
+		return err
+	}
 
 	expiresAt := time.Now().UTC().Add(s.passwordResetTTL)
-	if err := s.repo.InsertAuthToken(ctx, u.TenantID, u.ID, TokenPurposePasswordReset, hashToken(raw), expiresAt); err != nil {
+	if err := s.repo.InsertAuthToken(ctx, u.TenantID, u.ID, TokenPurposePasswordReset, hashToken(codeToken), expiresAt); err != nil {
+		return err
+	}
+	if err := s.repo.InsertAuthToken(ctx, u.TenantID, u.ID, TokenPurposePasswordReset, hashToken(linkToken), expiresAt); err != nil {
 		return err
 	}
 
 	if s.notifier != nil {
-		link := s.publicBaseURL + "/v2/auth/password-reset?token=" + url.QueryEscape(raw)
+		link := s.publicBaseURL + "/v2/auth/password-reset?token=" + url.QueryEscape(linkToken)
 		_, _ = s.notifier.Notify(ctx, notifsvc.CreateInput{
 			TenantID:  u.TenantID,
 			UserID:    u.ID,
@@ -1070,28 +1086,52 @@ func (s *Service) ResetPassword(ctx context.Context, rawToken, newPassword strin
 	if err := s.repo.RevokeUserRefreshTokens(ctx, record.TenantID, record.UserID); err != nil {
 		return err
 	}
-	if err := s.repo.ConsumeAuthToken(ctx, record.ID, now); err != nil {
+	if err := s.repo.InvalidateAuthTokens(ctx, record.TenantID, record.UserID, TokenPurposePasswordReset); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *Service) ResetPasswordByCode(ctx context.Context, tenantCode, email, code, newPassword string) error {
+func (s *Service) ResetPasswordByCode(ctx context.Context, actorKey, tenantCode, email, code, newPassword string) error {
 	code = strings.TrimSpace(code)
+	email = normalizeEmail(email)
+	tenantCode = normalizeTenantCode(tenantCode)
 	if !isVerificationCode(code) {
 		return ErrInvalidInput
 	}
-
-	tenantID, err := s.repo.FindTenantByCode(ctx, normalizeTenantCode(tenantCode))
-	if err != nil {
-		return ErrTokenInvalid
-	}
-	u, err := s.repo.FindUserByEmail(ctx, tenantID, normalizeEmail(email))
-	if err != nil {
-		return ErrTokenInvalid
+	if err := passwords.Validate(newPassword); err != nil {
+		return err
 	}
 
-	return s.ResetPassword(ctx, scopedCodeToken(u.ID, code), newPassword)
+	limitKey := recoveryAttemptKey("reset-confirm", actorKey, tenantCode, email)
+	if !s.resetConfirmLimiter.Allow(limitKey) {
+		return ErrTooManyAttempts
+	}
+
+	tenantID, err := s.repo.FindTenantByCode(ctx, tenantCode)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			s.resetConfirmLimiter.Fail(limitKey)
+		}
+		return ErrTokenInvalid
+	}
+	u, err := s.repo.FindUserByEmail(ctx, tenantID, email)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			s.resetConfirmLimiter.Fail(limitKey)
+		}
+		return ErrTokenInvalid
+	}
+
+	if err := s.ResetPassword(ctx, scopedCodeToken(u.ID, code), newPassword); err != nil {
+		if errors.Is(err, ErrTokenInvalid) || errors.Is(err, ErrTokenExpired) {
+			s.resetConfirmLimiter.Fail(limitKey)
+		}
+		return err
+	}
+
+	s.resetConfirmLimiter.Reset(limitKey)
+	return nil
 }
 
 func (s *Service) VerifyEmail(ctx context.Context, rawToken string) error {
@@ -1206,7 +1246,7 @@ func (s *Service) findUsableAuthToken(ctx context.Context, purpose, rawToken str
 	return record, nil
 }
 
-func (s *Service) issueTokens(ctx context.Context, tenantID, userID, facultyID, deptID uuid.UUID, isAdmin bool, isProfessor bool) (Tokens, error) {
+func (s *Service) issueTokens(ctx context.Context, tenantID, userID, facultyID, deptID uuid.UUID, isAdmin bool, isProfessor bool, passwordChangedAt time.Time) (Tokens, error) {
 	now := time.Now().UTC()
 
 	claims := jwt.MapClaims{
@@ -1220,6 +1260,7 @@ func (s *Service) issueTokens(ctx context.Context, tenantID, userID, facultyID, 
 		"exp":           now.Add(s.accessTTL).Unix(),
 		"iss":           TokenIssuer,
 		"jti":           uuid.NewString(),
+		"pwd_at":        passwordChangedUnixMilli(passwordChangedAt),
 	}
 
 	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -1311,4 +1352,11 @@ func isVerificationCode(code string) bool {
 func hashToken(raw string) string {
 	sum := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(sum[:])
+}
+
+func passwordChangedUnixMilli(changedAt time.Time) int64 {
+	if changedAt.IsZero() {
+		return 0
+	}
+	return changedAt.UTC().UnixMilli()
 }

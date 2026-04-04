@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -13,15 +14,20 @@ import (
 )
 
 type AccessClaims struct {
-	TenantID     string `json:"tenant_id"`
-	FacultyID    string `json:"faculty_id"`
-	DepartmentID string `json:"department_id"`
-	IsAdmin      bool   `json:"is_admin"`
-	IsProfessor  bool   `json:"is_professor"`
+	TenantID          string `json:"tenant_id"`
+	FacultyID         string `json:"faculty_id"`
+	DepartmentID      string `json:"department_id"`
+	IsAdmin           bool   `json:"is_admin"`
+	IsProfessor       bool   `json:"is_professor"`
+	PasswordChangedAt int64  `json:"pwd_at"`
 	jwt.RegisteredClaims
 }
 
-func AuthRequired(jwtSecret string) gin.HandlerFunc {
+type UserAuthStateReader interface {
+	GetUserAuthState(ctx context.Context, tenantID, userID uuid.UUID) (authsvc.UserAuthState, error)
+}
+
+func AuthRequired(jwtSecret string, stateReader UserAuthStateReader) gin.HandlerFunc {
 	secret := []byte(jwtSecret)
 
 	return func(c *gin.Context) {
@@ -79,6 +85,17 @@ func AuthRequired(jwtSecret string) gin.HandlerFunc {
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid department_id"})
 			return
+		}
+		if stateReader != nil {
+			state, err := stateReader.GetUserAuthState(c.Request.Context(), tid, uid)
+			if err != nil || state.Status != authsvc.StatusActive || state.EmailVerifiedAt == nil {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+				return
+			}
+			if claims.PasswordChangedAt <= 0 || state.PasswordChangedAt.UTC().UnixMilli() > claims.PasswordChangedAt {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+				return
+			}
 		}
 
 		c.Set("userID", uid)

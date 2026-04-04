@@ -325,7 +325,7 @@ func TestAuthHandlerRegisterReturnsRegisteredWhenAutoVerifyEnabled(t *testing.T)
 	require.JSONEq(t, `{"status":"registered"}`, w.Body.String())
 }
 
-func TestAuthHandlerRequestPasswordResetReturnsNotFoundForMissingAccount(t *testing.T) {
+func TestAuthHandlerRequestPasswordResetReturnsAcceptedForMissingAccount(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	repo := &authHandlerRepo{tenantID: uuid.New()}
@@ -348,6 +348,6 @@ func TestAuthHandlerRequestPasswordResetReturnsNotFoundForMissingAccount(t *test
 
 	r.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusNotFound, w.Code)
-	require.JSONEq(t, `{"error":"account not found or unavailable for password reset"}`, w.Body.String())
+	require.Equal(t, http.StatusAccepted, w.Code)
+	require.JSONEq(t, `{"status":"password_reset_sent"}`, w.Body.String())
 }

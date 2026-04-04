@@ -41,6 +41,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		modules.rbacAuthorizer,
 		modules.projectsSvc,
 		modules.projectFlowHandler,
+		modules.authRepo,
 		modules.authHandler,
 		modules.adminHandler,
 		modules.notificationsHandler,
