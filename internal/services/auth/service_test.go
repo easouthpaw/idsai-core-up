@@ -1,11 +1,15 @@
 package auth
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"log"
 	"testing"
 	"time"
 
 	"idsai-core-up/internal/security/passwords"
+	notifsvc "idsai-core-up/internal/services/notifications"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -29,6 +33,39 @@ type fakeRepo struct {
 	createdGroupCode      string
 	createdGroupNumber    int
 	profileGroupID        uuid.UUID
+}
+
+type fakeNotifier struct {
+	err    error
+	calls  int
+	lastIn notifsvc.CreateInput
+}
+
+func (f *fakeNotifier) Notify(ctx context.Context, in notifsvc.CreateInput) (notifsvc.Notification, error) {
+	f.calls++
+	f.lastIn = in
+	if f.err != nil {
+		return notifsvc.Notification{}, f.err
+	}
+	return notifsvc.Notification{ID: uuid.NewString()}, nil
+}
+
+func captureAuthLogs(t *testing.T) *bytes.Buffer {
+	t.Helper()
+
+	var buf bytes.Buffer
+	prevWriter := log.Writer()
+	prevFlags := log.Flags()
+	prevPrefix := log.Prefix()
+	log.SetOutput(&buf)
+	log.SetFlags(0)
+	log.SetPrefix("")
+	t.Cleanup(func() {
+		log.SetOutput(prevWriter)
+		log.SetFlags(prevFlags)
+		log.SetPrefix(prevPrefix)
+	})
+	return &buf
 }
 
 func (f *fakeRepo) FindTenantByCode(ctx context.Context, tenantCode string) (uuid.UUID, error) {
@@ -394,6 +431,60 @@ func TestRequestPasswordResetIssuesSeparateCodeAndLinkTokens(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, repo.invalidateTokenCount)
 	require.Equal(t, 2, repo.insertAuthTokenCount)
+}
+
+func TestRequestPasswordResetLogsQueuedEmail(t *testing.T) {
+	now := time.Now().UTC()
+	repo := &fakeRepo{
+		tenantID: uuid.New(),
+		user: User{
+			ID:                uuid.New(),
+			TenantID:          uuid.New(),
+			Email:             "student@example.edu",
+			Status:            StatusActive,
+			EmailVerifiedAt:   &now,
+			PasswordChangedAt: now,
+		},
+	}
+	notifier := &fakeNotifier{}
+	svc := NewService(repo, Config{
+		JWTSecret: "01234567890123456789012345678901",
+	})
+	svc.SetNotifier(notifier)
+	logs := captureAuthLogs(t)
+
+	err := svc.RequestPasswordReset(context.Background(), "127.0.0.1", "CORE", repo.user.Email)
+	require.NoError(t, err)
+	require.Equal(t, 1, notifier.calls)
+	require.Contains(t, logs.String(), "auth password reset email queued")
+	require.Contains(t, logs.String(), repo.user.Email)
+}
+
+func TestRequestPasswordResetLogsQueueFailure(t *testing.T) {
+	now := time.Now().UTC()
+	repo := &fakeRepo{
+		tenantID: uuid.New(),
+		user: User{
+			ID:                uuid.New(),
+			TenantID:          uuid.New(),
+			Email:             "student@example.edu",
+			Status:            StatusActive,
+			EmailVerifiedAt:   &now,
+			PasswordChangedAt: now,
+		},
+	}
+	notifier := &fakeNotifier{err: errors.New("outbox insert failed")}
+	svc := NewService(repo, Config{
+		JWTSecret: "01234567890123456789012345678901",
+	})
+	svc.SetNotifier(notifier)
+	logs := captureAuthLogs(t)
+
+	err := svc.RequestPasswordReset(context.Background(), "127.0.0.1", "CORE", repo.user.Email)
+	require.NoError(t, err)
+	require.Equal(t, 1, notifier.calls)
+	require.Contains(t, logs.String(), "auth password reset email enqueue failed")
+	require.Contains(t, logs.String(), "outbox insert failed")
 }
 
 func TestResetPasswordInvalidatesAllPasswordResetTokens(t *testing.T) {

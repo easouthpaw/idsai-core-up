@@ -10,6 +10,7 @@ import (
 	"idsai-core-up/internal/infra/images"
 	"idsai-core-up/internal/security/passwords"
 	notifsvc "idsai-core-up/internal/services/notifications"
+	"log"
 	"math/big"
 	"net/url"
 	"regexp"
@@ -305,6 +306,21 @@ func (s *Service) SetNotifier(notifier NotificationPublisher) {
 
 func (s *Service) SetStorage(storage ObjectStorage) {
 	s.storage = storage
+}
+
+func (s *Service) publishAuthEmail(ctx context.Context, action string, in notifsvc.CreateInput) {
+	emailTo := strings.TrimSpace(in.EmailTo)
+	if s.notifier == nil {
+		log.Printf("auth %s email not queued: notifier is not configured tenant_id=%s user_id=%s email=%s", action, in.TenantID, in.UserID, emailTo)
+		return
+	}
+
+	if _, err := s.notifier.Notify(ctx, in); err != nil {
+		log.Printf("auth %s email enqueue failed: tenant_id=%s user_id=%s email=%s err=%v", action, in.TenantID, in.UserID, emailTo, err)
+		return
+	}
+
+	log.Printf("auth %s email queued: tenant_id=%s user_id=%s email=%s", action, in.TenantID, in.UserID, emailTo)
 }
 
 func (s *Service) AccessTTL() time.Duration {
@@ -1032,26 +1048,24 @@ func (s *Service) RequestPasswordReset(ctx context.Context, actorKey, tenantCode
 		return err
 	}
 
-	if s.notifier != nil {
-		link := s.publicBaseURL + "/v2/auth/password-reset?token=" + url.QueryEscape(linkToken)
-		_, _ = s.notifier.Notify(ctx, notifsvc.CreateInput{
-			TenantID:  u.TenantID,
-			UserID:    u.ID,
-			Type:      "account.password_reset",
-			Title:     "Сброс пароля",
-			Body:      "Мы получили запрос на сброс пароля. Используйте код подтверждения из письма, чтобы задать новый пароль.",
-			Payload:   map[string]any{"action": "password_reset"},
-			WithEmail: true,
-			EmailTo:   u.Email,
-			EmailSubj: "IDSAI: сброс пароля",
-			EmailBody: fmt.Sprintf(
-				"Код подтверждения для сброса пароля: %s\nКод действует %d минут.\n\nЕсли удобнее, можно открыть ссылку: %s",
-				code,
-				int(s.passwordResetTTL.Minutes()),
-				link,
-			),
-		})
-	}
+	link := s.publicBaseURL + "/v2/auth/password-reset?token=" + url.QueryEscape(linkToken)
+	s.publishAuthEmail(ctx, "password reset", notifsvc.CreateInput{
+		TenantID:  u.TenantID,
+		UserID:    u.ID,
+		Type:      "account.password_reset",
+		Title:     "Сброс пароля",
+		Body:      "Мы получили запрос на сброс пароля. Используйте код подтверждения из письма, чтобы задать новый пароль.",
+		Payload:   map[string]any{"action": "password_reset"},
+		WithEmail: true,
+		EmailTo:   u.Email,
+		EmailSubj: "IDSAI: сброс пароля",
+		EmailBody: fmt.Sprintf(
+			"Код подтверждения для сброса пароля: %s\nКод действует %d минут.\n\nЕсли удобнее, можно открыть ссылку: %s",
+			code,
+			int(s.passwordResetTTL.Minutes()),
+			link,
+		),
+	})
 
 	return nil
 }
@@ -1165,21 +1179,19 @@ func (s *Service) issueVerification(ctx context.Context, tenantID, userID uuid.U
 		return err
 	}
 
-	if s.notifier != nil {
-		link := s.publicBaseURL + "/v2/auth/verify-email?token=" + url.QueryEscape(raw)
-		_, _ = s.notifier.Notify(ctx, notifsvc.CreateInput{
-			TenantID:  tenantID,
-			UserID:    userID,
-			Type:      "account.verify_email",
-			Title:     "Подтвердите email",
-			Body:      "Подтвердите email, чтобы активировать аккаунт и войти в систему.",
-			Payload:   map[string]any{"action": "verify_email"},
-			WithEmail: true,
-			EmailTo:   email,
-			EmailSubj: "IDSAI: подтверждение email",
-			EmailBody: fmt.Sprintf("Подтвердите email по ссылке: %s\nСсылка действует %d часов.", link, int(s.verificationTTL.Hours())),
-		})
-	}
+	link := s.publicBaseURL + "/v2/auth/verify-email?token=" + url.QueryEscape(raw)
+	s.publishAuthEmail(ctx, "verify email", notifsvc.CreateInput{
+		TenantID:  tenantID,
+		UserID:    userID,
+		Type:      "account.verify_email",
+		Title:     "Подтвердите email",
+		Body:      "Подтвердите email, чтобы активировать аккаунт и войти в систему.",
+		Payload:   map[string]any{"action": "verify_email"},
+		WithEmail: true,
+		EmailTo:   email,
+		EmailSubj: "IDSAI: подтверждение email",
+		EmailBody: fmt.Sprintf("Подтвердите email по ссылке: %s\nСсылка действует %d часов.", link, int(s.verificationTTL.Hours())),
+	})
 
 	return nil
 }
@@ -1200,26 +1212,24 @@ func (s *Service) issueEmailChangeToken(ctx context.Context, tenantID, userID uu
 		return err
 	}
 
-	if s.notifier != nil {
-		link := s.publicBaseURL + "/v2/auth/settings/email/verify?token=" + url.QueryEscape(raw)
-		_, _ = s.notifier.Notify(ctx, notifsvc.CreateInput{
-			TenantID:  tenantID,
-			UserID:    userID,
-			Type:      "account.email_change",
-			Title:     "Подтверждение нового email",
-			Body:      "Подтвердите новый email кодом из письма, чтобы завершить изменение адреса для входа.",
-			Payload:   map[string]any{"action": "email_change"},
-			WithEmail: true,
-			EmailTo:   pendingEmail,
-			EmailSubj: "IDSAI: подтверждение нового email",
-			EmailBody: fmt.Sprintf(
-				"Код подтверждения нового email: %s\nКод действует %d часов.\n\nЕсли удобнее, можно открыть ссылку: %s",
-				code,
-				int(s.emailChangeTTL.Hours()),
-				link,
-			),
-		})
-	}
+	link := s.publicBaseURL + "/v2/auth/settings/email/verify?token=" + url.QueryEscape(raw)
+	s.publishAuthEmail(ctx, "email change", notifsvc.CreateInput{
+		TenantID:  tenantID,
+		UserID:    userID,
+		Type:      "account.email_change",
+		Title:     "Подтверждение нового email",
+		Body:      "Подтвердите новый email кодом из письма, чтобы завершить изменение адреса для входа.",
+		Payload:   map[string]any{"action": "email_change"},
+		WithEmail: true,
+		EmailTo:   pendingEmail,
+		EmailSubj: "IDSAI: подтверждение нового email",
+		EmailBody: fmt.Sprintf(
+			"Код подтверждения нового email: %s\nКод действует %d часов.\n\nЕсли удобнее, можно открыть ссылку: %s",
+			code,
+			int(s.emailChangeTTL.Hours()),
+			link,
+		),
+	})
 
 	return nil
 }

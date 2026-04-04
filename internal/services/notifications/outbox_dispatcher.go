@@ -77,6 +77,7 @@ func (d *OutboxDispatcher) runBatch(ctx context.Context) {
 		attempts := it.Attempts + 1
 		wait := d.retryDelay(attempts)
 		retryAt := time.Now().Add(wait)
+		log.Printf("notifications outbox send failed: id=%s email_to=%s attempts=%d err=%v", it.ID, it.EmailTo, attempts, sendErr)
 		if err := d.repo.MarkOutboxFailed(ctx, it.ID, attempts, retryAt, sendErr.Error(), d.maxAttempts); err != nil {
 			log.Printf("notifications outbox mark failed failed: id=%s err=%v", it.ID, err)
 		}
