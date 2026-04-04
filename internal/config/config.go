@@ -15,6 +15,7 @@ type Config struct {
 	JWTSecret                 string
 	PublicBaseURL             string
 	AuthAutoVerifyRegistrants bool
+	ResendAPIKey              string
 	SMTPHost                  string
 	SMTPPort                  string
 	SMTPUser                  string
@@ -60,11 +61,12 @@ func Load() Config {
 		JWTSecret:                 getenv("JWT_SECRET", ""),
 		PublicBaseURL:             getenvFirstNonEmpty([]string{"PUBLIC_BASE_URL", "RENDER_EXTERNAL_URL"}, "http://localhost:8080"),
 		AuthAutoVerifyRegistrants: getenvBool("AUTH_AUTO_VERIFY_REGISTRATIONS", false),
+		ResendAPIKey:              getenv("RESEND_API_KEY", ""),
 		SMTPHost:                  getenv("SMTP_HOST", ""),
 		SMTPPort:                  getenv("SMTP_PORT", "587"),
 		SMTPUser:                  getenv("SMTP_USER", ""),
 		SMTPPass:                  getenv("SMTP_PASS", ""),
-		SMTPFrom:                  getenv("SMTP_FROM", "noreply@idsai.local"),
+		SMTPFrom:                  getenv("SMTP_FROM", ""),
 		ContactEmailTo:            getenv("CONTACT_EMAIL_TO", ""),
 		EmailEnable:               getenvBool("EMAIL_ENABLED", true),
 		OutboxPollS:               getenvInt("NOTIFICATIONS_OUTBOX_POLL_SECONDS", 15),
