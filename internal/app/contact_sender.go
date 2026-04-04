@@ -10,6 +10,7 @@ import (
 
 	"idsai-core-up/internal/config"
 	"idsai-core-up/internal/infra/alerts"
+	"idsai-core-up/internal/infra/email"
 )
 
 type contactSender interface {
@@ -59,14 +60,16 @@ func newPublicContactSender(cfg config.Config) contactSender {
 }
 
 func newContactEmailSender(cfg config.Config) contactSender {
-	sender := newEmailSender(cfg)
+	host := strings.TrimSpace(cfg.SMTPHost)
+	port := strings.TrimSpace(cfg.SMTPPort)
+	from := strings.TrimSpace(cfg.SMTPFrom)
 	to := contactEmailRecipient(cfg)
-	if sender == nil || to == "" {
+	if host == "" || port == "" || from == "" || to == "" {
 		return nil
 	}
 
 	return contactEmailSender{
-		sender:  sender,
+		sender:  email.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom),
 		to:      to,
 		subject: "IDSAI: новое сообщение с landing page",
 	}

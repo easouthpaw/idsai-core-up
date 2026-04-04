@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"idsai-core-up/internal/config"
+	"idsai-core-up/internal/infra/email"
 	"idsai-core-up/internal/services/notifications"
 )
 
@@ -20,16 +21,18 @@ func startEmailOutboxDispatcher(ctx context.Context, cfg config.Config, repo not
 		return
 	}
 
-	emailSender := newEmailSender(cfg)
-	mode := emailSenderMode(cfg)
-	if emailSender == nil {
-		log.Printf("email outbox dispatcher disabled: email config incomplete (RESEND_API_KEY + SMTP_FROM, or SMTP_HOST/SMTP_PORT/SMTP_FROM)")
+	host := strings.TrimSpace(cfg.SMTPHost)
+	port := strings.TrimSpace(cfg.SMTPPort)
+	from := strings.TrimSpace(cfg.SMTPFrom)
+	if host == "" || port == "" || from == "" {
+		log.Printf("email outbox dispatcher disabled: SMTP config incomplete (SMTP_HOST/SMTP_PORT/SMTP_FROM)")
 		return
 	}
-	if mode == "smtp" && (looksLikePlaceholder(cfg.SMTPUser) || looksLikePlaceholder(cfg.SMTPPass) || looksLikePlaceholder(cfg.SMTPFrom)) {
+	if looksLikePlaceholder(cfg.SMTPUser) || looksLikePlaceholder(cfg.SMTPPass) || looksLikePlaceholder(cfg.SMTPFrom) {
 		log.Printf("email config appears to use placeholder values; update SMTP_USER/SMTP_PASS/SMTP_FROM")
 	}
-	log.Printf("email outbox dispatcher using %s transport", mode)
+
+	emailSender := email.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom)
 	dispatcher := notifications.NewOutboxDispatcher(repo, emailSender)
 	pollEvery := time.Duration(cfg.OutboxPollS) * time.Second
 	go dispatcher.Start(ctx, pollEvery)

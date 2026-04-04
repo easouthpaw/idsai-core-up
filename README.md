@@ -89,14 +89,12 @@ go test ./...
 
 Опциональные:
 
-- `RESEND_API_KEY`, `SMTP_FROM`, `EMAIL_ENABLED`
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `EMAIL_ENABLED`
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_SUPERADMIN_CHAT_ID`
 - `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET`, `MINIO_USE_SSL`, `MINIO_PUBLIC_BASE_URL`
 - `REDIS_ADDR`, `REDIS_PASSWORD`, `REDIS_DB`
 
 Если optional-переменные не заданы, приложение запускается без соответствующих интеграций.
-Для free Render лучше использовать `RESEND_API_KEY` + `SMTP_FROM`: отправка идёт по HTTPS API и не зависит от заблокированных SMTP-портов.
 
 ## Структура репозитория
 
