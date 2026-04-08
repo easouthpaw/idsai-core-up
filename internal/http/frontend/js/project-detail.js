@@ -16,6 +16,7 @@
 
   const LS_PROJECT_META_PREFIX = "idsai_project_meta:";
   const LS_TASK_META_PREFIX = "idsai_task_meta:";
+  const LS_STAGE_HINTS_HIDDEN_PREFIX = "idsai_stage_hints_hidden:";
 
   const ASSIGNABLE_LIFECYCLE_ROLES = new Set(["CO_LEAD", "RECRUITER", "TASK_MANAGER"]);
   const SYSTEM_LIFECYCLE_ROLES = new Set(["TEAM_LEAD", "MEMBER", "INVITED_MEMBER", "PROJECT_PROFESSOR"]);
@@ -69,6 +70,8 @@
     stageSpotlightCopy: document.getElementById("stageSpotlightCopy"),
     stageCurrentBadge: document.getElementById("stageCurrentBadge"),
     stageNextBadge: document.getElementById("stageNextBadge"),
+    hideStageHintsBtn: document.getElementById("hideStageHintsBtn"),
+    showStageHintsBtn: document.getElementById("showStageHintsBtn"),
 
     tabButtons: Array.from(document.querySelectorAll(".tab-btn")),
     switchViewButtons: Array.from(document.querySelectorAll("[data-switch-view]")),
@@ -591,6 +594,101 @@
     state.noticeTimer = setTimeout(() => setNotice("", false), 4200);
   }
 
+  function stageHintsStorageKey() {
+    return `${LS_STAGE_HINTS_HIDDEN_PREFIX}${state.projectID || projectIDFromPath() || "default"}`;
+  }
+
+  function areStageHintsHidden() {
+    try {
+      return localStorage.getItem(stageHintsStorageKey()) === "1";
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function applyStageHintsVisibility() {
+    const hidden = areStageHintsHidden();
+    if (ui.stageSpotlight) {
+      ui.stageSpotlight.hidden = hidden;
+    }
+    if (ui.hideStageHintsBtn) {
+      ui.hideStageHintsBtn.hidden = hidden;
+    }
+    if (ui.showStageHintsBtn) {
+      ui.showStageHintsBtn.hidden = !hidden;
+    }
+  }
+
+  function setStageHintsHidden(hidden) {
+    try {
+      if (hidden) {
+        localStorage.setItem(stageHintsStorageKey(), "1");
+      } else {
+        localStorage.removeItem(stageHintsStorageKey());
+      }
+    } catch (_) {}
+    applyStageHintsVisibility();
+    renderTabHints();
+  }
+
+  function revealElement(el) {
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (typeof el.focus === "function") {
+      try {
+        el.focus({ preventScroll: true });
+      } catch (_) {}
+    }
+  }
+
+  function switchToViewAndReveal(viewName, target) {
+    setView(viewName);
+    requestAnimationFrame(() => {
+      if (!target) return;
+      revealElement(target);
+    });
+  }
+
+  function runStageAction(actionName) {
+    const action = String(actionName || "").trim();
+    if (!action) return;
+
+    if (action === "edit-project") {
+      switchToViewAndReveal("edit", ui.viewEdit || ui.aboutCard);
+      if (ui.editTitleInput && !ui.viewEdit.hidden) {
+        requestAnimationFrame(() => revealElement(ui.editTitleInput));
+      }
+      return;
+    }
+    if (action === "overview-about") {
+      switchToViewAndReveal("overview", ui.aboutCard);
+      return;
+    }
+    if (action === "open-team") {
+      switchToViewAndReveal("team", ui.teamTableBody);
+      return;
+    }
+    if (action === "manage-professor") {
+      switchToViewAndReveal("overview", ui.pipelineCard || ui.professorIdentity || ui.professorSearchInput);
+      if (ui.professorSearchInput && !ui.professorSearchInput.disabled) {
+        requestAnimationFrame(() => revealElement(ui.professorSearchInput));
+      }
+      return;
+    }
+    if (action === "open-criteria") {
+      switchToViewAndReveal("criteria", ui.viewCriteria);
+      return;
+    }
+    if (action === "open-tasks") {
+      switchToViewAndReveal("tasks", ui.viewTasks);
+      return;
+    }
+    if (action === "open-review") {
+      switchToViewAndReveal("review", ui.viewReview);
+      return;
+    }
+  }
+
   function projectIDFromPath() {
     const parts = window.location.pathname.split("/").filter(Boolean);
     return parts.length >= 3 ? parts[2] : "";
@@ -997,6 +1095,7 @@
     const tasksTotal = snapshot.tasksTotal;
     const tasksDone = snapshot.tasksDone;
     const allTasksDone = tasksTotal > 0 && tasksDone === tasksTotal;
+    const canOpenEdit = canViewWorkspace() && isCurrentUserActiveMember() && !canApplyToProject();
 
     if (status === "RECRUITMENT") {
       return {
@@ -1010,11 +1109,13 @@
             label: "Набрать команду по всем ролям",
             hint: `Сейчас занято ${snapshot.activeMembers} из ${snapshot.requiredMembers || 0} мест.`,
             done: snapshot.requiredMembers > 0 && snapshot.activeMembers >= snapshot.requiredMembers,
+            action: { name: "open-team", label: "Открыть команду" },
           },
           {
             label: "Подтвердить преподавателя",
             hint: snapshot.hasProfessor ? `Статус приглашения: ${snapshot.professorLabel}.` : "Назначьте преподавателя на проект.",
             done: snapshot.professorAccepted,
+            action: canViewWorkspace() ? { name: "manage-professor", label: "К преподавателю" } : null,
           },
           {
             label: "Преподаватель должен добавить критерии оценки",
@@ -1022,6 +1123,7 @@
               ? `Преподаватель уже настроил ${snapshot.criteriaCount} критериев.`
               : "Критерии добавляет преподаватель на вкладке «Критерии». Команда здесь только сверяется с ними.",
             done: hasCriteria,
+            action: { name: "open-criteria", label: "Открыть критерии" },
           },
         ],
       };
@@ -1039,6 +1141,7 @@
             label: "Подтверждение преподавателя сохранено",
             hint: snapshot.hasProfessor ? `Текущий статус: ${snapshot.professorLabel}.` : "Сначала назначьте преподавателя.",
             done: snapshot.professorAccepted,
+            action: canViewWorkspace() ? { name: "manage-professor", label: "Проверить преподавателя" } : null,
           },
           {
             label: "Создать хотя бы одну задачу",
@@ -1046,6 +1149,7 @@
               ? `В проекте уже ${tasksTotal} задач.`
               : "Первую задачу обычно создает тимлид или task manager, иначе проект нельзя отправить на оценивание.",
             done: tasksTotal > 0,
+            action: { name: "open-tasks", label: "Открыть задачи" },
           },
           {
             label: "Закрыть все задачи",
@@ -1053,6 +1157,7 @@
               ? `Готово ${tasksDone} из ${tasksTotal}.`
               : "Сначала добавьте задачи в канбан. Это делает тимлид или task manager.",
             done: allTasksDone,
+            action: { name: "open-tasks", label: "Перейти в канбан" },
           },
         ],
       };
@@ -1070,11 +1175,13 @@
             label: "Критерии оценки настроены",
             hint: `Всего критериев: ${snapshot.criteriaCount}.`,
             done: hasCriteria,
+            action: { name: "open-criteria", label: "Открыть критерии" },
           },
           {
             label: "Оценки выставлены по всем критериям",
             hint: `Сейчас проверено ${snapshot.gradedCriteria} из ${snapshot.criteriaCount}.`,
             done: hasCriteria && snapshot.gradedCriteria >= snapshot.criteriaCount,
+            action: { name: "open-review", label: "Открыть ревью" },
           },
         ],
       };
@@ -1108,11 +1215,13 @@
           label: "Заполнить описание или README проекта",
           hint: hasDescription ? "Базовое описание проекта уже есть." : "Кратко опишите идею, стек и ожидаемый результат.",
           done: hasDescription,
+          action: { name: canOpenEdit ? "edit-project" : "overview-about", label: canOpenEdit ? "Открыть редактирование" : "Открыть описание" },
         },
         {
           label: "Добавить хотя бы одну роль в команду",
           hint: hasRoles ? `Сейчас в проекте ${snapshot.requiredMembers} ролей.` : "Создайте роли, чтобы открыть набор осознанно.",
           done: hasRoles,
+          action: { name: "open-team", label: "Открыть команду" },
         },
       ],
     };
@@ -1129,13 +1238,24 @@
     ui.readinessList.innerHTML = list
       .map((item, idx) => {
         const id = `stage-check-${idx}`;
+        const action = item && typeof item.action === "object" ? item.action : null;
+        const actionHTML = !item.done && action && action.name && action.label
+          ? (
+            `<div class="stage-checklist-actions">` +
+              `<button class="stage-checklist-action" type="button" data-stage-action="${escapeHTML(action.name)}">${escapeHTML(action.label)}</button>` +
+            `</div>`
+          )
+          : "";
         return (
           `<div class="stage-checklist-item ${item.done ? "is-done" : "is-pending"}">` +
             `<input id="${id}" type="checkbox" ${item.done ? "checked" : ""} disabled tabindex="-1" aria-hidden="true" />` +
-            `<label for="${id}">` +
-              `<span class="stage-checklist-title">${escapeHTML(item.label)}</span>` +
-              `<small class="stage-checklist-hint">${escapeHTML(item.hint || "")}</small>` +
-            `</label>` +
+            `<div class="stage-checklist-content">` +
+              `<label for="${id}">` +
+                `<span class="stage-checklist-title">${escapeHTML(item.label)}</span>` +
+                `<small class="stage-checklist-hint">${escapeHTML(item.hint || "")}</small>` +
+              `</label>` +
+              actionHTML +
+            `</div>` +
           `</div>`
         );
       })
@@ -1266,9 +1386,23 @@
   function renderTabStageHint(target, data) {
     if (!target || !data) return;
     const isCompact = target.classList.contains("tab-stage-hint--compact");
+    const hidden = areStageHintsHidden();
+    if (hidden) {
+      target.className = `tab-stage-hint tab-stage-hint--restore${isCompact ? " tab-stage-hint--compact" : ""}`;
+      target.innerHTML =
+        `<div class="tab-stage-hint-head">` +
+          `<strong>Подсказки скрыты</strong>` +
+          `<button class="hint-toggle-btn hint-toggle-btn--tab" type="button" data-stage-hints-visibility="show">Показать</button>` +
+        `</div>` +
+        `<p>Верните подсказки, когда захотите быстро свериться со следующим этапом проекта.</p>`;
+      return;
+    }
     target.className = `tab-stage-hint tab-stage-hint--${data.tone || "draft"}${isCompact ? " tab-stage-hint--compact" : ""}`;
     target.innerHTML =
-      HINT_BADGE_HTML +
+      `<div class="tab-stage-hint-head">` +
+        HINT_BADGE_HTML +
+        `<button class="hint-toggle-btn hint-toggle-btn--tab" type="button" data-stage-hints-visibility="hide">Скрыть</button>` +
+      `</div>` +
       `<strong>${escapeHTML(data.title || "")}</strong>` +
       `<p>${escapeHTML(data.copy || "")}</p>`;
   }
@@ -1806,7 +1940,6 @@
     const guide = stageGuideData();
 
     if (ui.stageSpotlight) {
-      ui.stageSpotlight.hidden = false;
       ui.stageSpotlight.className = `stage-spotlight stage-spotlight--${guide.tone}`;
     }
     if (ui.stageSpotlightTitle) {
@@ -1849,6 +1982,7 @@
         ui.completeProjectBtn.disabled = true;
         ui.completeProjectBtn.title = "";
       }
+      applyStageHintsVisibility();
       renderProfessorInviteArea(professorStatusCode);
       return;
     }
@@ -1964,6 +2098,7 @@
       }
     }
 
+    applyStageHintsVisibility();
     renderProfessorInviteArea(professorStatusCode);
   }
 
@@ -3551,6 +3686,35 @@
         setNotice(err.message || String(err), true);
       }
     });
+
+    if (ui.readinessList) {
+      ui.readinessList.addEventListener("click", (event) => {
+        const btn = event.target.closest("button[data-stage-action]");
+        if (!btn) return;
+        runStageAction(btn.getAttribute("data-stage-action") || "");
+      });
+    }
+
+    [ui.teamStageHint, ui.tasksStageHint, ui.criteriaStageHint].forEach((target) => {
+      if (!target) return;
+      target.addEventListener("click", (event) => {
+        const btn = event.target.closest("button[data-stage-hints-visibility]");
+        if (!btn) return;
+        setStageHintsHidden(btn.getAttribute("data-stage-hints-visibility") === "hide");
+      });
+    });
+
+    if (ui.hideStageHintsBtn) {
+      ui.hideStageHintsBtn.addEventListener("click", () => {
+        setStageHintsHidden(true);
+      });
+    }
+
+    if (ui.showStageHintsBtn) {
+      ui.showStageHintsBtn.addEventListener("click", () => {
+        setStageHintsHidden(false);
+      });
+    }
 
     if (ui.openRecruitmentBtn) {
       ui.openRecruitmentBtn.addEventListener("click", async () => {

@@ -958,6 +958,36 @@ body.project-body {
   gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
+  align-items: center;
+}
+
+.hint-toggle-btn,
+.stage-hints-restore,
+.stage-checklist-action {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #334155;
+  padding: 8px 14px;
+  font: 700 12px "IBM Plex Mono", ui-monospace, monospace;
+  cursor: pointer;
+}
+
+.hint-toggle-btn:hover,
+.stage-hints-restore:hover,
+.stage-checklist-action:hover {
+  border-color: rgba(96, 165, 250, 0.34);
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.hint-toggle-btn--tab {
+  padding: 7px 12px;
+  font-size: 11px;
+}
+
+.stage-hints-restore {
+  margin-top: 12px;
+  width: fit-content;
 }
 
 .stage-spotlight-badge {
@@ -1041,6 +1071,11 @@ body.project-body {
   background: rgba(240, 253, 244, 0.78);
 }
 
+.stage-checklist-content {
+  display: grid;
+  gap: 10px;
+}
+
 .stage-checklist label {
   color: var(--text);
   cursor: default;
@@ -1100,11 +1135,6 @@ body.project-body {
   animation: checklist-check-02 0.4s ease forwards;
 }
 
-.stage-checklist input[type="checkbox"]:checked + label {
-  color: var(--disabled);
-  transform: translateX(3px);
-}
-
 .stage-checklist-title {
   position: relative;
   display: inline-flex;
@@ -1135,15 +1165,29 @@ body.project-body {
   line-height: 1.55;
 }
 
-.stage-checklist input[type="checkbox"]:checked + label .stage-checklist-title {
+.stage-checklist-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.stage-checklist-item.is-done .stage-checklist-content {
+  transform: translateX(3px);
+}
+
+.stage-checklist-item.is-done label {
   color: var(--disabled);
 }
 
-.stage-checklist input[type="checkbox"]:checked + label .stage-checklist-title::after {
+.stage-checklist-item.is-done .stage-checklist-title {
+  color: var(--disabled);
+}
+
+.stage-checklist-item.is-done .stage-checklist-title::after {
   animation: checklist-title-slice 0.35s ease forwards;
 }
 
-.stage-checklist input[type="checkbox"]:checked + label .stage-checklist-hint {
+.stage-checklist-item.is-done .stage-checklist-hint {
   color: #94a3b8;
 }
 
@@ -1597,6 +1641,13 @@ body.project-body {
   z-index: 1;
 }
 
+.tab-stage-hint-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
 .tab-stage-hint:hover::after {
   transform: scale(19);
   opacity: 1;
@@ -1694,6 +1745,11 @@ body.project-body {
 
 .tab-stage-hint--compact {
   margin-bottom: 14px;
+}
+
+.tab-stage-hint--restore {
+  border-style: dashed;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(241, 245, 249, 0.96) 100%);
 }
 
 .tab-stage-hint--draft {
@@ -3214,6 +3270,14 @@ textarea:focus {
 
   .tab-stage-hint {
     padding: 13px 14px;
+  }
+
+  .tab-stage-hint-head {
+    flex-direction: column;
+  }
+
+  .stage-hints-restore {
+    width: 100%;
   }
 
   .stage-actions {

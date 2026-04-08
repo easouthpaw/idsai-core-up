@@ -28,6 +28,10 @@ body.professor-body {
   font-family: "Inter", sans-serif;
 }
 
+body.professor-body [hidden] {
+  display: none !important;
+}
+
 .prof-sidebar {
   background: linear-gradient(180deg, #13151b 0%, #191d28 100%);
   border-right: 1px solid #242b3a;
@@ -360,6 +364,95 @@ td .muted {
   color: #61708a;
   font-size: 14px;
   line-height: 1.45;
+}
+
+.prof-guide-panel {
+  border: 1px solid rgba(203, 217, 236, 0.92);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(246, 250, 255, 0.98) 100%);
+  padding: 16px 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.prof-guide-panel__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.prof-guide-panel__head strong {
+  display: block;
+  color: #173053;
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+
+.prof-guide-panel__head p {
+  margin: 6px 0 0;
+  color: #667792;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.prof-guide-steps {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.prof-guide-step {
+  border: 1px solid #dbe4f1;
+  border-radius: 16px;
+  background: rgba(248, 251, 255, 0.98);
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.prof-guide-step small {
+  color: #7383a1;
+  font: 700 11px "JetBrains Mono", monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.prof-guide-step strong {
+  color: #172440;
+  font-size: 16px;
+}
+
+.prof-guide-step p {
+  margin: 0;
+  color: #667792;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.prof-guide-step__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.prof-guide-step--done {
+  border-color: rgba(39, 176, 96, 0.16);
+  background: rgba(236, 253, 245, 0.96);
+}
+
+.prof-guide-step--current {
+  border-color: rgba(59, 130, 246, 0.16);
+  background: rgba(239, 246, 255, 0.98);
+}
+
+.prof-guide-step--blocked {
+  border-color: rgba(248, 113, 113, 0.16);
+  background: rgba(254, 242, 242, 0.98);
+}
+
+.prof-guide-restore {
+  width: fit-content;
 }
 
 .disabled-link {
@@ -1472,6 +1565,12 @@ td .muted {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(246, 250, 255, 0.98) 100%);
 }
 
+.grading-stage-panel__aside {
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+}
+
 .grading-stage-panel__copy strong {
   display: block;
   color: #14213d;
@@ -1588,6 +1687,20 @@ td .muted {
   margin-top: 8px;
   color: #172440;
   font-size: 15px;
+}
+
+.grading-guide-item p {
+  margin: 8px 0 0;
+  color: #667792;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.grading-guide-item__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .grading-guide-item--done {
@@ -1873,6 +1986,10 @@ td .muted {
     grid-template-columns: 1fr;
   }
 
+  .prof-guide-steps {
+    grid-template-columns: 1fr;
+  }
+
   .criteria-page-head h1 {
     font-size: 44px;
   }
@@ -1920,7 +2037,8 @@ td .muted {
 
   .focus-item,
   .prof-project-card__head,
-  .grading-stage-panel {
+  .grading-stage-panel,
+  .prof-guide-panel__head {
     grid-template-columns: 1fr;
     flex-direction: column;
   }
@@ -1931,6 +2049,11 @@ td .muted {
   .grading-hero__actions {
     width: 100%;
     justify-content: flex-start;
+  }
+
+  .grading-stage-panel__aside {
+    width: 100%;
+    justify-items: stretch;
   }
 
   .prof-project-card__aside {
@@ -1963,6 +2086,10 @@ td .muted {
   .criteria-footer-actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .prof-guide-restore {
+    width: 100%;
   }
 
   .grading-head {

@@ -8,6 +8,7 @@
   const LS_AVATAR_URL = "idsai_avatar_url";
   const LS_IS_ADMIN = "idsai_is_admin";
   const LS_IS_PROFESSOR = "idsai_is_professor";
+  const GUIDE_STORAGE_KEY = "idsai_professor_criteria_guide_hidden";
   const EDITABLE_REVIEW_STATUS = new Set(["ACCEPTED"]);
 
   const ui = {
@@ -19,6 +20,10 @@
     projectStatusView: document.getElementById("projectStatusView"),
     criteriaWeightMeta: document.getElementById("criteriaWeightMeta"),
     criteriaList: document.getElementById("criteriaList"),
+    guidePanel: document.getElementById("profGuidePanel"),
+    guideSteps: document.getElementById("profGuideSteps"),
+    guideToggleBtn: document.getElementById("profGuideToggleBtn"),
+    guideRestoreBtn: document.getElementById("profGuideRestoreBtn"),
     criterionForm: document.getElementById("criterionForm"),
     openComposerBtn: document.getElementById("openComposerBtn"),
     cancelComposerBtn: document.getElementById("cancelComposerBtn"),
@@ -78,6 +83,32 @@
     if (!ui.pageStatus) return;
     ui.pageStatus.textContent = message || "";
     ui.pageStatus.classList.toggle("err", Boolean(isError));
+  }
+
+  function guideHidden() {
+    try {
+      return localStorage.getItem(GUIDE_STORAGE_KEY) === "1";
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function applyGuideVisibility() {
+    const hidden = guideHidden();
+    if (ui.guidePanel) ui.guidePanel.hidden = hidden;
+    if (ui.guideToggleBtn) ui.guideToggleBtn.hidden = hidden;
+    if (ui.guideRestoreBtn) ui.guideRestoreBtn.hidden = !hidden;
+  }
+
+  function setGuideHidden(hidden) {
+    try {
+      if (hidden) {
+        localStorage.setItem(GUIDE_STORAGE_KEY, "1");
+      } else {
+        localStorage.removeItem(GUIDE_STORAGE_KEY);
+      }
+    } catch (_) {}
+    applyGuideVisibility();
   }
 
   function setComposerOpen(open) {
@@ -203,7 +234,7 @@
   }
 
   function projectStatusLabel(project) {
-    if (!project) return "—";
+    if (!project) return "Сначала выберите проект";
     const uid = String(state.userID || "");
     const status = String(project.status || "DRAFT").toUpperCase();
     if (String(project.created_by || "") === uid) {
@@ -232,6 +263,77 @@
     }
     syncWeightMeta();
     syncComposerControls();
+    renderGuide();
+  }
+
+  function renderGuide() {
+    if (!ui.guideSteps) return;
+
+    const project = currentProject();
+    const totalWeight = criteriaWeightTotal();
+    const status = projectStatusLabel(project);
+    const reviewStatus = String(project && project.professor_review_status || "NONE").toUpperCase();
+
+    const steps = [
+      {
+        tone: project ? "done" : "current",
+        kicker: "Шаг 1",
+        title: project ? `Выбран проект: ${project.title || "Без названия"}` : "Сначала выберите проект",
+        text: project
+          ? `Текущий контекст: ${status}. Теперь можно проверять доступ и собирать чек-лист.`
+          : "Без выбранного проекта страница остается нейтральной и ничего не редактирует сама.",
+        actions: [{ act: "focus-project", label: project ? "Сменить проект" : "Выбрать проект" }],
+      },
+      {
+        tone: !project ? "blocked" : state.canEditCurrent ? "done" : reviewStatus === "PENDING" ? "current" : "blocked",
+        kicker: "Шаг 2",
+        title: state.canEditCurrent ? "Режим редактирования доступен" : "Проверьте право на редактирование",
+        text: !project
+          ? "Сначала определитесь с проектом, и только потом проверяйте статус приглашения."
+          : state.canEditCurrent
+            ? "Изменения применяются сразу для команды проекта. Можно спокойно собирать финальный чек-лист."
+            : reviewStatus === "PENDING"
+              ? "Приглашение еще не принято. Сначала подтвердите ревью на странице заявок."
+              : "Для этого проекта у вас сейчас только режим просмотра.",
+        actions: !project
+          ? []
+          : state.canEditCurrent
+            ? [{ act: "open-composer", label: "Добавить критерий" }]
+            : reviewStatus === "PENDING"
+              ? [{ act: "goto-reviews", label: "К заявкам" }]
+              : [{ act: "open-project", label: "Открыть проект" }],
+      },
+      {
+        tone: !project ? "blocked" : totalWeight >= 100 ? "done" : "current",
+        kicker: "Шаг 3",
+        title: !project ? "Чек-лист еще не собран" : `Суммарный вес: ${totalWeight} / 100`,
+        text: !project
+          ? "Когда проект будет выбран, здесь появится подсказка по наполнению чек-листа."
+          : totalWeight >= 100
+            ? "Чек-лист полностью укомплектован. Следующий преподавательский шаг можно продолжать на странице оценивания."
+            : "Доведите набор критериев до нужной полноты и только потом переключайтесь в оценивание.",
+        actions: !project
+          ? []
+          : totalWeight >= 100
+            ? [{ act: "open-grading", label: "К оцениванию" }]
+            : state.canEditCurrent
+              ? [{ act: "open-composer", label: "Продолжить чек-лист" }]
+              : [{ act: "focus-project", label: "Проверить проект" }],
+      },
+    ];
+
+    ui.guideSteps.innerHTML = steps.map((step) => (
+      `<article class="prof-guide-step prof-guide-step--${escapeHTML(step.tone)}">` +
+        `<small>${escapeHTML(step.kicker)}</small>` +
+        `<strong>${escapeHTML(step.title)}</strong>` +
+        `<p>${escapeHTML(step.text)}</p>` +
+        `<div class="prof-guide-step__actions">` +
+          (Array.isArray(step.actions) ? step.actions.map((action) => (
+            `<button class="ghost-btn" type="button" data-guide-act="${escapeHTML(action.act)}">${escapeHTML(action.label)}</button>`
+          )).join("") : "") +
+        `</div>` +
+      `</article>`
+    )).join("");
   }
 
   function criteriaWeightTotal() {
@@ -299,7 +401,7 @@
     if (hasQuery) {
       state.projectID = queryProjectID;
     } else if (!state.projects.some((p) => String(p.id) === String(state.projectID || ""))) {
-      state.projectID = state.projects.length > 0 ? String(state.projects[0].id || "") : "";
+      state.projectID = "";
     }
 
     renderProjectSelect();
@@ -317,19 +419,21 @@
     }
 
     ui.projectSelect.disabled = false;
-    ui.projectSelect.innerHTML = state.projects
-      .map((p) => {
+    ui.projectSelect.innerHTML =
+      `<option value="">Выберите проект</option>` +
+      state.projects.map((p) => {
         const selected = String(p.id) === String(state.projectID) ? "selected" : "";
         const status = String(p.status || "DRAFT").toUpperCase();
         return `<option value="${escapeHTML(p.id)}" ${selected}>${escapeHTML(p.title || "Без названия")} · ${escapeHTML(status)}</option>`;
-      })
-      .join("");
+      }).join("");
   }
 
   async function loadCriteria() {
     if (!state.projectID) {
       state.criteria = [];
       renderCriteria();
+      syncWeightMeta();
+      syncComposerControls();
       return;
     }
 
@@ -355,6 +459,21 @@
   function renderCriteria() {
     if (!ui.criteriaList) return;
 
+    if (!state.projectID) {
+      ui.criteriaList.innerHTML =
+        `<article class="criterion-row draft">` +
+          `<div class="criterion-grip" aria-hidden="true">⋮⋮</div>` +
+          `<div class="criterion-idx">0</div>` +
+          `<div class="criterion-main">` +
+            `<strong>Проект пока не выбран</strong>` +
+            `<p>Выберите проект сверху, и после этого здесь появится текущий чек-лист критериев.</p>` +
+          `</div>` +
+          `<div class="criterion-weight">Ожидание</div>` +
+        `</article>`;
+      renderGuide();
+      return;
+    }
+
     if (!state.criteria.length) {
       ui.criteriaList.innerHTML =
         `<article class="criterion-row draft">` +
@@ -365,7 +484,8 @@
             `<p>Добавьте первый пункт проверки, чтобы сформировать чек-лист проекта.</p>` +
           `</div>` +
           `<div class="criterion-weight">Черновик</div>` +
-        `</article>`;
+      `</article>`;
+      renderGuide();
       return;
     }
 
@@ -397,6 +517,7 @@
         `</div>` +
         `<div class="criterion-weight">Черновик</div>` +
       `</article>`;
+    renderGuide();
   }
 
   async function createCriterion(event) {
@@ -456,7 +577,7 @@
     syncEditorState();
     await loadCriteria();
     if (!state.projectID) {
-      setStatus("Сначала выберите проект для настройки критериев.", true);
+      setStatus("Сначала выберите проект для настройки критериев.", false);
       return;
     }
     if (!state.canEditCurrent) {
@@ -470,6 +591,44 @@
     setStatus("Готово к редактированию критериев.", false);
   }
 
+  function handleGuideAction(act) {
+    const action = String(act || "").trim();
+    if (action === "focus-project" && ui.projectSelect) {
+      ui.projectSelect.focus();
+      return;
+    }
+    if (action === "goto-reviews") {
+      window.location.href = "/dev/professor/reviews";
+      return;
+    }
+    if (action === "open-project" && state.projectID) {
+      window.location.href = `/dev/projects/${encodeURIComponent(state.projectID)}`;
+      return;
+    }
+    if (action === "open-grading") {
+      if (state.projectID) {
+        window.location.href = `/dev/professor/grading?project_id=${encodeURIComponent(state.projectID)}`;
+      } else if (ui.projectSelect) {
+        ui.projectSelect.focus();
+      }
+      return;
+    }
+    if (action === "open-composer") {
+      if (!state.projectID) {
+        if (ui.projectSelect) ui.projectSelect.focus();
+        return;
+      }
+      if (!state.canEditCurrent) {
+        setStatus("Редактирование пока недоступно для этого проекта.", true);
+        return;
+      }
+      setComposerOpen(true);
+      if (ui.criterionTitleInput) {
+        requestAnimationFrame(() => ui.criterionTitleInput.focus());
+      }
+    }
+  }
+
   function attachEvents() {
     if (ui.logoutBtn) {
       ui.logoutBtn.addEventListener("click", () => {
@@ -480,6 +639,24 @@
     if (ui.projectSelect) {
       ui.projectSelect.addEventListener("change", () => {
         onProjectChange().catch((err) => setStatus(err.message || String(err), true));
+      });
+    }
+
+    if (ui.guideToggleBtn) {
+      ui.guideToggleBtn.addEventListener("click", () => {
+        setGuideHidden(true);
+      });
+    }
+    if (ui.guideRestoreBtn) {
+      ui.guideRestoreBtn.addEventListener("click", () => {
+        setGuideHidden(false);
+      });
+    }
+    if (ui.guideSteps) {
+      ui.guideSteps.addEventListener("click", (event) => {
+        const btn = event.target.closest("button[data-guide-act]");
+        if (!btn) return;
+        handleGuideAction(btn.getAttribute("data-guide-act") || "");
       });
     }
 
@@ -535,6 +712,8 @@
     bindProfile();
     attachEvents();
     setComposerOpen(false);
+    applyGuideVisibility();
+    renderGuide();
 
     try {
       setStatus("Загрузка данных...", false);
@@ -543,6 +722,8 @@
       await loadCriteria();
       if (!state.projects.length) {
         setStatus("Нет проектов, где вы подтверждены как преподаватель-ревьюер.", true);
+      } else if (!state.projectID) {
+        setStatus("Сначала выберите проект для настройки критериев.", false);
       } else if (!state.canEditCurrent) {
         setStatus("Проект выбран в режиме read-only: примите приглашение на ревью, чтобы редактировать критерии.", false);
       } else {

@@ -40,6 +40,18 @@
       </div>
     </header>
 
+    <section id="profGuidePanel" class="prof-guide-panel">
+      <div class="prof-guide-panel__head">
+        <div>
+          <strong>Как работать с заявками</strong>
+          <p>Здесь остаются только новые приглашения на ревью. После принятия проект уходит в ваши рабочие страницы критериев и оценивания.</p>
+        </div>
+        <button id="profGuideToggleBtn" class="ghost-btn" type="button">Скрыть подсказки</button>
+      </div>
+      <div id="profGuideSteps" class="prof-guide-steps"></div>
+    </section>
+    <button id="profGuideRestoreBtn" class="ghost-btn prof-guide-restore" type="button" hidden>Показать подсказки по шагам</button>
+
     <section class="table-card">
       <div class="table-head">
         <h2>Ожидают решения</h2>
@@ -68,6 +80,6 @@
   <script src="/dev/static/js/auth-session.js" defer></script>
   <script src="/dev/static/js/role-sidebar.js" defer></script>
   <script src="/dev/static/js/notifications-popup.js?v=20260307-2" defer></script>
-  <script src="/dev/static/js/professor.js" defer></script>
+  <script src="/dev/static/js/professor-reviews.js" defer></script>
 </body>
 </html>

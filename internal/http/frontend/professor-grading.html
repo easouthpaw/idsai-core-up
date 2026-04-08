@@ -46,13 +46,17 @@
       </div>
     </header>
 
-    <section class="grading-stage-panel">
+    <section id="gradingGuidePanel" class="grading-stage-panel">
       <div class="grading-stage-panel__copy">
         <strong id="gradingStageTitle">Статус проверки</strong>
         <p id="gradingStageText">После выбора проекта здесь появятся подсказки, что преподавателю делать на этом этапе.</p>
       </div>
-      <div id="gradingSignalChips" class="grading-stage-panel__chips"></div>
+      <div class="grading-stage-panel__aside">
+        <button id="gradingGuideToggleBtn" class="ghost-btn" type="button">Скрыть подсказки</button>
+        <div id="gradingSignalChips" class="grading-stage-panel__chips"></div>
+      </div>
     </section>
+    <button id="gradingGuideRestoreBtn" class="ghost-btn prof-guide-restore" type="button" hidden>Показать подсказки по шагам</button>
 
     <section class="grading-shell grading-shell--studio">
       <aside class="grading-summary-card">

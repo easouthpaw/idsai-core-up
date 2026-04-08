@@ -50,13 +50,17 @@
         </div>
       </section>
 
-      <section class="criteria-banner">
-        <div class="banner-icon">i</div>
-        <div>
-          <strong>Режим редактирования</strong>
-          <p>Изменения применяются сразу для команды проекта. Участники увидят обновлённый список после сохранения.</p>
+      <section id="profGuidePanel" class="prof-guide-panel">
+        <div class="prof-guide-panel__head">
+          <div>
+            <strong>Подсказки по критериям</strong>
+            <p>Сначала выберите проект, затем соберите чек-лист и доведите суммарный вес критериев до 100, если хотите получить полный шаблон оценки.</p>
+          </div>
+          <button id="profGuideToggleBtn" class="ghost-btn" type="button">Скрыть подсказки</button>
         </div>
+        <div id="profGuideSteps" class="prof-guide-steps"></div>
       </section>
+      <button id="profGuideRestoreBtn" class="ghost-btn prof-guide-restore" type="button" hidden>Показать подсказки по шагам</button>
 
       <section class="table-card criteria-editor-card">
         <div class="table-head criteria-editor-head">

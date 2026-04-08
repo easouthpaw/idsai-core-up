@@ -678,6 +678,7 @@ body.projects-body .hero.hero--welcome #tabSubtitle {
   display: flex;
   justify-content: space-between;
   gap: 8px;
+  align-items: flex-start;
 }
 
 .card-title {
@@ -729,6 +730,59 @@ body.projects-body .hero.hero--welcome #tabSubtitle {
   background: transparent;
   color: #98a2b3;
   font-size: 20px;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.card-menu:hover,
+.card-menu[aria-expanded="true"] {
+  background: #f3f6fb;
+  color: #344054;
+}
+
+.card-menu-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.card-menu-sheet {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 5;
+  min-width: 190px;
+  border: 1px solid #d6dfec;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.16);
+  padding: 6px;
+  display: grid;
+  gap: 4px;
+}
+
+.card-menu-item {
+  border: 0;
+  background: transparent;
+  color: #22314d;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font: 700 13px "Manrope", sans-serif;
+  cursor: pointer;
+}
+
+.card-menu-item:hover {
+  background: #f5f8fe;
+}
+
+.card-menu-item.danger {
+  color: #b4232d;
+}
+
+.card-menu-item.danger:hover {
+  background: #fff1f3;
 }
 
 .card-desc {

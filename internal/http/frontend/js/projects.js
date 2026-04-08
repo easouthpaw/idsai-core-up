@@ -58,6 +58,7 @@
   let selectedVisibility = "PUBLIC";
   let myProjects = [];
   let publicProjects = [];
+  let activeCardMenuID = "";
 
   function logLine(text) {
     const now = i18n ? i18n.formatTime(Date.now()) : new Date().toLocaleTimeString();
@@ -88,6 +89,29 @@
     const headers = {};
     if (withJSON) headers["Content-Type"] = "application/json";
     return headers;
+  }
+
+  function confirmAction(options) {
+    if (auth && typeof auth.showConfirmDialog === "function") {
+      return auth.showConfirmDialog(options);
+    }
+    return Promise.resolve(window.confirm(String((options && options.message) || "")));
+  }
+
+  async function request(method, url, body) {
+    const { resp, data } = await auth.requestJSON(url, {
+      method,
+      headers: body !== undefined ? authHeaders(true) : undefined,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+
+    if (!resp.ok) {
+      const err = new Error(data && data.error ? data.error : `${method} ${url} failed (${resp.status})`);
+      err.status = resp.status;
+      err.data = data;
+      throw err;
+    }
+    return data;
   }
 
   function ensureSession() {
@@ -216,6 +240,67 @@
     } catch (_) {
       return String(raw);
     }
+  }
+
+  function currentUserID() {
+    return String(localStorage.getItem(LS_USER) || "").trim();
+  }
+
+  function canDeleteProject(project) {
+    return Boolean(project) && String(project.created_by || "") === currentUserID();
+  }
+
+  function closeCardMenu() {
+    if (!activeCardMenuID) return;
+    activeCardMenuID = "";
+    if (activeTab === "mine") {
+      renderMine();
+    }
+  }
+
+  function toggleCardMenu(projectID) {
+    const nextID = String(projectID || "").trim();
+    activeCardMenuID = activeCardMenuID === nextID ? "" : nextID;
+    if (activeTab === "mine") {
+      renderMine();
+    }
+  }
+
+  function clearSelectedProject(projectID) {
+    const targetID = String(projectID || "").trim();
+    if (!targetID) return;
+    try {
+      const raw = localStorage.getItem(LS_SELECTED_PROJECT);
+      if (!raw) return;
+      const cached = JSON.parse(raw);
+      if (cached && String(cached.id || "") === targetID) {
+        localStorage.removeItem(LS_SELECTED_PROJECT);
+      }
+    } catch (_) {}
+  }
+
+  async function deleteProject(projectID) {
+    const project = findProjectByID(projectID);
+    if (!project) {
+      throw new Error("Проект не найден.");
+    }
+    if (!canDeleteProject(project)) {
+      throw new Error("Удалять проект может только его создатель.");
+    }
+
+    const confirmed = await confirmAction({
+      title: "Удалить проект",
+      message: "Проект будет удален без возможности восстановления. Команда, задачи и материалы тоже исчезнут.",
+      confirmText: "Удалить проект",
+      danger: true,
+    });
+    if (!confirmed) return;
+
+    activeCardMenuID = "";
+    await request("DELETE", `/v2/projects/${projectID}`);
+    clearSelectedProject(projectID);
+    await Promise.all([loadMineProjects(), loadCommunityProjects()]);
+    setStatus(null, `Проект удален: ${project.title || "Без названия"}`, true);
   }
 
   function openProject(project) {
@@ -438,7 +523,15 @@
       const owner = (localStorage.getItem(LS_STUDENT_NAME) || "ME").trim().slice(0, 2).toUpperCase();
       const article = document.createElement("article");
       article.className = "project-card mine-card";
-      const pid = escapeHTML(p.id || "");
+      const projectID = String(p.id || "").trim();
+      const pid = escapeHTML(projectID);
+      const menuOpen = activeCardMenuID === projectID;
+      const menuItems = [
+        `<button class="card-menu-item" data-menu-act="open" data-project-id="${pid}" type="button">Открыть проект</button>`,
+      ];
+      if (canDeleteProject(p)) {
+        menuItems.push(`<button class="card-menu-item danger" data-menu-act="delete" data-project-id="${pid}" type="button">Удалить проект</button>`);
+      }
 
       article.innerHTML =
         `<div class="project-cover">` +
@@ -446,7 +539,12 @@
         `</div>` +
         `<div class="card-head">` +
           `<button class="card-title-link" data-open-id="${pid}" type="button">${escapeHTML(p.title || "-")}</button>` +
-          `<span class="card-menu" aria-hidden="true">…</span>` +
+          `<div class="card-menu-wrap">` +
+            `<button class="card-menu" data-menu-toggle-id="${pid}" type="button" aria-haspopup="menu" aria-expanded="${menuOpen ? "true" : "false"}" aria-label="Действия проекта">…</button>` +
+            `<div class="card-menu-sheet" role="menu" ${menuOpen ? "" : "hidden"}>` +
+              menuItems.join("") +
+            `</div>` +
+          `</div>` +
         `</div>` +
         `<p class="card-desc">${escapeHTML(p.description || "Без описания")}</p>` +
         `<div class="mine-progress"><span style="width:${progress}%"></span></div>` +
@@ -481,6 +579,32 @@
         const project = findProjectByID(id);
         if (!project) return;
         openProject(project);
+      });
+    });
+    myProjectsEl.querySelectorAll("[data-menu-toggle-id]").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        toggleCardMenu(btn.getAttribute("data-menu-toggle-id") || "");
+      });
+    });
+    myProjectsEl.querySelectorAll("[data-menu-act]").forEach((btn) => {
+      btn.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        const action = btn.getAttribute("data-menu-act") || "";
+        const id = btn.getAttribute("data-project-id") || "";
+        const project = findProjectByID(id);
+        try {
+          if (action === "open" && project) {
+            closeCardMenu();
+            openProject(project);
+            return;
+          }
+          if (action === "delete") {
+            await deleteProject(id);
+          }
+        } catch (err) {
+          setStatus(null, err.message || String(err), false);
+        }
       });
     });
     bindCoverFallbacks(myProjectsEl);
@@ -852,6 +976,16 @@
     if (e.key === "Escape" && !createModalEl.hidden) {
       closeCreateModal();
     }
+    if (e.key === "Escape" && activeCardMenuID) {
+      closeCardMenu();
+    }
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!activeCardMenuID) return;
+    const wrap = event.target.closest(".card-menu-wrap");
+    if (wrap) return;
+    closeCardMenu();
   });
 
   groupDepartmentEl.addEventListener("change", fillGroupNumbers);
