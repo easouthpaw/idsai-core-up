@@ -20,6 +20,19 @@
   let lastAlertMessage = "";
   let lastAlertAt = 0;
 
+  function sanitizeProfile(profile) {
+    if (!profile || typeof profile !== "object") {
+      return null;
+    }
+    const normalized = { ...profile };
+    if (normalized.is_professor || normalized.is_admin) {
+      normalized.group_id = "";
+      normalized.group_code = "";
+      normalized.group_number = null;
+    }
+    return normalized;
+  }
+
   function clearClientState() {
     cachedProfile = null;
     capabilityCache.clear();
@@ -36,25 +49,25 @@
   }
 
   function persistProfile(profile) {
-    cachedProfile = profile || null;
-    if (!profile) {
+    cachedProfile = sanitizeProfile(profile);
+    if (!cachedProfile) {
       clearClientState();
       return null;
     }
 
-    localStorage.setItem(LS_USER, profile.sub || "");
-    localStorage.setItem(LS_FACULTY, profile.faculty_id || "");
-    localStorage.setItem(LS_STUDENT_NAME, profile.full_name || profile.email || "Student");
-    localStorage.setItem(LS_STUDENT_EMAIL, profile.email || "");
-    localStorage.setItem(LS_AVATAR_URL, profile.avatar_url || "");
-    localStorage.setItem(LS_IS_ADMIN, profile.is_admin ? "1" : "0");
-    localStorage.setItem(LS_IS_PROFESSOR, profile.is_professor ? "1" : "0");
-    return profile;
+    localStorage.setItem(LS_USER, cachedProfile.sub || "");
+    localStorage.setItem(LS_FACULTY, cachedProfile.faculty_id || "");
+    localStorage.setItem(LS_STUDENT_NAME, cachedProfile.full_name || cachedProfile.email || "Student");
+    localStorage.setItem(LS_STUDENT_EMAIL, cachedProfile.email || "");
+    localStorage.setItem(LS_AVATAR_URL, cachedProfile.avatar_url || "");
+    localStorage.setItem(LS_IS_ADMIN, cachedProfile.is_admin ? "1" : "0");
+    localStorage.setItem(LS_IS_PROFESSOR, cachedProfile.is_professor ? "1" : "0");
+    return cachedProfile;
   }
 
   function normalizeProfile(data) {
     if (!data || !data.user_id) return null;
-    return {
+    return sanitizeProfile({
       sub: String(data.user_id || ""),
       tenant_id: String(data.tenant_id || ""),
       faculty_id: String(data.faculty_id || ""),
@@ -71,7 +84,7 @@
       is_admin: Boolean(data.is_admin),
       is_professor: Boolean(data.is_professor),
       email_verified: Boolean(data.email_verified),
-    };
+    });
   }
 
   function targetByProfile(profile) {

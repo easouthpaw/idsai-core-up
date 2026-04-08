@@ -13,10 +13,13 @@
   const API_CLEAR = "/v2/notifications";
   const POLL_MS = 3000;
   const TOAST_TTL_MS = 2600;
+  const DEDUPE_WINDOW_MS = 15000;
+  const SHOWN_TOASTS_STORAGE_KEY = "idsai_notifications_shown_toasts";
+  const MAX_SHOWN_TOASTS = 200;
 
   const state = {
     items: [],
-    shownToastIDs: new Set(),
+    shownToastIDs: loadShownToastIDs(),
     isPanelOpen: false,
     unauthorized: false,
   };
@@ -119,11 +122,73 @@
     return state.items.reduce((acc, item) => acc + (item && item.is_read === false ? 1 : 0), 0);
   }
 
+  function loadShownToastIDs() {
+    try {
+      const raw = sessionStorage.getItem(SHOWN_TOASTS_STORAGE_KEY);
+      if (!raw) return new Set();
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return new Set();
+      return new Set(parsed.filter((item) => typeof item === "string" && item));
+    } catch (_) {
+      return new Set();
+    }
+  }
+
+  function persistShownToastIDs() {
+    try {
+      sessionStorage.setItem(
+        SHOWN_TOASTS_STORAGE_KEY,
+        JSON.stringify(Array.from(state.shownToastIDs).slice(-MAX_SHOWN_TOASTS)),
+      );
+    } catch (_) {}
+  }
+
+  function notificationFingerprint(item) {
+    const payload = parsePayload(item?.payload);
+    const projectID = String(payload?.project_id || "").trim().toLowerCase();
+    return [
+      String(item?.type || "").trim().toLowerCase(),
+      String(item?.title || "").trim().toLowerCase(),
+      String(item?.body || "").trim().toLowerCase(),
+      projectID,
+    ].join("|");
+  }
+
   function normalizeItems(items) {
     if (!Array.isArray(items)) return [];
-    return items
+    const dedupeState = new Map();
+    const normalized = items
       .filter((item) => item && item.id)
       .sort((a, b) => Date.parse(b.created_at || 0) - Date.parse(a.created_at || 0));
+    const out = [];
+
+    normalized.forEach((item) => {
+      const candidate = { ...item, duplicate_ids: [] };
+      const fingerprint = notificationFingerprint(candidate);
+      const createdAt = Date.parse(candidate.created_at || 0);
+      const prev = dedupeState.get(fingerprint);
+      if (
+        fingerprint &&
+        prev &&
+        Number.isFinite(prev.createdAt) &&
+        Number.isFinite(createdAt) &&
+        prev.createdAt-createdAt <= DEDUPE_WINDOW_MS
+      ) {
+        prev.item.duplicate_ids.push(candidate.id);
+        return;
+      }
+      dedupeState.set(fingerprint, { item: candidate, createdAt });
+      out.push(candidate);
+    });
+
+    return out;
+  }
+
+  function notificationIDs(id) {
+    const item = state.items.find((entry) => entry && entry.id === id);
+    if (!item) return id ? [id] : [];
+    return [item.id, ...(Array.isArray(item.duplicate_ids) ? item.duplicate_ids : [])]
+      .filter((value, index, arr) => value && arr.indexOf(value) === index);
   }
 
   async function loadNotifications() {
@@ -178,7 +243,7 @@
 
   function updateLocalRead(id) {
     state.items = state.items.map((item) => {
-      if (!item || item.id !== id) return item;
+      if (!item || !notificationIDs(id).includes(item.id)) return item;
       return { ...item, is_read: true, read_at: item.read_at || new Date().toISOString() };
     });
   }
@@ -186,12 +251,14 @@
   async function markRead(id) {
     if (state.unauthorized) return false;
     if (!id) return false;
-    const { resp } = await apiNoBody("POST", API_MARK_READ(id));
-    if (resp.status === 401) {
-      handleUnauthorized();
-      return false;
+    for (const currentID of notificationIDs(id)) {
+      const { resp } = await apiNoBody("POST", API_MARK_READ(currentID));
+      if (resp.status === 401) {
+        handleUnauthorized();
+        return false;
+      }
+      if (!resp.ok && resp.status !== 404) return false;
     }
-    if (!resp.ok && resp.status !== 404) return false;
     updateLocalRead(id);
     renderPanel();
     setBadge(unreadCount());
@@ -215,12 +282,14 @@
   async function deleteNotification(id) {
     if (state.unauthorized) return;
     if (!id) return;
-    const { resp } = await apiNoBody("DELETE", API_DELETE(id));
-    if (resp.status === 401) {
-      handleUnauthorized();
-      return;
+    for (const currentID of notificationIDs(id)) {
+      const { resp } = await apiNoBody("DELETE", API_DELETE(currentID));
+      if (resp.status === 401) {
+        handleUnauthorized();
+        return;
+      }
+      if (!resp.ok && resp.status !== 404) return;
     }
-    if (!resp.ok && resp.status !== 404) return;
     state.items = state.items.filter((item) => item && item.id !== id);
     renderPanel();
     setBadge(unreadCount());
@@ -356,6 +425,7 @@
   function pushToast(item) {
     if (!item || !item.id || state.shownToastIDs.has(item.id)) return;
     state.shownToastIDs.add(item.id);
+    persistShownToastIDs();
     layer.insertAdjacentHTML("beforeend", toastMarkup(item));
     const card = layer.querySelector(`.idsai-toast[data-id="${item.id}"]`);
     if (!card) return;

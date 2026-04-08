@@ -117,6 +117,10 @@
     isEditMode: false,
   };
 
+  function shouldShowGroup(profile) {
+    return Boolean(profile && !profile.is_professor && !profile.is_admin && String(profile.group_code || "").trim());
+  }
+
   function escapeHTML(value) {
     return String(value || "")
       .replaceAll("&", "&amp;")
@@ -169,15 +173,17 @@
 
   function baseProfile(data) {
     const source = data && typeof data === "object" ? data : {};
+    const isProfessor = Boolean(source.is_professor);
+    const isAdmin = Boolean(source.is_admin);
     return {
       sub: String(source.user_id || source.sub || ""),
       tenant_id: String(source.tenant_id || ""),
       faculty_id: String(source.faculty_id || ""),
       department_id: String(source.department_id || ""),
       department_code: String(source.department_code || ""),
-      group_id: String(source.group_id || ""),
-      group_code: String(source.group_code || ""),
-      group_number: source.group_number !== undefined && source.group_number !== null ? Number(source.group_number) : null,
+      group_id: isProfessor || isAdmin ? "" : String(source.group_id || ""),
+      group_code: isProfessor || isAdmin ? "" : String(source.group_code || ""),
+      group_number: isProfessor || isAdmin ? null : source.group_number !== undefined && source.group_number !== null ? Number(source.group_number) : null,
       email: String(source.email || ""),
       pending_email: String(source.pending_email || ""),
       pending_email_status: String(source.pending_email_status || ""),
@@ -380,7 +386,7 @@
     ui.fullNameInput.value = state.profile.full_name || "";
     ui.emailInput.value = state.profile.email || "";
     ui.departmentInput.value = state.profile.department_code || "—";
-    ui.groupInput.value = state.profile.group_code || "—";
+    ui.groupInput.value = shouldShowGroup(state.profile) ? state.profile.group_code : "—";
     fillExtendedForm(state.extended);
   }
 
@@ -445,10 +451,11 @@
     const hasLinks = linkCount(ext) > 0;
     const hasInterests = ext.interests.length > 0;
     const hasAvailability = Boolean(ext.availability);
+    const showGroup = shouldShowGroup(profile);
 
     setHidden(ui.heroHeadline, isViewMode && !ext.headline);
     setHidden(ui.heroDepartment, isViewMode && !profile.department_code);
-    setHidden(ui.heroGroup, isViewMode && !profile.group_code);
+    setHidden(ui.heroGroup, !showGroup);
     setHidden(ui.heroStackPreview, !hasStacks);
 
     setFieldHidden(ui.headlineInput, isViewMode && !ext.headline);
@@ -463,7 +470,7 @@
     setFieldHidden(ui.portfolioInput, isViewMode && !ext.portfolio);
 
     setFieldHidden(ui.departmentInput, isViewMode && !profile.department_code);
-    setFieldHidden(ui.groupInput, isViewMode && !profile.group_code);
+    setFieldHidden(ui.groupInput, !showGroup);
 
     setHidden(ui.stackPanel, isViewMode && !hasStacks);
     setHidden(ui.linksPanel, isViewMode && !hasLinks);
@@ -498,7 +505,7 @@
     }
     if (ui.heroGroup) {
       const span = ui.heroGroup.querySelectorAll("span");
-      if (span.length > 1) span[1].textContent = `Группа: ${profile.group_code || "—"}`;
+      if (span.length > 1) span[1].textContent = `Группа: ${shouldShowGroup(profile) ? profile.group_code : "—"}`;
     }
 
     ui.profileCompletionBadge.textContent = `Профиль ${completion}%`;

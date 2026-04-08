@@ -185,6 +185,9 @@ WHERE UPPER(d.code) = UPPER($1);
 		}
 		return svc.User{}, err
 	}
+	if in.RoleCode == svc.RoleProfessor {
+		groupID = nil
+	}
 
 	var userID uuid.UUID
 	if err := tx.QueryRow(ctx, `

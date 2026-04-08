@@ -160,6 +160,11 @@ func profileResponseFromUser(u auth.User, includePrivate bool) MeResponse {
 		IsProfessor:    u.IsProfessor,
 		EmailVerified:  u.EmailVerifiedAt != nil,
 	}
+	if u.IsProfessor || u.IsAdmin {
+		resp.GroupID = ""
+		resp.GroupCode = ""
+		resp.GroupNumber = nil
+	}
 	if includePrivate {
 		resp.PendingEmail = strings.TrimSpace(u.PendingEmail)
 		resp.PendingStatus = pendingEmailStatus(u)
