@@ -472,24 +472,91 @@ body.admin-body .admin-shell {
   display: flex;
   flex-direction: column;
   overflow: auto;
+  position: relative;
 }
 
-body.app-loading .content-shell,
-body.app-loading .main-shell,
-body.app-loading .admin-shell,
-body.app-loading .groups-main,
-body.app-loading .prof-main {
+body.groups-body .groups-main,
+body.professor-body .prof-main {
+  position: relative;
+}
+
+body.app-loading .content-shell > *,
+body.app-loading .main-shell > *,
+body.app-loading .admin-shell > *,
+body.app-loading .groups-main > *,
+body.app-loading .prof-main > * {
   opacity: 0;
   pointer-events: none;
   transform: translateY(6px);
 }
 
-body .content-shell,
-body .main-shell,
-body .admin-shell,
-body .groups-main,
-body .prof-main {
+body .content-shell > *,
+body .main-shell > *,
+body .admin-shell > *,
+body .groups-main > *,
+body .prof-main > * {
   transition: opacity 160ms ease, transform 160ms ease;
+}
+
+body.app-loading .content-shell::before,
+body.app-loading .main-shell::before,
+body.app-loading .admin-shell::before,
+body.app-loading .groups-main::before,
+body.app-loading .prof-main::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 2.5px solid rgba(13, 107, 80, 0.16);
+  border-top-color: var(--ui-green);
+  transform: translate(-50%, calc(-50% - 26px));
+  animation: idsai-content-loader-spin 0.82s linear infinite;
+  z-index: 2;
+  pointer-events: none;
+}
+
+body.app-loading .content-shell::after,
+body.app-loading .main-shell::after,
+body.app-loading .admin-shell::after,
+body.app-loading .groups-main::after,
+body.app-loading .prof-main::after {
+  content: "Загружаем данные";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 228px;
+  padding: 54px 18px 18px;
+  border: 1px solid rgba(184, 203, 188, 0.88);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 22px 46px rgba(15, 23, 42, 0.1);
+  color: #526176;
+  text-align: center;
+  font: 600 13px/1.4 var(--ui-font);
+  letter-spacing: 0.01em;
+  z-index: 1;
+  pointer-events: none;
+}
+
+@keyframes idsai-content-loader-spin {
+  to {
+    transform: translate(-50%, calc(-50% - 26px)) rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.app-loading .content-shell::before,
+  body.app-loading .main-shell::before,
+  body.app-loading .admin-shell::before,
+  body.app-loading .groups-main::before,
+  body.app-loading .prof-main::before {
+    animation: none;
+  }
 }
 
 body.projects-body .topbar,

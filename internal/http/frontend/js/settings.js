@@ -13,6 +13,12 @@
     sidebarEmail: document.getElementById("studentEmail"),
     logoutBtn: document.getElementById("logoutBtn"),
 
+    heroAvatar: document.getElementById("settingsHeroAvatar"),
+    heroName: document.getElementById("settingsHeroName"),
+    heroEmail: document.getElementById("settingsHeroEmail"),
+    heroRole: document.getElementById("settingsHeroRole"),
+    heroScope: document.getElementById("settingsHeroScope"),
+
     settingsAvatar: document.getElementById("settingsAvatarPreview"),
     avatarInput: document.getElementById("avatarInput"),
     uploadAvatarBtn: document.getElementById("uploadAvatarBtn"),
@@ -74,6 +80,29 @@
     }
     const e = String(email || "").trim();
     return e ? e.slice(0, 2).toUpperCase() : "ST";
+  }
+
+  function roleLabel(profile) {
+    if (profile && profile.is_admin) {
+      return "Администратор";
+    }
+    if (profile && profile.is_professor) {
+      return "Преподаватель";
+    }
+    return "Студент";
+  }
+
+  function scopeLabel(profile) {
+    if (profile && profile.is_admin) {
+      return "Полный доступ";
+    }
+    if (profile && profile.group_code) {
+      return `Группа ${profile.group_code}`;
+    }
+    if (profile && profile.department_code) {
+      return `Кафедра ${profile.department_code}`;
+    }
+    return "Персональный доступ";
   }
 
   function renderAvatar(el, fallbackText, avatarURL) {
@@ -187,7 +216,7 @@
     const profile = toProfilePayload(data);
     auth.persistProfile(profile);
 
-    const name = profile.full_name || "Student";
+    const name = profile.full_name || "Пользователь";
     const email = profile.email || "";
     const avatarURL = profile.avatar_url || "";
 
@@ -200,7 +229,13 @@
     if (ui.sidebarName) ui.sidebarName.textContent = name;
     if (ui.sidebarEmail) ui.sidebarEmail.textContent = email;
     renderAvatar(ui.sidebarAvatar, initials(name, email), avatarURL);
+    renderAvatar(ui.heroAvatar, initials(name, email), avatarURL);
     renderAvatar(ui.settingsAvatar, initials(name, email), avatarURL);
+
+    if (ui.heroName) ui.heroName.textContent = name;
+    if (ui.heroEmail) ui.heroEmail.textContent = email || "email не указан";
+    if (ui.heroRole) ui.heroRole.textContent = roleLabel(profile);
+    if (ui.heroScope) ui.heroScope.textContent = scopeLabel(profile);
 
     if (ui.fullNameInput) ui.fullNameInput.value = name;
     if (ui.currentEmailInput) ui.currentEmailInput.value = email;

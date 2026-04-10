@@ -44,19 +44,60 @@
 
       <main class="content settings-content">
         <section class="hero settings-hero">
-          <div>
-            <h1>Настройки учетной записи</h1>
-            <p>Управляйте личной информацией, email и безопасностью аккаунта.</p>
+          <div class="settings-hero__copy">
+            <div class="settings-hero__copy-main">
+              <p class="settings-hero__eyebrow">Учетная запись</p>
+              <h1>Настройки учетной записи</h1>
+              <p>Управляйте личной информацией, email и безопасностью аккаунта.</p>
+            </div>
+            <div class="settings-hero__signals" aria-label="Разделы настроек">
+              <span class="settings-hero__signal">
+                <span class="material-symbols-outlined" aria-hidden="true">badge</span>
+                Профиль
+              </span>
+              <span class="settings-hero__signal">
+                <span class="material-symbols-outlined" aria-hidden="true">alternate_email</span>
+                Email
+              </span>
+              <span class="settings-hero__signal">
+                <span class="material-symbols-outlined" aria-hidden="true">key</span>
+                Пароль
+              </span>
+            </div>
+          </div>
+          <div class="settings-hero__summary" aria-label="Сводка аккаунта">
+            <div class="settings-hero__summary-top">
+              <div id="settingsHeroAvatar" class="settings-hero__avatar">ST</div>
+              <div class="settings-hero__summary-copy">
+                <strong id="settingsHeroName">IDSAI User</strong>
+                <span id="settingsHeroEmail">account@idsai.local</span>
+              </div>
+            </div>
+            <div class="settings-hero__meta">
+              <div class="settings-hero__meta-item">
+                <span>Роль</span>
+                <strong id="settingsHeroRole">Студент</strong>
+              </div>
+              <div class="settings-hero__meta-item">
+                <span>Контекст</span>
+                <strong id="settingsHeroScope">Персональный доступ</strong>
+              </div>
+            </div>
           </div>
         </section>
 
         <section class="settings-card">
           <header class="settings-card-head">
-            <h2>Личные данные</h2>
-            <p>Публичный профиль и контактный email.</p>
+            <div class="settings-card-head__icon" aria-hidden="true">
+              <span class="material-symbols-outlined">person</span>
+            </div>
+            <div>
+              <h2>Личные данные</h2>
+              <p>Публичный профиль, фото и контактный email.</p>
+            </div>
           </header>
 
-          <div class="settings-card-body">
+          <div class="settings-card-body settings-card-body--profile">
             <div class="avatar-grid">
               <div class="avatar-preview-wrap">
                 <div id="settingsAvatarPreview" class="settings-avatar">ST</div>
@@ -83,8 +124,13 @@
             </div>
 
             <div id="groupChangeBox" class="group-change-box">
-              <h3>Учебная группа</h3>
-              <p>Смена группы выполняется только после подтверждения администратора.</p>
+              <div class="group-change-box__head">
+                <div>
+                  <h3>Учебная группа</h3>
+                  <p>Смена группы выполняется только после подтверждения администратора.</p>
+                </div>
+                <span class="settings-chip settings-chip--soft">Требует подтверждения</span>
+              </div>
 
               <div class="field-grid two">
                 <div>
@@ -137,7 +183,7 @@
               <p class="field-hint">Текущий email остается активным до подтверждения нового адреса.</p>
             </div>
 
-            <div class="field-grid two">
+            <div class="field-grid two email-grid">
               <div>
                 <label for="newEmailInput">Новый email</label>
                 <input id="newEmailInput" type="email" name="new_email" autocomplete="email" spellcheck="false" placeholder="name@example.edu" />
@@ -161,8 +207,13 @@
 
         <section class="settings-card">
           <header class="settings-card-head">
-            <h2>Безопасность</h2>
-            <p>Смена пароля с проверкой текущего значения.</p>
+            <div class="settings-card-head__icon" aria-hidden="true">
+              <span class="material-symbols-outlined">shield_lock</span>
+            </div>
+            <div>
+              <h2>Безопасность</h2>
+              <p>Смена пароля с проверкой текущего значения.</p>
+            </div>
           </header>
 
           <div class="settings-card-body">
@@ -171,7 +222,7 @@
               <input id="currentPasswordInput" type="password" name="current_password" autocomplete="current-password" />
             </div>
 
-            <div class="field-grid two">
+            <div class="field-grid two password-grid">
               <div>
                 <label for="newPasswordInput">Новый пароль</label>
                 <input id="newPasswordInput" type="password" name="new_password" autocomplete="new-password" />
