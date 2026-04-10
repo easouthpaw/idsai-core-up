@@ -254,6 +254,10 @@ func (d *projectFlowTestDeps) ListProjectTasks(ctx context.Context, projectID uu
 	return nil, nil
 }
 
+func (d *projectFlowTestDeps) EnsureTaskActivityLogAvailable(ctx context.Context) error {
+	return nil
+}
+
 func (d *projectFlowTestDeps) GetTaskStatusAndTitle(ctx context.Context, projectID, taskID uuid.UUID) (string, string, error) {
 	return "", "", nil
 }

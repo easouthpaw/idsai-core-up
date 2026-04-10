@@ -2,30 +2,12 @@ package postgres
 
 import (
 	"context"
+	"fmt"
 
 	"idsai-core-up/internal/services/projectflow"
 
 	"github.com/google/uuid"
 )
-
-func (r *ProjectFlowRepo) GetProjectCriteriaWeightSum(ctx context.Context, projectID uuid.UUID) (int, error) {
-	tenantID, err := tenantIDFromContext(ctx)
-	if err != nil {
-		return 0, err
-	}
-
-	const q = `
-SELECT COALESCE(SUM(weight), 0)
-FROM project_criteria
-WHERE tenant_id = $1
-  AND project_id = $2;
-`
-	var total int
-	if err := r.db.QueryRow(ctx, q, tenantID, projectID).Scan(&total); err != nil {
-		return 0, err
-	}
-	return total, nil
-}
 
 func (r *ProjectFlowRepo) CreateProjectCriterion(
 	ctx context.Context,
@@ -38,7 +20,26 @@ func (r *ProjectFlowRepo) CreateProjectCriterion(
 		return projectflow.Criterion{}, err
 	}
 
-	const q = `
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return projectflow.Criterion{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	const qLockProject = `
+SELECT 1
+FROM projects
+WHERE tenant_id = $1
+  AND id = $2
+FOR UPDATE;
+`
+	const qWeight = `
+SELECT COALESCE(SUM(weight), 0)
+FROM project_criteria
+WHERE tenant_id = $1
+  AND project_id = $2;
+`
+	const qInsert = `
 INSERT INTO project_criteria(tenant_id, project_id, title, description, weight, created_by)
 SELECT $1, $2, $3, $4, $5, $6
 FROM projects p
@@ -51,8 +52,22 @@ RETURNING id, project_id, title, description, weight, created_by, created_at;
 		id        uuid.UUID
 		pid       uuid.UUID
 		createdBy uuid.UUID
+		locked    int
+		total     int
 	)
-	err = r.db.QueryRow(ctx, q, tenantID, projectID, title, description, weight, userID).Scan(
+	if err := tx.QueryRow(ctx, qLockProject, tenantID, projectID).Scan(&locked); err != nil {
+		return projectflow.Criterion{}, mapProjectFlowErr(err)
+	}
+	if err := tx.QueryRow(ctx, qWeight, tenantID, projectID).Scan(&total); err != nil {
+		if isUndefinedRelationErr(err, "project_criteria") {
+			return projectflow.Criterion{}, projectflow.ErrSchemaMissing
+		}
+		return projectflow.Criterion{}, err
+	}
+	if total+weight > 100 {
+		return projectflow.Criterion{}, fmt.Errorf("%w: total criteria weight exceeds 100", projectflow.ErrInvalidInput)
+	}
+	err = tx.QueryRow(ctx, qInsert, tenantID, projectID, title, description, weight, userID).Scan(
 		&id,
 		&pid,
 		&c.Title,
@@ -62,6 +77,12 @@ RETURNING id, project_id, title, description, weight, created_by, created_at;
 		&c.CreatedAt,
 	)
 	if err != nil {
+		if isUndefinedRelationErr(err, "project_criteria") {
+			return projectflow.Criterion{}, projectflow.ErrSchemaMissing
+		}
+		return projectflow.Criterion{}, mapProjectFlowErr(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return projectflow.Criterion{}, err
 	}
 	c.ID = id.String()
@@ -85,6 +106,9 @@ ORDER BY created_at ASC;
 `
 	rows, err := r.db.Query(ctx, q, tenantID, projectID)
 	if err != nil {
+		if isUndefinedRelationErr(err, "project_criteria") {
+			return nil, projectflow.ErrSchemaMissing
+		}
 		return nil, err
 	}
 	defer rows.Close()
@@ -128,7 +152,7 @@ ORDER BY updated_at DESC;
 	rows, err := r.db.Query(ctx, q, tenantID, projectID, professorID)
 	if err != nil {
 		if isUndefinedRelationErr(err, "project_criterion_reviews") {
-			return []projectflow.CriterionGrade{}, nil
+			return nil, projectflow.ErrSchemaMissing
 		}
 		return nil, err
 	}
@@ -187,6 +211,9 @@ DO UPDATE SET is_met = EXCLUDED.is_met, comment = EXCLUDED.comment, updated_at =
 	for _, item := range items {
 		var ok bool
 		if err := tx.QueryRow(ctx, qExists, tenantID, item.CriterionID, projectID).Scan(&ok); err != nil {
+			if isUndefinedRelationErr(err, "project_criteria") {
+				return projectflow.ErrSchemaMissing
+			}
 			return err
 		}
 		if !ok {
@@ -217,6 +244,9 @@ WHERE tenant_id = $1
 `
 	var total int
 	if err := r.db.QueryRow(ctx, q, tenantID, projectID).Scan(&total); err != nil {
+		if isUndefinedRelationErr(err, "project_criteria") {
+			return 0, projectflow.ErrSchemaMissing
+		}
 		return 0, err
 	}
 	return total, nil

@@ -61,7 +61,6 @@ type ProfessorsRepository interface {
 }
 
 type CriteriaRepository interface {
-	GetProjectCriteriaWeightSum(ctx context.Context, projectID uuid.UUID) (int, error)
 	CreateProjectCriterion(ctx context.Context, projectID, userID uuid.UUID, title, description string, weight int) (Criterion, error)
 	ListProjectCriteria(ctx context.Context, projectID uuid.UUID) ([]Criterion, error)
 	ListProjectCriterionGrades(ctx context.Context, projectID, professorID uuid.UUID) ([]CriterionGrade, error)
@@ -83,6 +82,7 @@ type TasksRepository interface {
 	CreateTask(ctx context.Context, projectID uuid.UUID, title, description string, positionID uuid.UUID, assigneeUserID *uuid.UUID, status string, createdBy uuid.UUID, dueAt *time.Time) (uuid.UUID, error)
 	GetTaskByID(ctx context.Context, projectID, taskID uuid.UUID) (Task, error)
 	ListProjectTasks(ctx context.Context, projectID uuid.UUID) ([]Task, error)
+	EnsureTaskActivityLogAvailable(ctx context.Context) error
 	GetTaskStatusAndTitle(ctx context.Context, projectID, taskID uuid.UUID) (status, title string, err error)
 	UpdateTaskStatus(ctx context.Context, projectID, taskID uuid.UUID, status string) (uuid.UUID, error)
 	GetTaskAssignContext(ctx context.Context, projectID, taskID uuid.UUID) (positionID uuid.UUID, prevStatus, taskTitle string, prevAssignee *uuid.UUID, err error)

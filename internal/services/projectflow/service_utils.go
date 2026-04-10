@@ -116,6 +116,10 @@ func (s *Service) appendTaskActivity(
 	return s.tasksRepo.InsertTaskActivity(ctx, projectID, taskID, actorUserID, eventType, fromStatus, toStatus, title, comment, attachments)
 }
 
+func (s *Service) ensureTaskActivityAvailable(ctx context.Context) error {
+	return s.tasksRepo.EnsureTaskActivityLogAvailable(ctx)
+}
+
 func (s *Service) ensurePositionExists(ctx context.Context, projectID, positionID uuid.UUID) (capacity int, err error) {
 	capacity, err = s.positionsRepo.GetProjectPositionCapacity(ctx, projectID, positionID)
 	if err != nil {

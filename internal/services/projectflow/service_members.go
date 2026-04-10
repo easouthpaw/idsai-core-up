@@ -49,9 +49,6 @@ func (s *Service) SetStacks(ctx context.Context, userID, projectID uuid.UUID, st
 	norm := normalizeStackCodes(stacks)
 
 	if err := s.stacksRepo.ReplaceProjectStacks(ctx, projectID, norm); err != nil {
-		if errors.Is(err, ErrSchemaMissing) {
-			return stacksFromCodes(norm), nil
-		}
 		return nil, err
 	}
 

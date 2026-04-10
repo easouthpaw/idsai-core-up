@@ -39,10 +39,14 @@ func (f *fakeOutboxRepo) MarkOutboxFailed(ctx context.Context, outboxID uuid.UUI
 }
 
 type fakeEmailSender struct {
-	err error
+	err  error
+	send func(ctx context.Context, to, subject, body string) error
 }
 
 func (f fakeEmailSender) Send(ctx context.Context, to, subject, body string) error {
+	if f.send != nil {
+		return f.send(ctx, to, subject, body)
+	}
 	return f.err
 }
 
@@ -88,4 +92,32 @@ func TestOutboxDispatcherLogsSendFailure(t *testing.T) {
 	require.Contains(t, logs.String(), "notifications outbox send failed")
 	require.Contains(t, logs.String(), "student@example.edu")
 	require.Contains(t, logs.String(), "smtp auth failed")
+}
+
+func TestOutboxDispatcherAppliesPerSendTimeout(t *testing.T) {
+	itemID := uuid.New()
+	repo := &fakeOutboxRepo{
+		items: []OutboxItem{{
+			ID:       itemID,
+			TenantID: uuid.New(),
+			EmailTo:  "student@example.edu",
+			Subject:  "Reset password",
+			Body:     "Code: 123456",
+		}},
+	}
+	dispatcher := NewOutboxDispatcher(repo, fakeEmailSender{
+		send: func(ctx context.Context, to, subject, body string) error {
+			<-ctx.Done()
+			return ctx.Err()
+		},
+	})
+	dispatcher.SetSendTimeout(5 * time.Millisecond)
+
+	start := time.Now()
+	dispatcher.runBatch(context.Background())
+
+	require.Equal(t, itemID, repo.markFailedID)
+	require.Equal(t, 1, repo.markAttempts)
+	require.Contains(t, repo.markLastErr, context.DeadlineExceeded.Error())
+	require.Less(t, time.Since(start), 250*time.Millisecond)
 }

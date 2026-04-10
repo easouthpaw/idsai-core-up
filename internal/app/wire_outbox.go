@@ -32,8 +32,10 @@ func startEmailOutboxDispatcher(ctx context.Context, cfg config.Config, repo not
 		log.Printf("email config appears to use placeholder values; update SMTP_USER/SMTP_PASS/SMTP_FROM")
 	}
 
-	emailSender := email.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom)
+	sendTimeout := time.Duration(cfg.SMTPSendTimeoutS) * time.Second
+	emailSender := email.NewSMTPSenderWithTimeout(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom, sendTimeout)
 	dispatcher := notifications.NewOutboxDispatcher(repo, emailSender)
+	dispatcher.SetSendTimeout(sendTimeout)
 	pollEvery := time.Duration(cfg.OutboxPollS) * time.Second
 	go dispatcher.Start(ctx, pollEvery)
 }

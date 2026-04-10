@@ -51,6 +51,9 @@ func (s *Service) CreateTask(ctx context.Context, userID, projectID uuid.UUID, t
 			return Task{}, err
 		}
 	}
+	if err := s.ensureTaskActivityAvailable(ctx); err != nil {
+		return Task{}, err
+	}
 
 	status := "OPEN"
 	taskID, err := s.tasksRepo.CreateTask(ctx, projectID, title, description, positionID, assigneeUserID, status, userID, dueAt)
@@ -97,6 +100,9 @@ func (s *Service) UpdateTaskStatus(ctx context.Context, userID, projectID, taskI
 	if !ok {
 		return Task{}, ErrInvalidInput
 	}
+	if err := s.ensureTaskActivityAvailable(ctx); err != nil {
+		return Task{}, err
+	}
 
 	prevStatus, taskTitle, err := s.tasksRepo.GetTaskStatusAndTitle(ctx, projectID, taskID)
 	if err != nil {
@@ -120,6 +126,9 @@ func (s *Service) AssignTask(ctx context.Context, userID, projectID, taskID, ass
 		return Task{}, err
 	}
 	if err := s.ensureActiveProject(ctx, projectID); err != nil {
+		return Task{}, err
+	}
+	if err := s.ensureTaskActivityAvailable(ctx); err != nil {
 		return Task{}, err
 	}
 
@@ -172,6 +181,9 @@ func (s *Service) CompleteTask(ctx context.Context, userID, projectID, taskID uu
 	if currentStatus != "IN_PROGRESS" {
 		return Task{}, ErrInvalidInput
 	}
+	if err := s.ensureTaskActivityAvailable(ctx); err != nil {
+		return Task{}, err
+	}
 
 	if err := s.tasksRepo.UpsertTaskSubmission(ctx, projectID, taskID, userID, comment, attachments); err != nil {
 		return Task{}, err
@@ -200,6 +212,9 @@ func (s *Service) ClaimTask(ctx context.Context, userID, projectID, taskID uuid.
 		return err
 	}
 	prevStatus = strings.ToUpper(strings.TrimSpace(prevStatus))
+	if err := s.ensureTaskActivityAvailable(ctx); err != nil {
+		return err
+	}
 	if err := s.tasksRepo.ClaimTask(ctx, projectID, taskID, userID); err != nil {
 		return err
 	}

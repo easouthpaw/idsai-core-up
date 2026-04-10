@@ -20,9 +20,14 @@ type Config struct {
 	SMTPUser                  string
 	SMTPPass                  string
 	SMTPFrom                  string
+	SMTPSendTimeoutS          int
 	ContactEmailTo            string
 	EmailEnable               bool
 	OutboxPollS               int
+	DBMaxConns                int
+	DBMinConns                int
+	DBHealthcheckS            int
+	DBPingTimeoutS            int
 	ServerName                string
 	TelegramBotToken          string
 	TelegramSuperadminChat    string
@@ -65,9 +70,14 @@ func Load() Config {
 		SMTPUser:                  getenv("SMTP_USER", ""),
 		SMTPPass:                  getenv("SMTP_PASS", ""),
 		SMTPFrom:                  getenv("SMTP_FROM", "noreply@idsai.local"),
+		SMTPSendTimeoutS:          getenvInt("SMTP_SEND_TIMEOUT_SECONDS", 15),
 		ContactEmailTo:            getenv("CONTACT_EMAIL_TO", ""),
 		EmailEnable:               getenvBool("EMAIL_ENABLED", true),
 		OutboxPollS:               getenvInt("NOTIFICATIONS_OUTBOX_POLL_SECONDS", 15),
+		DBMaxConns:                getenvInt("DB_MAX_CONNS", 10),
+		DBMinConns:                getenvInt("DB_MIN_CONNS", 1),
+		DBHealthcheckS:            getenvInt("DB_HEALTHCHECK_SECONDS", 30),
+		DBPingTimeoutS:            getenvInt("DB_PING_TIMEOUT_SECONDS", 2),
 		ServerName:                getenv("SERVER_NAME", "idsai"),
 		TelegramBotToken:          getenv("TELEGRAM_BOT_TOKEN", ""),
 		TelegramSuperadminChat:    getenv("TELEGRAM_SUPERADMIN_CHAT_ID", ""),

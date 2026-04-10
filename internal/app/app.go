@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"strings"
+	"time"
 
 	"idsai-core-up/internal/config"
 	"idsai-core-up/internal/db"
@@ -27,7 +28,12 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		return nil, err
 	}
 
-	pool, err := db.NewPool(ctx, cfg.DatabaseURL)
+	pool, err := db.NewPoolWithOptions(ctx, cfg.DatabaseURL, db.PoolOptions{
+		MaxConns:          int32(cfg.DBMaxConns),
+		MinConns:          int32(cfg.DBMinConns),
+		HealthCheckPeriod: time.Duration(cfg.DBHealthcheckS) * time.Second,
+		PingTimeout:       time.Duration(cfg.DBPingTimeoutS) * time.Second,
+	})
 	if err != nil {
 		return nil, err
 	}

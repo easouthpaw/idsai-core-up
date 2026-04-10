@@ -97,6 +97,18 @@ ORDER BY t.created_at ASC;
 	return out, rows.Err()
 }
 
+func (r *ProjectFlowRepo) EnsureTaskActivityLogAvailable(ctx context.Context) error {
+	rows, err := r.db.Query(ctx, `SELECT 1 FROM task_activity_logs LIMIT 1`)
+	if err != nil {
+		if isUndefinedRelationErr(err, "task_activity_logs") {
+			return projectflow.ErrSchemaMissing
+		}
+		return err
+	}
+	rows.Close()
+	return rows.Err()
+}
+
 func (r *ProjectFlowRepo) GetTaskStatusAndTitle(ctx context.Context, projectID, taskID uuid.UUID) (string, string, error) {
 	tenantID, err := tenantIDFromContext(ctx)
 	if err != nil {
@@ -218,7 +230,7 @@ WHERE a.tenant_id = $1
 	rows, err := r.db.Query(ctx, baseQ, args...)
 	if err != nil {
 		if isUndefinedRelationErr(err, "task_activity_logs") {
-			return []projectflow.TaskActivity{}, nil
+			return nil, projectflow.ErrSchemaMissing
 		}
 		return nil, err
 	}
@@ -306,7 +318,7 @@ DO UPDATE SET comment = EXCLUDED.comment, attachments = EXCLUDED.attachments, up
 `
 	if _, err := r.db.Exec(ctx, q, tenantID, projectID, taskID, userID, comment, encodeStringSliceJSON(attachments)); err != nil {
 		if isUndefinedRelationErr(err, "task_submissions") {
-			return nil
+			return projectflow.ErrSchemaMissing
 		}
 		return err
 	}
@@ -418,7 +430,7 @@ WHERE p.tenant_id = $1
 `
 	_, err = r.db.Exec(ctx, q, tenantID, projectID, taskID, actorUserID, eventType, fromStatus, toStatus, title, comment, encodeStringSliceJSON(attachments))
 	if err != nil && isUndefinedRelationErr(err, "task_activity_logs") {
-		return nil
+		return projectflow.ErrSchemaMissing
 	}
 	return err
 }

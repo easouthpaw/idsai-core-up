@@ -27,14 +27,6 @@ func (s *Service) CreateCriterion(ctx context.Context, userID, projectID uuid.UU
 	if weight > 100 {
 		weight = 100
 	}
-	currentWeight, err := s.criteriaRepo.GetProjectCriteriaWeightSum(ctx, projectID)
-	if err != nil {
-		return Criterion{}, err
-	}
-	if currentWeight+weight > 100 {
-		return Criterion{}, fmt.Errorf("%w: total criteria weight exceeds 100", ErrInvalidInput)
-	}
-
 	return s.criteriaRepo.CreateProjectCriterion(ctx, projectID, userID, title, description, weight)
 }
 
@@ -94,7 +86,7 @@ func (s *Service) UpsertGrading(ctx context.Context, userID, projectID uuid.UUID
 	}
 	if err := s.criteriaRepo.UpsertProjectCriterionGrades(ctx, projectID, userID, sanitized); err != nil {
 		if errors.Is(err, ErrSchemaMissing) {
-			return nil, ErrInvalidInput
+			return nil, err
 		}
 		if errors.Is(err, ErrInvalidInput) {
 			return nil, ErrInvalidInput
@@ -267,7 +259,7 @@ func (s *Service) PublishGrading(ctx context.Context, userID, projectID uuid.UUI
 	gradedTotal, err := s.criteriaRepo.CountProjectGradedCriteria(ctx, projectID, userID)
 	if err != nil {
 		if errors.Is(err, ErrSchemaMissing) {
-			return domain.Project{}, fmt.Errorf("%w: grading table is missing", ErrInvalidInput)
+			return domain.Project{}, err
 		}
 		return domain.Project{}, err
 	}

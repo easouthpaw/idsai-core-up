@@ -271,7 +271,7 @@ func (r *ProjectFlowRepo) ListProjectStackCodes(ctx context.Context, projectID u
 	rows, err := r.db.Query(ctx, `SELECT stack_code FROM project_stacks WHERE tenant_id = $1 AND project_id = $2 ORDER BY stack_code ASC`, tenantID, projectID)
 	if err != nil {
 		if isUndefinedRelationErr(err, "project_stacks") {
-			return []string{}, nil
+			return nil, projectflow.ErrSchemaMissing
 		}
 		return nil, err
 	}

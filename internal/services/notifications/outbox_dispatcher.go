@@ -29,6 +29,7 @@ type OutboxDispatcher struct {
 	maxAttempts   int
 	batchSize     int
 	baseRetryWait time.Duration
+	sendTimeout   time.Duration
 }
 
 func NewOutboxDispatcher(repo OutboxRepository, email EmailSender) *OutboxDispatcher {
@@ -38,7 +39,12 @@ func NewOutboxDispatcher(repo OutboxRepository, email EmailSender) *OutboxDispat
 		maxAttempts:   8,
 		batchSize:     100,
 		baseRetryWait: 15 * time.Second,
+		sendTimeout:   15 * time.Second,
 	}
+}
+
+func (d *OutboxDispatcher) SetSendTimeout(timeout time.Duration) {
+	d.sendTimeout = timeout
 }
 
 func (d *OutboxDispatcher) Start(ctx context.Context, poll time.Duration) {
@@ -66,7 +72,13 @@ func (d *OutboxDispatcher) runBatch(ctx context.Context) {
 		return
 	}
 	for _, it := range items {
-		sendErr := d.email.Send(ctx, it.EmailTo, it.Subject, it.Body)
+		sendCtx := ctx
+		cancel := func() {}
+		if d.sendTimeout > 0 {
+			sendCtx, cancel = context.WithTimeout(ctx, d.sendTimeout)
+		}
+		sendErr := d.email.Send(sendCtx, it.EmailTo, it.Subject, it.Body)
+		cancel()
 		if sendErr == nil {
 			if err := d.repo.MarkOutboxSent(ctx, it.ID); err != nil {
 				log.Printf("notifications outbox mark sent failed: id=%s err=%v", it.ID, err)
