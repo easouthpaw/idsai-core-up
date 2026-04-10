@@ -448,10 +448,15 @@
       await loadInvites();
       setTab("incoming");
       setStatus("Заявки загружены.", false);
+      auth.setPageLoading(false);
     } catch (err) {
       setStatus(err.message || String(err), true);
+      auth.setPageLoading(false);
     }
   }
 
-  bootstrap();
+  bootstrap().catch((err) => {
+    auth.setPageLoading(false);
+    setStatus(err.message || String(err), true);
+  });
 })();

@@ -7,12 +7,15 @@
   const panelLoginEl = document.getElementById("panelLogin");
   const panelRegisterEl = document.getElementById("panelRegister");
   const forgotPasswordBtn = document.getElementById("forgotPasswordBtn");
+  const rememberMeEl = document.getElementById("rememberMe");
   const regDepartmentEl = document.getElementById("regDepartment");
   const regGroupEl = document.getElementById("regGroup");
   const regGroupPreviewEl = document.getElementById("regGroupPreview");
   const registrationState = {
     departments: [],
   };
+  const PASSWORD_ICON_SHOW = "/dev/static/assets/icon-eye.svg";
+  const PASSWORD_ICON_HIDE = "/dev/static/assets/icon-eye-slash.svg";
   const STATUS_ICON_HTML =
     `<svg viewBox="0 0 24 24" fill="none" focusable="false" aria-hidden="true">` +
       `<path d="M13 16h-1v-4h1m0-4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>` +
@@ -148,6 +151,43 @@
     panelRegisterEl.classList.toggle("active", !isLogin);
   }
 
+  function syncPasswordToggle(button, input) {
+    if (!(button instanceof HTMLButtonElement) || !(input instanceof HTMLInputElement)) {
+      return;
+    }
+    const isVisible = input.type === "text";
+    const icon = button.querySelector(".password-toggle__icon");
+    button.classList.toggle("is-visible", isVisible);
+    button.setAttribute("aria-pressed", isVisible ? "true" : "false");
+    button.setAttribute("aria-label", isVisible ? "Скрыть пароль" : "Показать пароль");
+    if (icon instanceof HTMLImageElement) {
+      icon.src = isVisible ? PASSWORD_ICON_HIDE : PASSWORD_ICON_SHOW;
+    }
+  }
+
+  function initPasswordToggles() {
+    document.querySelectorAll("[data-password-toggle]").forEach((button) => {
+      if (!(button instanceof HTMLButtonElement)) {
+        return;
+      }
+      const targetID = String(button.dataset.target || "").trim();
+      const input = targetID ? document.getElementById(targetID) : null;
+      if (!(input instanceof HTMLInputElement)) {
+        return;
+      }
+      syncPasswordToggle(button, input);
+      button.addEventListener("click", () => {
+        input.type = input.type === "password" ? "text" : "password";
+        syncPasswordToggle(button, input);
+        input.focus({ preventScroll: true });
+        const caret = input.value.length;
+        try {
+          input.setSelectionRange(caret, caret);
+        } catch (_) {}
+      });
+    });
+  }
+
   function targetByProfile(profile) {
     return auth.targetByProfile(profile);
   }
@@ -241,8 +281,9 @@
   async function login() {
     const email = document.getElementById("loginEmail").value.trim();
     const password = document.getElementById("loginPassword").value;
+    const rememberMe = Boolean(rememberMeEl && rememberMeEl.checked);
 
-    const out = await callJSON("/v2/auth/login", { email, password });
+    const out = await callJSON("/v2/auth/login", { email, password, remember_me: rememberMe });
     if (!out.resp.ok) {
       if (out.resp.status === 403 && out.data && out.data.code === "email_verification_required") {
         setStatus("Подтвердите email перед входом.", false);
@@ -497,6 +538,7 @@
     });
   });
 
+  initPasswordToggles();
   handleQueryState();
   regDepartmentEl?.addEventListener("change", () => {
     updateRegistrationGroupField();

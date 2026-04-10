@@ -31,7 +31,9 @@ SELECT
   COALESCE(primary_role.role_code, '') AS role_code,
   u.status,
   f.code AS faculty_code,
-  d.code AS department_code
+  d.code AS department_code,
+  u.created_at,
+  u.updated_at
 FROM users u
 JOIN user_profiles p ON p.user_id = u.id
 JOIN faculties f ON f.id = p.faculty_id
@@ -77,6 +79,8 @@ ORDER BY p.full_name ASC, u.created_at DESC;
 			&u.Status,
 			&u.FacultyCode,
 			&u.DepartmentCode,
+			&u.CreatedAt,
+			&u.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -232,7 +236,8 @@ WHERE r.code = $4;
 func (r *AdminRepo) UpdateUserStatus(ctx context.Context, userID uuid.UUID, status string) error {
 	tag, err := r.db.Exec(ctx, `
 UPDATE users
-SET status = $2
+SET status = $2,
+    updated_at = now()
 WHERE id = $1;
 `, userID, status)
 	if err != nil {
@@ -290,6 +295,18 @@ WHERE r.code = $4;
 	}
 	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("role not found: %s", roleCode)
+	}
+
+	tag, err = tx.Exec(ctx, `
+UPDATE users
+SET updated_at = now()
+WHERE id = $1;
+`, userID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return svc.ErrUserNotFound
 	}
 
 	return tx.Commit(ctx)
@@ -743,7 +760,9 @@ SELECT
   COALESCE(primary_role.role_code, '') AS role_code,
   u.status,
   f.code AS faculty_code,
-  d.code AS department_code
+  d.code AS department_code,
+  u.created_at,
+  u.updated_at
 FROM users u
 JOIN user_profiles p ON p.user_id = u.id
 JOIN faculties f ON f.id = p.faculty_id
@@ -776,6 +795,8 @@ WHERE u.id = $1;
 		&u.Status,
 		&u.FacultyCode,
 		&u.DepartmentCode,
+		&u.CreatedAt,
+		&u.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return svc.User{}, svc.ErrUserNotFound

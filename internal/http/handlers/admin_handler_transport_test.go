@@ -76,6 +76,7 @@ func (f *adminHandlerRepo) GetProjectByID(ctx context.Context, projectID uuid.UU
 
 func TestAdminHandlerListUsers_UsesTransportDTO(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	now := time.Date(2026, 4, 10, 8, 0, 0, 0, time.UTC)
 
 	repo := &adminHandlerRepo{
 		users: []admin.User{
@@ -87,6 +88,8 @@ func TestAdminHandlerListUsers_UsesTransportDTO(t *testing.T) {
 				Status:         admin.StatusActive,
 				FacultyCode:    "IDSAI",
 				DepartmentCode: "CS",
+				CreatedAt:      now.Add(-time.Hour),
+				UpdatedAt:      now,
 			},
 		},
 	}

@@ -474,6 +474,16 @@ body.admin-body .admin-shell {
   overflow: auto;
 }
 
+body.app-loading > * {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(6px);
+}
+
+body > * {
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
 body.projects-body .topbar,
 body.project-body .topbar,
 body.admin-body .admin-topbar {

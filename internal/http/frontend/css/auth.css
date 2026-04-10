@@ -392,6 +392,58 @@ input:focus-visible, select:focus-visible {
   border-bottom-color: #172845;
 }
 
+.password-field {
+  position: relative;
+}
+
+.password-input {
+  padding-right: 56px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(148, 163, 184, 0.12);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.password-toggle:hover {
+  transform: translateY(-50%) scale(1.04);
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.password-toggle:focus-visible {
+  outline: 2px solid rgba(37, 99, 235, 0.32);
+  outline-offset: 2px;
+  background: rgba(37, 99, 235, 0.14);
+}
+
+.password-toggle.is-visible {
+  background: rgba(37, 99, 235, 0.14);
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.14);
+}
+
+.password-toggle__icon {
+  width: 20px;
+  height: 20px;
+  opacity: 0.82;
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+
+.password-toggle.is-visible .password-toggle__icon {
+  opacity: 1;
+  transform: scale(1.08);
+}
+
 .row2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -415,33 +467,101 @@ input:focus-visible, select:focus-visible {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
   color: #94a0b2;
   font-size: 15px;
 }
 
 .remember {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   text-transform: none;
   letter-spacing: 0;
-  color: #8996aa;
-  font: 500 15px "Manrope", sans-serif;
+  color: #425066;
+  font: 700 15px "Manrope", sans-serif;
   margin: 0;
+  cursor: pointer;
+  user-select: none;
 }
 
 .remember input {
-  width: 16px;
-  height: 16px;
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 1px;
+  height: 1px;
   margin: 0;
-  border: 1px solid #cfd6e2;
-  appearance: none;
-  border-radius: 4px;
-  background: #fff;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
 }
 
-.remember input:checked {
-  box-shadow: inset 0 0 0 4px #0f172a;
+.remember input:focus-visible {
+  outline: none;
+}
+
+.remember__box {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  border-radius: 8px;
+  border: 2px solid #2d6dd9;
+  background: linear-gradient(180deg, #ffffff 0%, #eef4ff 100%);
+  display: grid;
+  place-items: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  transition: transform 180ms ease, background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.remember__check {
+  width: 14px;
+  height: 14px;
+  opacity: 0;
+  transform: scale(0.35) rotate(-16deg);
+  transition: transform 220ms cubic-bezier(0.2, 0.9, 0.25, 1.25), opacity 140ms ease;
+}
+
+.remember__text {
+  line-height: 1.2;
+}
+
+.remember:hover .remember__box {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(37, 99, 235, 0.14);
+}
+
+.remember input:focus-visible + .remember__box {
+  outline: 2px solid rgba(37, 99, 235, 0.28);
+  outline-offset: 3px;
+}
+
+.remember input:checked + .remember__box {
+  border-color: #1d4ed8;
+  background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+  box-shadow: 0 12px 22px rgba(29, 78, 216, 0.22);
+  animation: remember-bounce 240ms ease;
+}
+
+.remember input:checked + .remember__box .remember__check {
+  opacity: 1;
+  filter: brightness(0) invert(1);
+  transform: scale(1) rotate(0deg);
+}
+
+@keyframes remember-bounce {
+  0% {
+    transform: scale(0.9);
+  }
+  55% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .link-ghost {
@@ -450,6 +570,12 @@ input:focus-visible, select:focus-visible {
   padding: 0;
   color: #9eabc0;
   cursor: pointer;
+  transition: color 140ms ease, transform 140ms ease;
+}
+
+.link-ghost:hover {
+  color: #3b4860;
+  transform: translateX(1px);
 }
 
 .primary {
@@ -647,5 +773,9 @@ input:focus-visible, select:focus-visible {
   .row2 {
     grid-template-columns: 1fr;
     gap: 8px;
+  }
+
+  .password-toggle {
+    right: 4px;
   }
 }

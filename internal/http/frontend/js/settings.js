@@ -594,8 +594,13 @@
       }
     } catch (err) {
       setStatus(ui.fullNameStatus, `Не удалось загрузить настройки: ${err.message || String(err)}`, "err");
+    } finally {
+      auth.setPageLoading(false);
     }
   }
 
-  void bootstrap();
+  void bootstrap().catch((err) => {
+    auth.setPageLoading(false);
+    setStatus(ui.fullNameStatus, `Не удалось загрузить настройки: ${err.message || String(err)}`, "err");
+  });
 })();

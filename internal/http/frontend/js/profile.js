@@ -117,6 +117,10 @@
     isEditMode: false,
   };
 
+  function setProfileLoading(loading) {
+    document.body.classList.toggle("profile-loading", Boolean(loading));
+  }
+
   function shouldShowGroup(profile) {
     return Boolean(profile && !profile.is_professor && !profile.is_admin && String(profile.group_code || "").trim());
   }
@@ -867,15 +871,23 @@
       const data = await loadTargetProfile(targetUserID);
       applyProfileData(data);
       setMode(false);
+      setProfileLoading(false);
+      auth.setPageLoading(false);
     } catch (err) {
       if (err && err.status === 404 && auth && typeof auth.redirectToNotFound === "function") {
         auth.redirectToNotFound();
         return;
       }
       setStatus(ui.profileStatus, `Не удалось загрузить профиль: ${err.message || String(err)}`, "err");
+      setProfileLoading(false);
+      auth.setPageLoading(false);
     }
   }
 
   wireEvents();
-  bootstrap();
+  bootstrap().catch((err) => {
+    setStatus(ui.profileStatus, `Не удалось загрузить профиль: ${err.message || String(err)}`, "err");
+    setProfileLoading(false);
+    auth.setPageLoading(false);
+  });
 })();

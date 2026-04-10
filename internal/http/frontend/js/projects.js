@@ -558,7 +558,6 @@
         `</div>` +
         `<div class="card-actions">` +
           `<span class="visibility-pill">${escapeHTML(visibilityLabel(p.visibility))}</span>` +
-          `<button class="detail-btn" data-open-id="${pid}" type="button">Открыть</button>` +
         `</div>`;
 
       myProjectsEl.appendChild(article);
@@ -1057,23 +1056,24 @@
   });
 
   void (async () => {
-    const claims = await auth.ensureSession("student");
-    if (!claims) return;
+    try {
+      const claims = await auth.ensureSession("student");
+      if (!claims) return;
 
-    activeTab = initialTabFromURL();
-    bindProfile(claims);
-    await syncCapabilities();
-    logLine("session initialized");
-    loadGroups()
-      .then(async () => {
-        await loadMineProjects();
-        await loadCommunityProjects();
-        switchTab(activeTab);
-        logLine("all systems operational");
-      })
-      .catch((e) => {
-        setStatus(null, "Initial load failed", false);
-        logLine(e.message || String(e));
-      });
+      activeTab = initialTabFromURL();
+      bindProfile(claims);
+      await syncCapabilities();
+      logLine("session initialized");
+      await loadGroups();
+      await loadMineProjects();
+      await loadCommunityProjects();
+      switchTab(activeTab);
+      logLine("all systems operational");
+      auth.setPageLoading(false);
+    } catch (e) {
+      setStatus(null, "Initial load failed", false);
+      logLine(e.message || String(e));
+      auth.setPageLoading(false);
+    }
   })();
 })();

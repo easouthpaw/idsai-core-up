@@ -279,11 +279,17 @@
   }
 
   void (async () => {
-    const profile = await auth.ensureSession("professor");
-    if (!profile) return;
-    applyGuideVisibility();
-    renderGuide();
-    attachEvents();
-    await loadInvites();
+    try {
+      const profile = await auth.ensureSession("professor");
+      if (!profile) return;
+      applyGuideVisibility();
+      renderGuide();
+      attachEvents();
+      await loadInvites();
+      auth.setPageLoading(false);
+    } catch (err) {
+      auth.setPageLoading(false);
+      setStatus(err.message || String(err), true);
+    }
   })();
 })();

@@ -399,7 +399,7 @@
     if (!Number.isFinite(ts) || ts <= 0) return i18n ? i18n.t("только что") : "недавно";
     if (i18n) return i18n.relativeTime(ts);
 
-    const diffMs = Date.now() - ts;
+    const diffMs = Math.max(0, Date.now() - ts);
     const mins = Math.floor(diffMs / 60000);
     if (mins <= 0) return "только что";
     if (mins < 60) return `${mins} мин назад`;
@@ -407,6 +407,59 @@
     if (hours < 24) return `${hours} ч назад`;
     const days = Math.floor(hours / 24);
     return `${days} дн назад`;
+  }
+
+  function parseTimestamp(raw) {
+    if (!raw) return 0;
+    if (typeof raw === "number") {
+      return Number.isFinite(raw) && raw > 0 ? raw : 0;
+    }
+    const ts = new Date(raw).getTime();
+    return Number.isFinite(ts) && ts > 0 ? ts : 0;
+  }
+
+  function activityTimestamp(...candidates) {
+    for (const value of candidates) {
+      const ts = parseTimestamp(value);
+      if (ts > 0) return ts;
+    }
+    return 0;
+  }
+
+  function wasRecentlyCreated(createdAt, updatedAt) {
+    if (!createdAt || !updatedAt) return false;
+    return Math.abs(updatedAt - createdAt) <= 60 * 1000;
+  }
+
+  function userActivityText(user) {
+    const name = user.full_name || user.email || "Пользователь";
+    const status = String(user.status || "").toUpperCase();
+    const createdAt = activityTimestamp(user.created_at);
+    const updatedAt = activityTimestamp(user.updated_at, user.created_at);
+
+    let action = `Аккаунт ${roleLabel(user.role_code).toLowerCase()} создан`;
+    if (status === "DISABLED") {
+      action = "Аккаунт отключен";
+    } else if (status === "PENDING") {
+      action = "Аккаунт ожидает подтверждения";
+    } else if (!wasRecentlyCreated(createdAt, updatedAt) && updatedAt > createdAt) {
+      action = `Профиль обновлен · ${roleLabel(user.role_code)}`;
+    }
+
+    return `${name} · ${action}`;
+  }
+
+  function projectActivityText(project) {
+    const title = project.title || "Проект";
+    const statusLabel = projectStatusLabel(project.status);
+    const createdAt = activityTimestamp(project.created_at);
+    const updatedAt = activityTimestamp(project.updated_at, project.created_at);
+
+    if (!wasRecentlyCreated(createdAt, updatedAt) && updatedAt > createdAt) {
+      return `${title} · Обновлен · ${statusLabel}`;
+    }
+
+    return `${title} · Создан · ${statusLabel}`;
   }
 
   function groupLabel(user) {
@@ -556,27 +609,33 @@
     const entries = [];
 
     const userList = Array.isArray(users) ? users.slice(0, 6) : [];
-    userList.forEach((u, i) => {
+    userList.forEach((u) => {
+      const at = activityTimestamp(u.updated_at, u.created_at);
       entries.push({
         kind: "user",
         dot: u.status === "DISABLED" ? "amber" : "violet",
-        text: `${u.full_name || u.email || "Пользователь"} · ${roleLabel(u.role_code)}`,
-        at: Date.now() - i * 5 * 60 * 1000,
+        text: userActivityText(u),
+        searchText: `${u.full_name || ""} ${u.email || ""} ${roleLabel(u.role_code)} ${u.status || ""}`.toLowerCase(),
+        at,
+        atLabel: at ? formatDateTime(at) : "",
       });
     });
 
     const projectList = Array.isArray(projects) ? projects.slice(0, 6) : [];
     projectList.forEach((p) => {
+      const at = activityTimestamp(p.updated_at, p.created_at);
       entries.push({
         kind: "project",
         dot: projectStatusDot(p.status),
-        text: `${p.title || "Проект"} · ${projectStatusLabel(p.status)}`,
-        at: new Date(p.updated_at || p.created_at || "").getTime() || 0,
+        text: projectActivityText(p),
+        searchText: `${p.title || ""} ${p.description || ""} ${projectStatusLabel(p.status)} ${p.author_name || ""} ${p.author_email || ""}`.toLowerCase(),
+        at,
+        atLabel: at ? formatDateTime(at) : "",
       });
     });
 
     const list = entries
-      .filter((item) => (q ? item.text.toLowerCase().includes(q) : true))
+      .filter((item) => (q ? `${item.text.toLowerCase()} ${item.searchText || ""}`.includes(q) : true))
       .sort((a, b) => b.at - a.at)
       .slice(0, 8);
 
@@ -607,7 +666,7 @@
         </div>
         <div class="activity-meta-row">
           <span class="activity-kind tone-${escapeHTML(item.dot)}"><i class="dot ${escapeHTML(item.dot)}"></i>${escapeHTML(kindLabel)}</span>
-          <span class="activity-time">${escapeHTML(relativeTime(item.at))}</span>
+          <span class="activity-time" title="${escapeHTML(item.atLabel || "")}">${escapeHTML(relativeTime(item.at))}</span>
         </div>
       `;
       li.className = `activity-log tone-${item.dot}`;
@@ -1464,7 +1523,11 @@
     setView(initialView || "dashboard", true);
 
     await reloadAll();
+    auth.setPageLoading(false);
   }
 
-  main();
+  main().catch((err) => {
+    auth.setPageLoading(false);
+    notify(err.message || String(err), "error");
+  });
 })();

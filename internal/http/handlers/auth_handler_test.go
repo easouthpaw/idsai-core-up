@@ -196,7 +196,19 @@ func newAuthHandlerForTestWithConfig(t *testing.T, cfg auth.Config) *AuthHandler
 	return NewAuthHandler(svc)
 }
 
-func TestAuthHandlerLoginSetsHttpOnlyCookiesByDefault(t *testing.T) {
+func cookieByName(t *testing.T, cookies []*http.Cookie, name string) *http.Cookie {
+	t.Helper()
+
+	for _, cookie := range cookies {
+		if cookie.Name == name {
+			return cookie
+		}
+	}
+	t.Fatalf("cookie %q not found", name)
+	return nil
+}
+
+func TestAuthHandlerLoginSetsPersistentCookiesByDefault(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	h := newAuthHandlerForTest(t)
@@ -220,13 +232,53 @@ func TestAuthHandlerLoginSetsHttpOnlyCookiesByDefault(t *testing.T) {
 	require.NotContains(t, w.Body.String(), "refresh_token")
 
 	cookies := w.Result().Cookies()
-	var cookieNames []string
-	for _, cookie := range cookies {
-		cookieNames = append(cookieNames, cookie.Name)
-		require.True(t, cookie.HttpOnly)
-	}
-	require.Contains(t, cookieNames, auth.AccessCookieName)
-	require.Contains(t, cookieNames, auth.RefreshCookieName)
+	accessCookie := cookieByName(t, cookies, auth.AccessCookieName)
+	refreshCookie := cookieByName(t, cookies, auth.RefreshCookieName)
+	rememberCookie := cookieByName(t, cookies, sessionModeCookieName)
+
+	require.True(t, accessCookie.HttpOnly)
+	require.True(t, refreshCookie.HttpOnly)
+	require.False(t, rememberCookie.HttpOnly)
+	require.Greater(t, accessCookie.MaxAge, 0)
+	require.Greater(t, refreshCookie.MaxAge, 0)
+	require.Greater(t, rememberCookie.MaxAge, 0)
+	require.Equal(t, "1", rememberCookie.Value)
+}
+
+func TestAuthHandlerLoginWithoutRememberMeUsesSessionCookies(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	h := newAuthHandlerForTest(t)
+	r := gin.New()
+	r.POST("/v2/auth/login", h.Login)
+
+	body, err := json.Marshal(map[string]interface{}{
+		"email":       "student@example.edu",
+		"password":    "valid-password1",
+		"remember_me": false,
+	})
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/v2/auth/login", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+
+	cookies := w.Result().Cookies()
+	accessCookie := cookieByName(t, cookies, auth.AccessCookieName)
+	refreshCookie := cookieByName(t, cookies, auth.RefreshCookieName)
+	rememberCookie := cookieByName(t, cookies, sessionModeCookieName)
+
+	require.True(t, accessCookie.HttpOnly)
+	require.True(t, refreshCookie.HttpOnly)
+	require.False(t, rememberCookie.HttpOnly)
+	require.Equal(t, 0, accessCookie.MaxAge)
+	require.Equal(t, 0, refreshCookie.MaxAge)
+	require.Equal(t, 0, rememberCookie.MaxAge)
+	require.Equal(t, "0", rememberCookie.Value)
 }
 
 func TestAuthHandlerLoginTokenModeReturnsTokens(t *testing.T) {

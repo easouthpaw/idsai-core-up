@@ -430,9 +430,11 @@
       tasks.push(loadAdminRequests());
     }
     await Promise.all(tasks);
+    auth.setPageLoading(false);
   }
 
   bootstrap().catch((err) => {
+    auth.setPageLoading(false);
     setStatus(err.message || String(err), true);
   });
 })();

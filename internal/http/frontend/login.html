@@ -71,10 +71,37 @@
           <input id="loginEmail" type="email" name="login_email" autocomplete="username" spellcheck="false" placeholder="напр. s1234567@university.edu" />
 
           <label for="loginPassword">Пароль</label>
-          <input id="loginPassword" type="password" name="login_password" autocomplete="current-password" placeholder="••••••••" />
+          <div class="password-field">
+            <input
+              id="loginPassword"
+              class="password-input"
+              type="password"
+              name="login_password"
+              autocomplete="current-password"
+              placeholder="••••••••"
+            />
+            <button
+              id="loginPasswordToggle"
+              class="password-toggle"
+              type="button"
+              aria-label="Показать пароль"
+              aria-controls="loginPassword"
+              aria-pressed="false"
+              data-password-toggle
+              data-target="loginPassword"
+            >
+              <img class="password-toggle__icon" src="/dev/static/assets/icon-eye.svg" alt="" />
+            </button>
+          </div>
 
           <div class="mini-row">
-            <label class="remember"><input id="rememberMe" name="remember_me" type="checkbox" /><span>Запомнить меня</span></label>
+            <label class="remember" for="rememberMe">
+              <input id="rememberMe" name="remember_me" type="checkbox" />
+              <span class="remember__box" aria-hidden="true">
+                <img class="remember__check" src="/dev/static/assets/icon-check.svg" alt="" />
+              </span>
+              <span class="remember__text">Запомнить меня</span>
+            </label>
             <button id="forgotPasswordBtn" class="link-ghost" type="button">Забыли пароль?</button>
           </div>
 
@@ -114,11 +141,51 @@
           <div class="row2">
             <div>
               <label for="regPassword">Пароль</label>
-              <input id="regPassword" type="password" name="password" autocomplete="new-password" placeholder="минимум 10 символов" />
+              <div class="password-field">
+                <input
+                  id="regPassword"
+                  class="password-input"
+                  type="password"
+                  name="password"
+                  autocomplete="new-password"
+                  placeholder="минимум 10 символов"
+                />
+                <button
+                  class="password-toggle"
+                  type="button"
+                  aria-label="Показать пароль"
+                  aria-controls="regPassword"
+                  aria-pressed="false"
+                  data-password-toggle
+                  data-target="regPassword"
+                >
+                  <img class="password-toggle__icon" src="/dev/static/assets/icon-eye.svg" alt="" />
+                </button>
+              </div>
             </div>
             <div>
               <label for="regPassword2">Повторите пароль</label>
-              <input id="regPassword2" type="password" name="password_confirm" autocomplete="new-password" placeholder="минимум 10 символов" />
+              <div class="password-field">
+                <input
+                  id="regPassword2"
+                  class="password-input"
+                  type="password"
+                  name="password_confirm"
+                  autocomplete="new-password"
+                  placeholder="минимум 10 символов"
+                />
+                <button
+                  class="password-toggle"
+                  type="button"
+                  aria-label="Показать пароль"
+                  aria-controls="regPassword2"
+                  aria-pressed="false"
+                  data-password-toggle
+                  data-target="regPassword2"
+                >
+                  <img class="password-toggle__icon" src="/dev/static/assets/icon-eye.svg" alt="" />
+                </button>
+              </div>
             </div>
           </div>
 

@@ -556,11 +556,17 @@
   }
 
   void (async () => {
-    state.profile = await auth.ensureSession("professor");
-    if (!state.profile) return;
+    try {
+      state.profile = await auth.ensureSession("professor");
+      if (!state.profile) return;
 
-    renderGreeting(state.profile);
-    attachEvents();
-    await refreshPage();
+      renderGreeting(state.profile);
+      attachEvents();
+      await refreshPage();
+      auth.setPageLoading(false);
+    } catch (err) {
+      setStatus(err.message || String(err), true);
+      auth.setPageLoading(false);
+    }
   })();
 })();

@@ -39,6 +39,8 @@ type AdminUserResponse struct {
 	Status         string    `json:"status"`
 	FacultyCode    string    `json:"faculty_code"`
 	DepartmentCode string    `json:"department_code"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 type ListUsersResponse struct {
@@ -134,6 +136,8 @@ func AdminUserResponseFromService(item admin.User) AdminUserResponse {
 		Status:         item.Status,
 		FacultyCode:    item.FacultyCode,
 		DepartmentCode: item.DepartmentCode,
+		CreatedAt:      item.CreatedAt,
+		UpdatedAt:      item.UpdatedAt,
 	}
 }
 

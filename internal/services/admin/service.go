@@ -39,6 +39,8 @@ type User struct {
 	Status         string
 	FacultyCode    string
 	DepartmentCode string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 type Project struct {

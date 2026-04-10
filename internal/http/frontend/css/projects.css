@@ -669,6 +669,10 @@ body.projects-body .hero.hero--welcome #tabSubtitle {
   min-height: 264px;
 }
 
+.mine-card .card-actions {
+  justify-content: flex-start;
+}
+
 .community-card {
   min-height: 250px;
   border-color: #d7dde6;

@@ -221,7 +221,12 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	setSessionCookies(c, h.svc, session.Tokens)
+	persistent := true
+	if req.RememberMe != nil {
+		persistent = *req.RememberMe
+	}
+
+	setSessionCookies(c, h.svc, session.Tokens, persistent)
 	c.JSON(http.StatusOK, dto.MeResponseFromUser(session.User))
 }
 
@@ -260,7 +265,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 		return
 	}
 
-	setSessionCookies(c, h.svc, session.Tokens)
+	setSessionCookies(c, h.svc, session.Tokens, sessionShouldPersist(c))
 	c.JSON(http.StatusOK, dto.AuthStatusResponse{Status: "refreshed"})
 }
 

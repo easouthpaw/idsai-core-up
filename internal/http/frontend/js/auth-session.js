@@ -1035,6 +1035,13 @@
     return permissions.has(String(permission || "").trim());
   }
 
+  function setPageLoading(loading, className = "app-loading") {
+    if (!document.body) {
+      return;
+    }
+    document.body.classList.toggle(String(className || "app-loading"), Boolean(loading));
+  }
+
   window.IDSAIAuth = {
     can,
     canCached,
@@ -1052,6 +1059,7 @@
     persistProfile,
     requestJSON,
     redirectToNotFound,
+    setPageLoading,
     showAlert,
     showConfirmDialog,
     showFormDialog,

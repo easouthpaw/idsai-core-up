@@ -77,6 +77,19 @@
   }
 
   function navIcon(icon) {
+    if (icon === "dashboard") {
+      return `
+        <span class="role-sidebar__icon" aria-hidden="true">
+          <svg class="role-sidebar__icon-svg" viewBox="0 0 24 24" fill="none" focusable="false">
+            <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.7"></rect>
+            <rect x="13.5" y="3.5" width="7" height="11" rx="1.5" stroke="currentColor" stroke-width="1.7"></rect>
+            <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.7"></rect>
+            <rect x="13.5" y="17.5" width="7" height="3" rx="1.5" stroke="currentColor" stroke-width="1.7"></rect>
+          </svg>
+        </span>
+      `;
+    }
+
     return `
       <span class="role-sidebar__icon" aria-hidden="true">
         <span class="material-symbols-outlined">${icon}</span>

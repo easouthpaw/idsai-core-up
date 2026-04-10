@@ -731,8 +731,13 @@
       }
     } catch (err) {
       setStatus(err.message || String(err), true);
+    } finally {
+      auth.setPageLoading(false);
     }
   }
 
-  bootstrap();
+  bootstrap().catch((err) => {
+    auth.setPageLoading(false);
+    setStatus(err.message || String(err), true);
+  });
 })();

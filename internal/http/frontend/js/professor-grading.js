@@ -1076,8 +1076,13 @@
       await loadPageData();
     } catch (err) {
       setStatus(err.message || String(err), true);
+    } finally {
+      auth.setPageLoading(false);
     }
   }
 
-  void bootstrap();
+  void bootstrap().catch((err) => {
+    auth.setPageLoading(false);
+    setStatus(err.message || String(err), true);
+  });
 })();

@@ -366,33 +366,43 @@
   // ── Init ──────────────────────────────────────────────────
 
   async function init() {
-    const params = new URLSearchParams(window.location.search);
-    const articleId = params.get("id");
-
-    if (!articleId) {
-      window.location.href = "/dev/kb";
-      return;
-    }
-
-    if (auth && typeof auth.ensureSession === "function") {
-      const profile = await auth.ensureSession(undefined);
-      if (!profile) return;
-      state.isEditor = profile?.is_admin || profile?.is_professor || false;
-    }
-
     try {
-      state.article = await apiFetch(`/articles/${articleId}`);
+      const params = new URLSearchParams(window.location.search);
+      const articleId = params.get("id");
+
+      if (!articleId) {
+        window.location.href = "/dev/kb";
+        return;
+      }
+
+      if (auth && typeof auth.ensureSession === "function") {
+        const profile = await auth.ensureSession(undefined);
+        if (!profile) return;
+        state.isEditor = profile?.is_admin || profile?.is_professor || false;
+      }
+
+      try {
+        state.article = await apiFetch(`/articles/${articleId}`);
+      } catch (err) {
+        ui.title.textContent = "Статья не найдена";
+        if (ui.lead) {
+          ui.lead.textContent = "Похоже, материал был удален или ссылка на него устарела.";
+        }
+        ui.content.innerHTML = `<p style="color:var(--kb-muted);">Не удалось загрузить статью. ${escapeHTML(err.message)}</p>`;
+        return;
+      }
+
+      setupEvents();
+      render();
+      auth.setPageLoading(false);
     } catch (err) {
+      auth.setPageLoading(false);
       ui.title.textContent = "Статья не найдена";
       if (ui.lead) {
         ui.lead.textContent = "Похоже, материал был удален или ссылка на него устарела.";
       }
-      ui.content.innerHTML = `<p style="color:var(--kb-muted);">Не удалось загрузить статью. ${escapeHTML(err.message)}</p>`;
-      return;
+      ui.content.innerHTML = `<p style="color:var(--kb-muted);">Не удалось загрузить статью. ${escapeHTML(err.message || String(err))}</p>`;
     }
-
-    setupEvents();
-    render();
   }
 
   if (document.readyState === "loading") {

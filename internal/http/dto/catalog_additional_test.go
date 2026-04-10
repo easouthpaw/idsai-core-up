@@ -29,6 +29,8 @@ func TestAdminDTOResponsesFromService(t *testing.T) {
 		Status:         admin.StatusActive,
 		FacultyCode:    "FIT",
 		DepartmentCode: "CPI",
+		CreatedAt:      now.Add(-2 * time.Hour),
+		UpdatedAt:      now,
 	}})
 	projectsResp := AdminProjectResponsesFromService([]admin.Project{{
 		ID:             projectID,
@@ -95,6 +97,8 @@ func TestAdminDTOResponsesFromService(t *testing.T) {
 
 	require.Len(t, users, 1)
 	require.Equal(t, userID, users[0].ID)
+	require.Equal(t, now.Add(-2*time.Hour), users[0].CreatedAt)
+	require.Equal(t, now, users[0].UpdatedAt)
 	require.Len(t, projectsResp, 1)
 	require.Equal(t, projectID, projectsResp[0].ID)
 	require.Len(t, observation.Positions, 1)

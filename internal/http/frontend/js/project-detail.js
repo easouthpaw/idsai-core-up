@@ -3961,14 +3961,19 @@
     try {
       await refreshData();
       setView(initialViewFromURL());
+      auth.setPageLoading(false);
     } catch (err) {
       if (err && err.status === 404 && auth && typeof auth.redirectToNotFound === "function") {
         auth.redirectToNotFound();
         return;
       }
       setNotice(`Не удалось загрузить проект: ${err.message || String(err)}`, true);
+      auth.setPageLoading(false);
     }
   }
 
-  bootstrap();
+  bootstrap().catch((err) => {
+    auth.setPageLoading(false);
+    setNotice(`Не удалось загрузить проект: ${err.message || String(err)}`, true);
+  });
 })();

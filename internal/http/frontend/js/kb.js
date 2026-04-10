@@ -512,22 +512,30 @@
   // ── Init ──────────────────────────────────────────────────
 
   async function init() {
-    // Determine editor status
-    if (auth && typeof auth.ensureSession === "function") {
-      const profile = await auth.ensureSession(undefined);
-      if (!profile) return;
-      state.isEditor = profile?.is_admin || profile?.is_professor || false;
-    }
+    try {
+      // Determine editor status
+      if (auth && typeof auth.ensureSession === "function") {
+        const profile = await auth.ensureSession(undefined);
+        if (!profile) return;
+        state.isEditor = profile?.is_admin || profile?.is_professor || false;
+      }
 
-    // Show/hide editor controls
-    if (state.isEditor) {
-      ui.categoryActions.style.display = "";
-      ui.editorActions.style.display = "flex";
-    }
+      // Show/hide editor controls
+      if (state.isEditor) {
+        ui.categoryActions.style.display = "";
+        ui.editorActions.style.display = "flex";
+      }
 
-    setupEvents();
-    await Promise.all([loadCategories(), loadTags()]);
-    await loadArticles();
+      setupEvents();
+      await Promise.all([loadCategories(), loadTags()]);
+      await loadArticles();
+      auth.setPageLoading(false);
+    } catch (err) {
+      auth.setPageLoading(false);
+      if (auth && typeof auth.showAlert === "function") {
+        auth.showAlert(err.message || String(err), "error");
+      }
+    }
   }
 
   if (document.readyState === "loading") {
