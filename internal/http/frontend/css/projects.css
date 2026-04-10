@@ -332,7 +332,7 @@ body.modal-open {
   align-items: center;
   gap: 8px;
   color: var(--muted);
-  font-size: 20px;
+  font-size: 14px;
 }
 
 .breadcrumbs strong {

@@ -126,15 +126,20 @@ $ idsai status
           <button class="code-tab active" data-pressable type="button">Project</button>
         </div>
         <pre>
-1  &lt;h2&gt;Обзор&lt;/h2&gt;
-2  &lt;h2&gt;Лучшие альбомы&lt;/h2&gt;
-3  &lt;ionList&gt;
-4    {albums.map((album) =&gt;
-5      &lt;IonItem key={album.id}&gt;
-6        &lt;IonThumbnail slot="start"&gt;
-7          &lt;img src={album.artwork} /&gt;
-8        &lt;/IonThumbnail&gt;
-9      )}
+1  // Получить проекты команды
+2  GET /api/v1/projects?role=member
+3
+4  {
+5    "projects": [
+6      {
+7        "id": "proj_a7f2",
+8        "title": "Diploma AI Model",
+9        "status": "IN_WORK",
+10       "team": ["@alice", "@bob"],
+11       "progress": 68
+12     }
+13   ]
+14 }
         </pre>
       </div>
     </section>
