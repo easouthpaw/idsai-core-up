@@ -70,6 +70,11 @@ make up
 make migrate
 make migrate-status
 make run
+make test
+make test-integration
+make bench
+make coverage
+make report-artifacts
 go test ./...
 ```
 
@@ -113,3 +118,4 @@ go test ./...
 - `docs/PROFESSOR_GUIDE.md` - подробная инструкция для преподавателей.
 - `docs/ADMIN_GUIDE.md` - подробная инструкция для администратора.
 - `docs/architecture/ARCHITECTURE.md` - принятая архитектура и правила зависимостей.
+- `docs/TESTING_REPORT.md` - результаты тестирования, coverage и benchmark-метрики.
