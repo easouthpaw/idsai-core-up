@@ -1890,6 +1890,13 @@ body.project-body {
   height: fit-content;
 }
 
+.review-summary-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .review-summary-body {
   display: grid;
   gap: 14px;
@@ -2691,6 +2698,26 @@ textarea:focus {
   width: min(620px, 94vw);
   border-radius: 14px;
   overflow: hidden;
+}
+
+.report-preview-card {
+  width: min(1120px, 96vw);
+  max-height: min(94vh, 920px);
+}
+
+.report-preview-body {
+  padding: 0;
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 32%),
+    linear-gradient(180deg, #eef3ff 0%, #f7f9fc 100%);
+}
+
+.report-preview-frame {
+  display: block;
+  width: 100%;
+  min-height: min(76vh, 760px);
+  border: 0;
+  background: #f4f6f8;
 }
 
 /* ── Header ── */

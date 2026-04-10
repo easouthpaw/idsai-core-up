@@ -365,6 +365,10 @@
             <article class="card review-summary-card">
               <header class="card-head">
                 <h2>Результат ревью</h2>
+                <div class="review-summary-card__actions">
+                  <button id="previewFinalReportBtn" class="ghost-btn" type="button" hidden>Предпросмотр PDF</button>
+                  <a id="downloadFinalReportBtn" class="ghost-btn" href="#" download hidden>Скачать PDF</a>
+                </div>
               </header>
               <div class="card-body review-summary-body">
                 <div class="review-gauge-wrap">
@@ -577,6 +581,24 @@
       <footer class="modal-foot">
         <button class="ghost-btn" type="button" data-close-modal="permissionsModal">Отмена</button>
         <button id="savePermissionsBtn" class="primary-btn" type="button">Сохранить права</button>
+      </footer>
+    </div>
+  </div>
+
+  <div id="finalReportPreviewModal" class="modal" hidden>
+    <div class="modal-card report-preview-card">
+      <header class="modal-head">
+        <h3>Предпросмотр итогового отчёта</h3>
+        <button class="icon-btn" type="button" data-close-modal="finalReportPreviewModal" aria-label="Закрыть предпросмотр итогового отчёта">×</button>
+      </header>
+
+      <div class="modal-body report-preview-body">
+        <iframe id="finalReportPreviewFrame" class="report-preview-frame" title="Предпросмотр итогового отчёта" loading="lazy"></iframe>
+      </div>
+
+      <footer class="modal-foot">
+        <button class="ghost-btn" type="button" data-close-modal="finalReportPreviewModal">Закрыть</button>
+        <a id="downloadFinalReportModalBtn" class="primary-btn" href="#" download>Скачать PDF</a>
       </footer>
     </div>
   </div>

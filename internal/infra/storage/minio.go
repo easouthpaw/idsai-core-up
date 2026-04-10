@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
 
@@ -15,6 +16,7 @@ import (
 
 type ObjectStorage interface {
 	PutObject(ctx context.Context, key, contentType string, body []byte) error
+	GetObject(ctx context.Context, key string) ([]byte, error)
 	DeleteObject(ctx context.Context, key string) error
 	PublicURL(key string) string
 	Available() bool
@@ -24,6 +26,10 @@ type nopStorage struct{}
 
 func (n nopStorage) PutObject(ctx context.Context, key, contentType string, body []byte) error {
 	return fmt.Errorf("object storage unavailable")
+}
+
+func (n nopStorage) GetObject(ctx context.Context, key string) ([]byte, error) {
+	return nil, fmt.Errorf("object storage unavailable")
 }
 
 func (n nopStorage) DeleteObject(ctx context.Context, key string) error {
@@ -125,6 +131,26 @@ func (s *minioStorage) PutObject(ctx context.Context, key, contentType string, b
 		ContentType: contentType,
 	})
 	return err
+}
+
+func (s *minioStorage) GetObject(ctx context.Context, key string) ([]byte, error) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return nil, fmt.Errorf("empty object key")
+	}
+	if err := s.ensureBucket(ctx); err != nil {
+		return nil, err
+	}
+	obj, err := s.client.GetObject(ctx, s.bucket, key, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, err
+	}
+	defer obj.Close()
+	data, err := io.ReadAll(obj)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
 func (s *minioStorage) DeleteObject(ctx context.Context, key string) error {

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"log"
 	"net/http"
 
 	"idsai-core-up/internal/domain"
@@ -224,6 +225,14 @@ func (h *ProjectFlowHandler) PublishProjectGrading(c *gin.Context) {
 	if err != nil {
 		handleFlowErr(c, err)
 		return
+	}
+
+	if h.finalReports != nil {
+		if facultyID, ok := middleware.FacultyIDFromCtx(c); ok {
+			if err := h.finalReports.CaptureProjectFinalReport(c.Request.Context(), pid, uid, facultyID); err != nil {
+				log.Printf("project final report capture skipped project_id=%s err=%v", pid, err)
+			}
+		}
 	}
 
 	notifyBestEffort(h.notifier, c.Request.Context(), notifCreateInput(

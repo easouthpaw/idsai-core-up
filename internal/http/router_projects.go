@@ -38,6 +38,9 @@ func registerProjectsRoutes(
 	p.GET("/:project_id",
 		projectsH.Get,
 	)
+	p.GET("/:project_id/final-report.pdf",
+		projectsH.DownloadFinalReport,
+	)
 	p.POST("/:project_id/image",
 		middleware.RequirePermissionIf(enforceProjects && rbacSvc != nil, rbacSvc, "project.edit", middleware.ProjectScopeFromParam("project_id")),
 		projectsH.UploadImage,

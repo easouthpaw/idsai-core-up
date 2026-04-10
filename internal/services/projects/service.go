@@ -19,19 +19,22 @@ var (
 	ErrNotFound      = errors.New("project not found")
 	ErrGroupNotFound = errors.New("group not found")
 	ErrStorage       = errors.New("storage unavailable")
+	ErrReportSource  = errors.New("final report source unavailable")
 )
 
 type ObjectStorage interface {
 	PutObject(ctx context.Context, key, contentType string, body []byte) error
+	GetObject(ctx context.Context, key string) ([]byte, error)
 	DeleteObject(ctx context.Context, key string) error
 	PublicURL(key string) string
 	Available() bool
 }
 
 type Service struct {
-	repo    Repository
-	grantor RoleGrantor
-	storage ObjectStorage
+	repo         Repository
+	grantor      RoleGrantor
+	storage      ObjectStorage
+	reportSource FinalReportSource
 }
 
 func NewService(repo Repository, grantor RoleGrantor) *Service {
@@ -40,6 +43,10 @@ func NewService(repo Repository, grantor RoleGrantor) *Service {
 
 func (s *Service) SetStorage(storage ObjectStorage) {
 	s.storage = storage
+}
+
+func (s *Service) SetReportSource(source FinalReportSource) {
+	s.reportSource = source
 }
 
 func (s *Service) CreateProject(ctx context.Context, title, description string, facultyID uuid.UUID, visibility string, groupID *uuid.UUID, createdBy uuid.UUID) (uuid.UUID, error) {

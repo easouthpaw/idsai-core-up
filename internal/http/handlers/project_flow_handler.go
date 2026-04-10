@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -15,8 +16,13 @@ import (
 )
 
 type ProjectFlowHandler struct {
-	svc      *projectflow.Service
-	notifier NotificationPublisher
+	svc          *projectflow.Service
+	notifier     NotificationPublisher
+	finalReports FinalReportManager
+}
+
+type FinalReportManager interface {
+	CaptureProjectFinalReport(ctx context.Context, projectID, viewerID, viewerFacultyID uuid.UUID) error
 }
 
 func NewProjectFlowHandler(svc *projectflow.Service) *ProjectFlowHandler {
@@ -25,6 +31,10 @@ func NewProjectFlowHandler(svc *projectflow.Service) *ProjectFlowHandler {
 
 func (h *ProjectFlowHandler) SetNotifier(pub NotificationPublisher) {
 	h.notifier = pub
+}
+
+func (h *ProjectFlowHandler) SetFinalReportManager(manager FinalReportManager) {
+	h.finalReports = manager
 }
 
 func parseUserID(c *gin.Context) (uuid.UUID, bool) {

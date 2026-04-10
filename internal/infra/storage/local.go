@@ -59,6 +59,16 @@ func (s *localStorage) PutObject(ctx context.Context, key, contentType string, b
 	return os.Rename(tmpName, resolvedPath)
 }
 
+func (s *localStorage) GetObject(ctx context.Context, key string) ([]byte, error) {
+	_ = ctx
+
+	resolvedPath, err := s.resolvePath(key)
+	if err != nil {
+		return nil, err
+	}
+	return os.ReadFile(resolvedPath)
+}
+
 func (s *localStorage) DeleteObject(ctx context.Context, key string) error {
 	_ = ctx
 

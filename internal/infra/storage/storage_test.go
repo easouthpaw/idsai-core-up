@@ -27,6 +27,10 @@ func TestNewFromConfigFallsBackToLocalStorage(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []byte("demo-image"), data)
 
+	objectData, err := store.GetObject(context.Background(), "avatars/test/user.jpg")
+	require.NoError(t, err)
+	require.Equal(t, []byte("demo-image"), objectData)
+
 	require.NoError(t, store.DeleteObject(context.Background(), "avatars/test/user.jpg"))
 	_, err = os.Stat(filepath.Join(dir, "avatars", "test", "user.jpg"))
 	require.Error(t, err)

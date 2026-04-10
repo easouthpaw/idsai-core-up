@@ -225,6 +225,10 @@
     const status = statusCode(project);
     const actions = [{ label: "Открыть", act: "open", primary: false }];
 
+    if (status === "COMPLETED" || status === "ARCHIVE") {
+      actions.unshift({ label: "Отчёт PDF", act: "report", primary: false });
+    }
+
     if (isInvitePending(project)) {
       actions.unshift({ label: "Отклонить", act: "reject", primary: false, danger: true });
       return actions;
@@ -478,6 +482,14 @@
     window.location.href = `/dev/professor/grading?project_id=${encodeURIComponent(projectID)}`;
   }
 
+  function actionOpenReport(projectID) {
+    const url = `/v2/projects/${encodeURIComponent(projectID)}/final-report.pdf`;
+    const popup = window.open(url, "_blank", "noopener,noreferrer");
+    if (!popup) {
+      window.location.href = url;
+    }
+  }
+
   async function handleAction(act, projectID) {
     if (!act || !projectID) return;
     try {
@@ -491,6 +503,10 @@
       }
       if (act === "grade") {
         actionOpenGrading(projectID);
+        return;
+      }
+      if (act === "report") {
+        actionOpenReport(projectID);
         return;
       }
       if (act === "activate") {

@@ -145,6 +145,9 @@
     reviewSummaryDate: document.getElementById("reviewSummaryDate"),
     reviewSummaryReviewer: document.getElementById("reviewSummaryReviewer"),
     reviewOverallComment: document.getElementById("reviewOverallComment"),
+    previewFinalReportBtn: document.getElementById("previewFinalReportBtn"),
+    downloadFinalReportBtn: document.getElementById("downloadFinalReportBtn"),
+    downloadFinalReportModalBtn: document.getElementById("downloadFinalReportModalBtn"),
 
     activeProgressWrap: document.getElementById("activeProgressWrap"),
     progressPercent: document.getElementById("progressPercent"),
@@ -189,6 +192,8 @@
     taskResultSubmitBtn: document.getElementById("taskResultSubmitBtn"),
 
     permissionsModal: document.getElementById("permissionsModal"),
+    finalReportPreviewModal: document.getElementById("finalReportPreviewModal"),
+    finalReportPreviewFrame: document.getElementById("finalReportPreviewFrame"),
     permMemberName: document.getElementById("permMemberName"),
     permLoading: document.getElementById("permLoading"),
     permContent: document.getElementById("permContent"),
@@ -724,6 +729,15 @@
 
   function canViewFinalGrade() {
     return Boolean(viewerAccess().can_view_final_grade);
+  }
+
+  function finalReportURL(disposition) {
+    if (!state.projectID) return "";
+    const url = new URL(`/v2/projects/${encodeURIComponent(state.projectID)}/final-report.pdf`, window.location.origin);
+    if (String(disposition || "").trim().toLowerCase() === "inline") {
+      url.searchParams.set("disposition", "inline");
+    }
+    return url.toString();
   }
 
   function allowedViews() {
@@ -2528,6 +2542,33 @@
     const grading = gradingByCriterion();
     const summary = reviewSummaryData();
     const status = projectStatusCode();
+    const canDownloadReport = canViewFinalGrade() && (status === "COMPLETED" || status === "ARCHIVE");
+    const reportDownloadURL = canDownloadReport ? finalReportURL() : "";
+    const reportPreviewURL = canDownloadReport ? finalReportURL("inline") : "";
+
+    if (ui.downloadFinalReportBtn) {
+      ui.downloadFinalReportBtn.hidden = !canDownloadReport;
+      if (reportDownloadURL) {
+        ui.downloadFinalReportBtn.href = reportDownloadURL;
+      } else {
+        ui.downloadFinalReportBtn.removeAttribute("href");
+      }
+    }
+    if (ui.previewFinalReportBtn) {
+      ui.previewFinalReportBtn.hidden = !canDownloadReport;
+    }
+    if (ui.downloadFinalReportModalBtn) {
+      if (reportDownloadURL) {
+        ui.downloadFinalReportModalBtn.href = reportDownloadURL;
+      } else {
+        ui.downloadFinalReportModalBtn.removeAttribute("href");
+      }
+    }
+    if (!canDownloadReport && ui.finalReportPreviewModal && !ui.finalReportPreviewModal.hidden) {
+      closeModal(ui.finalReportPreviewModal);
+    } else if (reportPreviewURL && ui.finalReportPreviewModal && !ui.finalReportPreviewModal.hidden && ui.finalReportPreviewFrame) {
+      ui.finalReportPreviewFrame.src = reportPreviewURL;
+    }
 
     if (!canViewWorkspace() && canViewFinalGrade()) {
       ui.reviewCriteriaList.innerHTML = '<div class="empty-state">Итоговая оценка опубликована. Детали по критериям видны только участникам команды.</div>';
@@ -2792,17 +2833,25 @@
     document.body.style.overflow = "hidden";
   }
 
+  function managedModals() {
+    return [
+      ui.taskModal,
+      ui.permissionsModal,
+      ui.taskResultModal,
+      ui.finalReportPreviewModal,
+    ].filter(Boolean);
+  }
+
   function closeModal(modal) {
     if (!modal) return;
     modal.hidden = true;
     if (modal === ui.taskResultModal) {
       clearTaskResultForm();
     }
-    if (
-      ui.taskModal.hidden &&
-      ui.permissionsModal.hidden &&
-      (!ui.taskResultModal || ui.taskResultModal.hidden)
-    ) {
+    if (modal === ui.finalReportPreviewModal && ui.finalReportPreviewFrame) {
+      ui.finalReportPreviewFrame.removeAttribute("src");
+    }
+    if (managedModals().every((item) => item.hidden)) {
       document.body.style.overflow = "";
     }
   }
@@ -3570,7 +3619,7 @@
       });
     });
 
-    [ui.taskModal, ui.permissionsModal, ui.taskResultModal].forEach((modal) => {
+    managedModals().forEach((modal) => {
       if (!modal) return;
       modal.addEventListener("click", (e) => {
         if (e.target === modal) {
@@ -3581,9 +3630,9 @@
 
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
-      if (!ui.taskModal.hidden) closeModal(ui.taskModal);
-      if (!ui.permissionsModal.hidden) closeModal(ui.permissionsModal);
-      if (ui.taskResultModal && !ui.taskResultModal.hidden) closeModal(ui.taskResultModal);
+      managedModals().forEach((modal) => {
+        if (!modal.hidden) closeModal(modal);
+      });
     });
   }
 
@@ -3606,6 +3655,15 @@
         setNotice(err.message || String(err), true);
       }
     });
+
+    if (ui.previewFinalReportBtn) {
+      ui.previewFinalReportBtn.addEventListener("click", () => {
+        const previewURL = finalReportURL("inline");
+        if (!previewURL || !ui.finalReportPreviewModal || !ui.finalReportPreviewFrame) return;
+        ui.finalReportPreviewFrame.src = previewURL;
+        openModal(ui.finalReportPreviewModal);
+      });
+    }
 
     ui.openEditViewBtn.addEventListener("click", () => setView("edit"));
     ui.closeEditViewBtn.addEventListener("click", () => setView("overview"));

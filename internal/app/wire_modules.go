@@ -55,8 +55,10 @@ func wireModules(pool *pgxpool.Pool, cfg config.Config) wiredModules {
 	authModule.Service.SetStorage(objectStorage)
 	authModule.Handler.SetAuthorizer(rbacModule.Authorizer)
 	projectsModule.Service.SetStorage(objectStorage)
+	projectsModule.Service.SetReportSource(projectFlowModule.Repo)
 	adminModule.Handler.SetNotifier(notificationsModule.Service)
 	projectFlowModule.Handler.SetNotifier(notificationsModule.Service)
+	projectFlowModule.Handler.SetFinalReportManager(projectsModule.Service)
 
 	return wiredModules{
 		authRepo:             authModule.Repo,
