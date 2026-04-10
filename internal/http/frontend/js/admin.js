@@ -1253,6 +1253,9 @@
 
         const logoutBtn = target.closest("#logoutBtn");
         if (logoutBtn instanceof HTMLElement) {
+          if (logoutBtn.dataset.bound === "1") {
+            return;
+          }
           event.preventDefault();
           auth.logout();
         }

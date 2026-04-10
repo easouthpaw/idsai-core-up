@@ -474,13 +474,21 @@ body.admin-body .admin-shell {
   overflow: auto;
 }
 
-body.app-loading > * {
+body.app-loading .content-shell,
+body.app-loading .main-shell,
+body.app-loading .admin-shell,
+body.app-loading .groups-main,
+body.app-loading .prof-main {
   opacity: 0;
   pointer-events: none;
   transform: translateY(6px);
 }
 
-body > * {
+body .content-shell,
+body .main-shell,
+body .admin-shell,
+body .groups-main,
+body .prof-main {
   transition: opacity 160ms ease, transform 160ms ease;
 }
 

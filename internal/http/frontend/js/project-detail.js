@@ -552,10 +552,11 @@
       });
 
       const logoutBtn = document.getElementById("logoutBtn");
-      if (logoutBtn) {
-        logoutBtn.onclick = () => {
+      if (logoutBtn && logoutBtn.dataset.bound !== "1") {
+        logoutBtn.dataset.bound = "1";
+        logoutBtn.addEventListener("click", () => {
           auth.logout();
-        };
+        });
       }
     }
 
@@ -1757,10 +1758,11 @@
       });
 
       const logoutBtn = document.getElementById("logoutBtn");
-      if (logoutBtn) {
-        logoutBtn.onclick = () => {
+      if (logoutBtn && logoutBtn.dataset.bound !== "1") {
+        logoutBtn.dataset.bound = "1";
+        logoutBtn.addEventListener("click", () => {
           auth.logout();
-        };
+        });
       }
 
       if (ui.crumbSectionLink) {

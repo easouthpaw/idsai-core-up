@@ -185,10 +185,11 @@
     });
 
     const logoutBtn = document.getElementById("logoutBtn");
-    if (logoutBtn) {
-      logoutBtn.onclick = () => {
+    if (logoutBtn && logoutBtn.dataset.bound !== "1") {
+      logoutBtn.dataset.bound = "1";
+      logoutBtn.addEventListener("click", () => {
         auth.logout();
-      };
+      });
     }
   }
 
@@ -538,7 +539,7 @@
           `<img src="${escapeHTML(projectCoverURL(p))}" data-fallback-cover="${escapeHTML(defaultCoverURL(p))}" alt="Project cover" width="1600" height="900" loading="lazy" />` +
         `</div>` +
         `<div class="card-head">` +
-          `<button class="card-title-link" data-open-id="${pid}" type="button">${escapeHTML(p.title || "-")}</button>` +
+          `<h3 class="card-title">${escapeHTML(p.title || "-")}</h3>` +
           `<div class="card-menu-wrap">` +
             `<button class="card-menu" data-menu-toggle-id="${pid}" type="button" aria-haspopup="menu" aria-expanded="${menuOpen ? "true" : "false"}" aria-label="Действия проекта">…</button>` +
             `<div class="card-menu-sheet" role="menu" ${menuOpen ? "" : "hidden"}>` +
@@ -572,14 +573,6 @@
       myProjectsEl.appendChild(createCard);
     }
 
-    myProjectsEl.querySelectorAll("[data-open-id]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.getAttribute("data-open-id");
-        const project = findProjectByID(id);
-        if (!project) return;
-        openProject(project);
-      });
-    });
     myProjectsEl.querySelectorAll("[data-menu-toggle-id]").forEach((btn) => {
       btn.addEventListener("click", (event) => {
         event.stopPropagation();

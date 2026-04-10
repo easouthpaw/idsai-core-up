@@ -32,6 +32,13 @@
   const panelList = panel.querySelector("#idsaiNotifyList");
   let pollTimer = null;
 
+  function confirmAction(options) {
+    if (auth && typeof auth.showConfirmDialog === "function") {
+      return auth.showConfirmDialog(options);
+    }
+    return Promise.resolve(window.confirm(String((options && options.message) || "")));
+  }
+
   function handleUnauthorized() {
     if (state.unauthorized) return;
     state.unauthorized = true;
@@ -72,6 +79,7 @@
     btn.id = "idsaiToastBell";
     btn.className = "idsai-toast-bell";
     btn.type = "button";
+    btn.setAttribute("aria-label", "Открыть уведомления");
     btn.setAttribute("aria-haspopup", "dialog");
     btn.setAttribute("aria-expanded", "false");
     btn.innerHTML =
@@ -91,6 +99,8 @@
     el.id = "idsaiNotifyPanel";
     el.className = "idsai-notify-panel";
     el.hidden = true;
+    el.setAttribute("role", "dialog");
+    el.setAttribute("aria-label", "Уведомления");
     el.innerHTML = `
       <header class="idsai-notify-head">
         <h3>Уведомления</h3>
@@ -297,6 +307,15 @@
 
   async function clearAllNotifications() {
     if (state.unauthorized) return;
+    if (!state.items.length) return;
+    if (!await confirmAction({
+      title: "Очистить уведомления",
+      message: "Вся история уведомлений будет удалена из списка. Продолжить?",
+      confirmText: "Очистить",
+      danger: true,
+    })) {
+      return;
+    }
     const { resp } = await apiNoBody("DELETE", API_CLEAR);
     if (resp.status === 401) {
       handleUnauthorized();

@@ -365,7 +365,8 @@
   }
 
   function wireEvents() {
-    if (ui.logoutBtn) {
+    if (ui.logoutBtn && ui.logoutBtn.dataset.bound !== "1") {
+      ui.logoutBtn.dataset.bound = "1";
       ui.logoutBtn.addEventListener("click", () => auth.logout());
     }
 

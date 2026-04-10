@@ -9,6 +9,7 @@
   const ROLE_ADMIN = "admin";
   const ROLE_TEACHER = "teacher";
   const ROLE_STUDENT = "student";
+  const ROLE_PENDING = "pending";
 
   function escapeHTML(value) {
     return String(value || "")
@@ -52,11 +53,25 @@
     };
   }
 
+  function hasKnownProfile(profile) {
+    if (!profile || typeof profile !== "object") {
+      return false;
+    }
+    return Boolean(
+      String(profile.full_name || "").trim() ||
+      String(profile.email || "").trim() ||
+      String(profile.avatar_url || "").trim() ||
+      profile.is_admin ||
+      profile.is_professor
+    );
+  }
+
   function resolveRole(roleHint, profile) {
     const hint = String(roleHint || "").trim().toLowerCase();
     if (hint === ROLE_ADMIN) return ROLE_ADMIN;
     if (hint === ROLE_TEACHER || hint === "professor") return ROLE_TEACHER;
     if (hint === ROLE_STUDENT) return ROLE_STUDENT;
+    if (!hasKnownProfile(profile)) return ROLE_PENDING;
 
     if (profile && profile.is_admin) return ROLE_ADMIN;
     if (profile && profile.is_professor) return ROLE_TEACHER;
@@ -121,8 +136,8 @@
     `;
   }
 
-  function allowedNavItems(navItems, scope) {
-    if (!auth || typeof auth.canCached !== "function") {
+  function allowedNavItems(navItems, scope, skipPermissionFilter = false) {
+    if (skipPermissionFilter || !auth || typeof auth.canCached !== "function") {
       return navItems;
     }
     return navItems.filter((item) => !item.permission || auth.canCached(item.permission, scope));
@@ -149,13 +164,13 @@
     });
   }
 
-  function sidebarFrame(role, activeKey, profile, navItems, inlineViews, scope) {
+  function sidebarFrame(role, activeKey, profile, navItems, inlineViews, scope, skipPermissionFilter) {
     const isAdmin = role === ROLE_ADMIN;
     const isTeacher = role === ROLE_TEACHER;
     const name = profile.full_name || profile.email || (isAdmin ? "Администратор" : isTeacher ? "Преподаватель" : "Студент");
     const email = profile.email || (isAdmin ? "admin@idsai.local" : isTeacher ? "professor@idsai.dev" : "student@idsai.dev");
     const iv = initials(name, email, isAdmin ? "AD" : isTeacher ? "PR" : "ST");
-    const navHTML = allowedNavItems(navItems, scope)
+    const navHTML = allowedNavItems(navItems, scope, skipPermissionFilter)
       .map((item) => (inlineViews && isAdmin && item.inline !== false ? actionButton(item, activeKey) : actionLink(item, activeKey)))
       .join("");
 
@@ -199,7 +214,7 @@
     `;
   }
 
-  function buildAdminSidebar(activeKey, profile, inlineViews, scope) {
+  function buildAdminSidebar(activeKey, profile, inlineViews, scope, skipPermissionFilter) {
     return sidebarFrame(
       ROLE_ADMIN,
       activeKey,
@@ -213,11 +228,12 @@
         { key: "kb", label: "База знаний", icon: "menu_book", href: "/dev/kb", inline: false },
       ],
       inlineViews,
-      scope
+      scope,
+      skipPermissionFilter
     );
   }
 
-  function buildTeacherSidebar(activeKey, profile, scope) {
+  function buildTeacherSidebar(activeKey, profile, scope, skipPermissionFilter) {
     return sidebarFrame(
       ROLE_TEACHER,
       activeKey,
@@ -233,11 +249,12 @@
         { key: "kb", label: "База знаний", icon: "menu_book", href: "/dev/kb" },
       ],
       false,
-      scope
+      scope,
+      skipPermissionFilter
     );
   }
 
-  function buildStudentSidebar(activeKey, profile, scope) {
+  function buildStudentSidebar(activeKey, profile, scope, skipPermissionFilter) {
     return sidebarFrame(
       ROLE_STUDENT,
       activeKey,
@@ -250,8 +267,44 @@
         { key: "kb", label: "База знаний", icon: "menu_book", href: "/dev/kb" },
       ],
       false,
-      scope
+      scope,
+      skipPermissionFilter
     );
+  }
+
+  function buildPendingSidebar() {
+    return `
+      <div class="role-sidebar__brand role-sidebar__brand--static" aria-hidden="true">
+        <span class="role-sidebar__brand-mark">
+          <img src="/dev/static/assets/idsai-corp-logo.png" alt="" width="42" height="42" />
+        </span>
+        <span class="role-sidebar__brand-text">
+          <strong>IDSAI Corp.</strong>
+          <small>Workspace</small>
+        </span>
+      </div>
+
+      <div class="role-sidebar__skeleton-block" aria-hidden="true">
+        <span class="role-sidebar__skeleton-line role-sidebar__skeleton-line--lg"></span>
+        <span class="role-sidebar__skeleton-line"></span>
+        <span class="role-sidebar__skeleton-line"></span>
+        <span class="role-sidebar__skeleton-line"></span>
+      </div>
+
+      <div class="role-sidebar__bottom" aria-hidden="true">
+        <div class="role-sidebar__skeleton-block role-sidebar__skeleton-block--compact">
+          <span class="role-sidebar__skeleton-line"></span>
+          <span class="role-sidebar__skeleton-line"></span>
+        </div>
+        <div class="role-sidebar__account role-sidebar__account--pending">
+          <span class="role-sidebar__skeleton-avatar"></span>
+          <div class="role-sidebar__account-text">
+            <span class="role-sidebar__skeleton-line role-sidebar__skeleton-line--sm"></span>
+            <span class="role-sidebar__skeleton-line role-sidebar__skeleton-line--xs"></span>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   function renderSidebar(container, opts = {}) {
@@ -260,6 +313,7 @@
     let active = String(opts.active || container.dataset.sidebarActive || "").trim().toLowerCase();
     const roleHint = opts.role || container.dataset.sidebarRole;
     const profile = normalizeProfile(opts.profile);
+    const skipPermissionFilter = Boolean(opts.skipPermissionFilter);
     const role = resolveRole(roleHint, profile);
     const scope = opts.scope || (auth && typeof auth.getDefaultScope === "function" ? auth.getDefaultScope() : null);
     const inlineViews = opts.adminViewMode
@@ -278,39 +332,65 @@
     document.body.classList.toggle("role-teacher", role === ROLE_TEACHER);
     document.body.classList.toggle("role-student", role === ROLE_STUDENT);
 
+    if (role === ROLE_PENDING) {
+      container.className = "role-sidebar role-sidebar--pending";
+      container.innerHTML = buildPendingSidebar();
+      return { role, active: "" };
+    }
+
     if (role === ROLE_ADMIN) {
       container.className = "role-sidebar role-sidebar--admin";
-      container.innerHTML = buildAdminSidebar(active || "dashboard", profile, inlineViews, scope);
+      container.innerHTML = buildAdminSidebar(active || "dashboard", profile, inlineViews, scope, skipPermissionFilter);
       bindSidebarLogout(container);
       return { role, active: active || "dashboard" };
     }
 
     if (role === ROLE_TEACHER) {
       container.className = "role-sidebar role-sidebar--teacher";
-      container.innerHTML = buildTeacherSidebar(active || "dashboard", profile, scope);
+      container.innerHTML = buildTeacherSidebar(active || "dashboard", profile, scope, skipPermissionFilter);
       bindSidebarLogout(container);
       return { role, active: active || "dashboard" };
     }
 
     container.className = "role-sidebar role-sidebar--student";
-    container.innerHTML = buildStudentSidebar(active || "profile", profile, scope);
+    container.innerHTML = buildStudentSidebar(active || "profile", profile, scope, skipPermissionFilter);
     bindSidebarLogout(container);
 
     return { role, active: active || "profile" };
   }
 
-  async function mountFromDOM() {
+  function mountFromDOM() {
     const hosts = Array.from(document.querySelectorAll("[data-role-sidebar]"));
-    let profile = null;
-    if (auth && typeof auth.fetchCurrentProfile === "function") {
-      profile = await auth.fetchCurrentProfile();
-      if (profile && typeof auth.loadCapabilities === "function") {
-        await auth.loadCapabilities();
-      }
+    if (!hosts.length) {
+      return;
     }
+
+    const cached = localProfile();
     hosts.forEach((host) => {
-      renderSidebar(host, { profile });
+      renderSidebar(host, { profile: cached, skipPermissionFilter: true });
     });
+    syncTeacherHashState();
+
+    if (!auth || typeof auth.fetchCurrentProfile !== "function") {
+      return;
+    }
+
+    void (async () => {
+      try {
+        const profile = await auth.fetchCurrentProfile();
+        if (profile && typeof auth.loadCapabilities === "function") {
+          await auth.loadCapabilities();
+        }
+        hosts.forEach((host) => {
+          renderSidebar(host, { profile: profile || cached, skipPermissionFilter: !profile });
+        });
+      } catch (_) {
+        hosts.forEach((host) => {
+          renderSidebar(host, { profile: cached, skipPermissionFilter: true });
+        });
+      }
+      syncTeacherHashState();
+    })();
   }
 
   function syncTeacherHashState() {

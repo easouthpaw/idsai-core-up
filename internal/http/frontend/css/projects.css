@@ -766,6 +766,10 @@ body.projects-body .hero.hero--welcome #tabSubtitle {
   gap: 4px;
 }
 
+.card-menu-sheet[hidden] {
+  display: none;
+}
+
 .card-menu-item {
   border: 0;
   background: transparent;
