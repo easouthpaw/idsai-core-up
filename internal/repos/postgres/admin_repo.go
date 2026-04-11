@@ -26,23 +26,24 @@ func (r *AdminRepo) ListUsers(ctx context.Context, roleCode, search string) ([]s
 	const q = `
 SELECT
   u.id,
-  p.full_name,
+  COALESCE(NULLIF(TRIM(p.full_name), ''), split_part(u.email, '@', 1)) AS full_name,
   u.email,
   COALESCE(primary_role.role_code, '') AS role_code,
   u.status,
-  f.code AS faculty_code,
-  d.code AS department_code,
+  COALESCE(f.code, '') AS faculty_code,
+  COALESCE(d.code, '') AS department_code,
   u.created_at,
-  u.updated_at
+  COALESCE(p.updated_at, p.created_at, u.created_at) AS updated_at
 FROM users u
-JOIN user_profiles p ON p.user_id = u.id
-JOIN faculties f ON f.id = p.faculty_id
-JOIN departments d ON d.id = p.department_id
+LEFT JOIN user_profiles p ON p.user_id = u.id AND p.tenant_id = u.tenant_id
+LEFT JOIN faculties f ON f.id = p.faculty_id AND f.tenant_id = u.tenant_id
+LEFT JOIN departments d ON d.id = p.department_id AND d.tenant_id = u.tenant_id
 LEFT JOIN LATERAL (
   SELECT r.code AS role_code
   FROM role_assignments ra
   JOIN roles r ON r.id = ra.role_id
   WHERE ra.user_id = u.id
+    AND ra.tenant_id = u.tenant_id
     AND (ra.expires_at IS NULL OR ra.expires_at > now())
   ORDER BY
     CASE r.code
@@ -58,9 +59,9 @@ WHERE ($1::text = '' OR COALESCE(primary_role.role_code, '') = $1::text)
   AND (
     $2::text = ''
     OR u.email ILIKE '%' || $2::text || '%'
-    OR p.full_name ILIKE '%' || $2::text || '%'
+    OR COALESCE(p.full_name, '') ILIKE '%' || $2::text || '%'
   )
-ORDER BY p.full_name ASC, u.created_at DESC;
+ORDER BY COALESCE(NULLIF(TRIM(p.full_name), ''), u.email) ASC, u.created_at DESC;
 `
 	rows, err := r.db.Query(ctx, q, roleCode, search)
 	if err != nil {
@@ -236,8 +237,7 @@ WHERE r.code = $4;
 func (r *AdminRepo) UpdateUserStatus(ctx context.Context, userID uuid.UUID, status string) error {
 	tag, err := r.db.Exec(ctx, `
 UPDATE users
-SET status = $2,
-    updated_at = now()
+SET status = $2
 WHERE id = $1;
 `, userID, status)
 	if err != nil {
@@ -245,6 +245,13 @@ WHERE id = $1;
 	}
 	if tag.RowsAffected() == 0 {
 		return svc.ErrUserNotFound
+	}
+	if _, err := r.db.Exec(ctx, `
+UPDATE user_profiles
+SET updated_at = now()
+WHERE user_id = $1;
+`, userID); err != nil {
+		return err
 	}
 	return nil
 }
@@ -297,16 +304,12 @@ WHERE r.code = $4;
 		return fmt.Errorf("role not found: %s", roleCode)
 	}
 
-	tag, err = tx.Exec(ctx, `
-UPDATE users
+	if _, err := tx.Exec(ctx, `
+UPDATE user_profiles
 SET updated_at = now()
-WHERE id = $1;
-`, userID)
-	if err != nil {
+WHERE user_id = $1;
+`, userID); err != nil {
 		return err
-	}
-	if tag.RowsAffected() == 0 {
-		return svc.ErrUserNotFound
 	}
 
 	return tx.Commit(ctx)
@@ -755,23 +758,24 @@ func (r *AdminRepo) GetUserByID(ctx context.Context, userID uuid.UUID) (svc.User
 	const q = `
 SELECT
   u.id,
-  p.full_name,
+  COALESCE(NULLIF(TRIM(p.full_name), ''), split_part(u.email, '@', 1)) AS full_name,
   u.email,
   COALESCE(primary_role.role_code, '') AS role_code,
   u.status,
-  f.code AS faculty_code,
-  d.code AS department_code,
+  COALESCE(f.code, '') AS faculty_code,
+  COALESCE(d.code, '') AS department_code,
   u.created_at,
-  u.updated_at
+  COALESCE(p.updated_at, p.created_at, u.created_at) AS updated_at
 FROM users u
-JOIN user_profiles p ON p.user_id = u.id
-JOIN faculties f ON f.id = p.faculty_id
-JOIN departments d ON d.id = p.department_id
+LEFT JOIN user_profiles p ON p.user_id = u.id AND p.tenant_id = u.tenant_id
+LEFT JOIN faculties f ON f.id = p.faculty_id AND f.tenant_id = u.tenant_id
+LEFT JOIN departments d ON d.id = p.department_id AND d.tenant_id = u.tenant_id
 LEFT JOIN LATERAL (
   SELECT r.code AS role_code
   FROM role_assignments ra
   JOIN roles r ON r.id = ra.role_id
   WHERE ra.user_id = u.id
+    AND ra.tenant_id = u.tenant_id
     AND (ra.expires_at IS NULL OR ra.expires_at > now())
   ORDER BY
     CASE r.code

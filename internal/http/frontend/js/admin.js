@@ -848,17 +848,27 @@
   }
 
   async function refreshDashboard() {
-    const [users, projects] = await Promise.all([fetchUsers("", ""), fetchProjects("", "")]);
-    if (users === null || projects === null) return;
+    const [usersResult, projectsResult] = await Promise.allSettled([fetchUsers("", ""), fetchProjects("", "")]);
 
-    state.dashboardUsers = users;
-    state.dashboardProjects = projects;
+    if (usersResult.status === "fulfilled") {
+      if (usersResult.value === null) return;
+      state.dashboardUsers = Array.isArray(usersResult.value) ? usersResult.value : [];
+    } else {
+      console.warn("Failed to refresh dashboard users", usersResult.reason);
+    }
 
-    renderUserStats(users);
-    renderProjectStats(projects);
-    renderDashboardPulse(users, projects);
-    renderAdminFocus(users, projects);
-    renderActivity(users, projects, state.dashboardSearch);
+    if (projectsResult.status === "fulfilled") {
+      if (projectsResult.value === null) return;
+      state.dashboardProjects = Array.isArray(projectsResult.value) ? projectsResult.value : [];
+    } else {
+      console.warn("Failed to refresh dashboard projects", projectsResult.reason);
+    }
+
+    renderUserStats(state.dashboardUsers);
+    renderProjectStats(state.dashboardProjects);
+    renderDashboardPulse(state.dashboardUsers, state.dashboardProjects);
+    renderAdminFocus(state.dashboardUsers, state.dashboardProjects);
+    renderActivity(state.dashboardUsers, state.dashboardProjects, state.dashboardSearch);
   }
 
   async function loadUsers() {
