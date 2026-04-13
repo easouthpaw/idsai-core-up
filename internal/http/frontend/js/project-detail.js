@@ -2139,18 +2139,26 @@
 
     if (!ui.professorInviteHint) return;
 
+    if (i18n && typeof i18n.clearRich === "function") {
+      i18n.clearRich(ui.professorInviteHint);
+    }
+
     if (status === "PENDING") {
       if (isInvitedProfessor) {
-        ui.professorInviteHint.innerHTML = 'У вас есть приглашение на ревью. Откройте страницу <a href="/dev/professor/reviews">/dev/professor/reviews</a> и примите его.';
+        if (i18n && typeof i18n.setRich === "function") {
+          i18n.setRich(ui.professorInviteHint, "project.professorInvite.pending");
+        } else {
+          ui.professorInviteHint.innerHTML = 'У вас есть приглашение на ревью. Откройте страницу <a href="/dev/professor/reviews">/dev/professor/reviews</a> и примите его.';
+        }
       } else {
-        ui.professorInviteHint.innerHTML = 'Ожидаем подтверждения преподавателя в его кабинете ревью.';
+        ui.professorInviteHint.textContent = "Ожидаем подтверждения преподавателя в его кабинете ревью.";
       }
     } else if (status === "ACCEPTED") {
-      ui.professorInviteHint.innerHTML = "Преподаватель подтвердил участие в ревью.";
+      ui.professorInviteHint.textContent = "Преподаватель подтвердил участие в ревью.";
     } else if (status === "REJECTED") {
-      ui.professorInviteHint.innerHTML = "Преподаватель отклонил приглашение. Выберите другого преподавателя.";
+      ui.professorInviteHint.textContent = "Преподаватель отклонил приглашение. Выберите другого преподавателя.";
     } else {
-      ui.professorInviteHint.innerHTML = "Преподаватель пока не приглашён.";
+      ui.professorInviteHint.textContent = "Преподаватель пока не приглашён.";
     }
   }
 
@@ -2362,17 +2370,31 @@
     return "todo";
   }
 
+  function taskStatusMeta(task) {
+    const status = String(task && task.status || "OPEN").toUpperCase();
+    if (isTaskOverdue(task)) {
+      return { tone: "overdue", label: "Просрочено" };
+    }
+    if (status === "DONE") {
+      return { tone: "done", label: "Готово" };
+    }
+    if (status === "IN_PROGRESS") {
+      return { tone: "in-progress", label: "В работе" };
+    }
+    return { tone: "open", label: "Открыта" };
+  }
+
   function createTaskCard(task) {
     const card = document.createElement("article");
     const overdue = isTaskOverdue(task);
     const priority = taskPriorityMeta(task);
-    const cardClasses = ["task-item"];
-    if (priority) cardClasses.push(`task-item--priority-${priority.tone}`);
-    if (overdue) cardClasses.push("task-item--overdue");
+    const statusMeta = taskStatusMeta(task);
+    const cardClasses = ["task-item", `task-item--state-${statusMeta.tone}`];
     card.className = cardClasses.join(" ");
     card.setAttribute("data-task-id", task.id || "");
 
     const status = String(task.status || "OPEN").toUpperCase();
+    const description = String(task.description || "").trim();
     const tags = taskTags(task);
     const canAssignTasks = canAssignTasksInProject();
     const canUpdateTasks = canUpdateTasksInProject();
@@ -2436,23 +2458,46 @@
     if (tags.length) {
       tagHTML += tags.map((t) => `<span class="tag">${escapeHTML(t)}</span>`).join("");
     }
-    if (overdue) {
-      tagHTML += '<span class="tag tag-danger">Просрочено</span>';
-    }
 
     card.innerHTML =
-      `<h4>${escapeHTML(task.title || "Без названия")}</h4>` +
-      `<p>${escapeHTML(task.description || "Описание отсутствует")}</p>` +
-      `<p>Роль: ${escapeHTML(task.position_name || task.position_code || "-")}</p>` +
-      `<p>Исполнитель: ${escapeHTML(task.assignee_user_id ? getDisplayName(task.assignee_user_id) : "не назначен")}</p>` +
-      `<p class="task-deadline ${overdue ? "is-overdue" : ""}">Срок: ${escapeHTML(dueLabel)}</p>` +
+      `<div class="task-summary-head">` +
+        `<h4>${escapeHTML(task.title || "Без названия")}</h4>` +
+        `<span class="task-state">${escapeHTML(statusMeta.label)}</span>` +
+      `</div>` +
+      `<p class="task-preview">${escapeHTML(description || "Описание появится после добавления деталей.")}</p>` +
+      `<div class="task-summary-meta">` +
+        `<div class="task-meta-item">` +
+          `<span class="task-meta-label">Роль</span>` +
+          `<strong class="task-meta-value">${escapeHTML(task.position_name || task.position_code || "-")}</strong>` +
+        `</div>` +
+        `<div class="task-meta-item">` +
+          `<span class="task-meta-label">Исполнитель</span>` +
+          `<strong class="task-meta-value">${escapeHTML(task.assignee_user_id ? getDisplayName(task.assignee_user_id) : "не назначен")}</strong>` +
+        `</div>` +
+        `<div class="task-meta-item">` +
+          `<span class="task-meta-label">Срок</span>` +
+          `<strong class="task-meta-value task-deadline ${overdue ? "is-overdue" : ""}">${escapeHTML(dueLabel)}</strong>` +
+        `</div>` +
+      `</div>` +
       `<div class="task-tags">${tagHTML}</div>` +
-      (overdue ? `<div class="task-note overdue">Срок истек, пока задача не завершена.</div>` : "") +
-      controlsHTML +
-      `<div class="task-timeline-wrap">` +
-        `<p class="task-timeline-head">Лента задачи</p>` +
-        renderTaskActivityTimeline(task.id || "") +
-      `</div>`;
+      `<details class="task-details">` +
+        `<summary class="task-toggle">` +
+          `<span class="task-toggle-text task-toggle-text--show">Показать</span>` +
+          `<span class="task-toggle-text task-toggle-text--hide">Скрыть</span>` +
+        `</summary>` +
+        `<div class="task-expanded">` +
+          `<div class="task-detail-block">` +
+            `<p class="task-detail-label">Подробная информация</p>` +
+            `<p class="task-detail-copy">${escapeHTML(description || "Описание отсутствует")}</p>` +
+          `</div>` +
+          (overdue ? `<div class="task-note overdue">Срок истек, пока задача не завершена.</div>` : "") +
+          controlsHTML +
+          `<div class="task-timeline-wrap">` +
+            `<p class="task-timeline-head">Лента задачи</p>` +
+            renderTaskActivityTimeline(task.id || "") +
+          `</div>` +
+        `</div>` +
+      `</details>`;
 
     return card;
   }

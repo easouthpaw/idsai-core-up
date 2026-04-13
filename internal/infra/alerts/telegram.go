@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -21,6 +22,7 @@ type TelegramNotifier struct {
 	dedupeWindow time.Duration
 	baseURL      string
 	httpClient   *http.Client
+	ipv4Client   *http.Client
 
 	mu       sync.Mutex
 	lastSent map[string]time.Time
@@ -57,6 +59,7 @@ func NewTelegramNotifier(botToken, chatID, serverName string, timeout, dedupeWin
 		dedupeWindow: dedupeWindow,
 		baseURL:      "https://api.telegram.org",
 		httpClient:   &http.Client{Timeout: timeout},
+		ipv4Client:   newIPv4HTTPClient(timeout),
 		lastSent:     make(map[string]time.Time),
 	}
 }
@@ -179,6 +182,25 @@ func (n *TelegramNotifier) sendDirect(ctx context.Context, text string) error {
 	}
 
 	endpoint := fmt.Sprintf("%s/bot%s/sendMessage", strings.TrimRight(n.baseURL, "/"), n.botToken)
+	if err := n.sendHTTPRequest(ctx, n.httpClient, endpoint, body); err != nil {
+		if shouldRetryTelegramViaIPv4(err) && n.ipv4Client != nil {
+			if retryErr := n.sendHTTPRequest(ctx, n.ipv4Client, endpoint, body); retryErr == nil {
+				return nil
+			} else {
+				return retryErr
+			}
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (n *TelegramNotifier) sendHTTPRequest(ctx context.Context, client *http.Client, endpoint string, body []byte) error {
+	if client == nil {
+		client = http.DefaultClient
+	}
+
 	requestCtx, cancel := context.WithTimeout(ctx, n.timeout)
 	defer cancel()
 
@@ -188,7 +210,7 @@ func (n *TelegramNotifier) sendDirect(ctx context.Context, text string) error {
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := n.httpClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -210,6 +232,55 @@ func (n *TelegramNotifier) sendDirect(ctx context.Context, text string) error {
 	}
 
 	return nil
+}
+
+func newIPv4HTTPClient(timeout time.Duration) *http.Client {
+	dialer := &net.Dialer{
+		Timeout:   timeout,
+		KeepAlive: 30 * time.Second,
+	}
+
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = func(ctx context.Context, _, addr string) (net.Conn, error) {
+		host, port, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, err
+		}
+
+		ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, ip := range ips {
+			if v4 := ip.IP.To4(); v4 != nil {
+				return dialer.DialContext(ctx, "tcp4", net.JoinHostPort(v4.String(), port))
+			}
+		}
+
+		return nil, fmt.Errorf("no ipv4 address found for %s", host)
+	}
+
+	return &http.Client{
+		Timeout:   timeout,
+		Transport: transport,
+	}
+}
+
+func shouldRetryTelegramViaIPv4(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	msg := strings.ToLower(strings.TrimSpace(err.Error()))
+	if !strings.Contains(msg, "dial tcp [") {
+		return false
+	}
+
+	return strings.Contains(msg, "network is unreachable") ||
+		strings.Contains(msg, "no route to host") ||
+		strings.Contains(msg, "cannot assign requested address") ||
+		strings.Contains(msg, "address family not supported by protocol")
 }
 
 func (n *TelegramNotifier) shouldSend(key string) bool {

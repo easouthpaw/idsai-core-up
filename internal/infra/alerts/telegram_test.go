@@ -3,8 +3,10 @@ package alerts
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -66,4 +68,44 @@ func TestDisabledNotifier_NoRequests(t *testing.T) {
 	if err := n.NotifyStarted(context.Background()); err != nil {
 		t.Fatalf("disabled notifier should return nil, got %v", err)
 	}
+}
+
+func TestNotifyStarted_RetriesViaIPv4WhenIPv6Unavailable(t *testing.T) {
+	var primaryHits int32
+	var ipv4Hits int32
+
+	n := NewTelegramNotifier("token", "chat", "idsai", time.Second, time.Minute)
+	n.httpClient = &http.Client{
+		Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			atomic.AddInt32(&primaryHits, 1)
+			return nil, errors.New(`Post "https://api.telegram.org/bottoken/sendMessage": dial tcp [2001:67c:4e8:f004::9]:443: connect: network is unreachable`)
+		}),
+	}
+	n.ipv4Client = &http.Client{
+		Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			atomic.AddInt32(&ipv4Hits, 1)
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader(`{"ok": true}`)),
+			}, nil
+		}),
+	}
+
+	if err := n.NotifyStarted(context.Background()); err != nil {
+		t.Fatalf("notify with ipv4 retry failed: %v", err)
+	}
+
+	if got := atomic.LoadInt32(&primaryHits); got != 1 {
+		t.Fatalf("expected 1 primary attempt, got %d", got)
+	}
+	if got := atomic.LoadInt32(&ipv4Hits); got != 1 {
+		t.Fatalf("expected 1 ipv4 retry, got %d", got)
+	}
+}
+
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (fn roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return fn(r)
 }

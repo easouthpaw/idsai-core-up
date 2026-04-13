@@ -1175,7 +1175,26 @@ body.project-body .task-item h4 {
 
 body.project-body .task-item p {
   margin: 0;
-  color: var(--ui-muted);
+}
+
+body.project-body .task-item {
+  border: 1px solid var(--task-accent-soft);
+  border-radius: 22px;
+  background: linear-gradient(180deg, #fff 0%, var(--task-surface) 100%);
+  box-shadow: 0 0 0 3px var(--task-accent-ring), 0 14px 28px rgba(15, 23, 42, 0.08);
+}
+
+body.project-body .task-preview {
+  color: #475467;
+}
+
+body.project-body .task-detail-label,
+body.project-body .task-timeline-head {
+  color: #64748b;
+}
+
+body.project-body .task-detail-copy {
+  color: #334155;
 }
 
 body.project-body .progress-track {

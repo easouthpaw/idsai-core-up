@@ -23,7 +23,9 @@
     ".prof-header",
   ];
   const TRANSLATED_ATTRS = ["placeholder", "aria-label", "title", "alt"];
-  const SKIP_SELECTOR = "[data-i18n-skip], .kb-markdown, script, style";
+  const RICH_HTML_ATTR = "data-i18n-html";
+  const RICH_SELECTOR = `[${RICH_HTML_ATTR}]`;
+  const SKIP_SELECTOR = `[data-i18n-skip], ${RICH_SELECTOR}, .kb-markdown, script, style`;
   const textSources = new WeakMap();
   const attrSources = new WeakMap();
 
@@ -52,6 +54,24 @@
       ru: "Казахский",
       en: "Kazakh",
       kk: "Қазақша",
+    },
+  };
+
+  const HTML_TRANSLATIONS = {
+    "landing.hero.title": {
+      ru: 'Управление проектами для <span>студентов</span> нового поколения',
+      en: 'Project management for the next generation of <span>students</span>',
+      kk: 'Жаңа буын <span>студенттеріне</span> арналған жобаларды басқару',
+    },
+    "landing.platform.title": {
+      ru: 'Платформа для разработчиков, построенная на базе <span>открытого кода.</span>',
+      en: 'A developer platform built on top of <span>open source.</span>',
+      kk: '<span>Ашық кодқа</span> негізделген әзірлеушілер платформасы.',
+    },
+    "project.professorInvite.pending": {
+      ru: 'У вас есть приглашение на ревью. Откройте страницу <a href="/dev/professor/reviews">/dev/professor/reviews</a> и примите его.',
+      en: 'You have a review invite. Open <a href="/dev/professor/reviews">/dev/professor/reviews</a> and accept it.',
+      kk: 'Сізде ревьюге шақыру бар. <a href="/dev/professor/reviews">/dev/professor/reviews</a> бетін ашып, оны қабылдаңыз.',
     },
   };
 
@@ -5036,6 +5056,11 @@
     return applyParams(translated, params);
   }
 
+  function html(keyName, params) {
+    const translated = translateHTML(keyName);
+    return applyParams(translated, params);
+  }
+
   function applyParams(template, params) {
     return String(template || "").replace(/\{(\w+)\}/g, (_, name) => {
       if (!params || params[name] === undefined || params[name] === null) return "";
@@ -5063,6 +5088,12 @@
     const entry = TRANSLATION_INDEX.get(normalizeInlineText(source));
     if (!entry) return "";
     return entry[state.lang] || entry.ru || source;
+  }
+
+  function translateHTML(keyName) {
+    const entry = HTML_TRANSLATIONS[keyName];
+    if (!entry) return "";
+    return entry[state.lang] || entry.ru || "";
   }
 
   function translatePattern(source) {
@@ -6251,6 +6282,26 @@
     });
   }
 
+  function applyRichElement(el) {
+    if (!(el instanceof HTMLElement)) return;
+    const keyName = el.getAttribute(RICH_HTML_ATTR);
+    if (!keyName) return;
+    const translated = translateHTML(keyName);
+    if (!translated || el.innerHTML === translated) return;
+    el.innerHTML = translated;
+  }
+
+  function setRich(el, keyName) {
+    if (!(el instanceof HTMLElement) || !keyName) return;
+    el.setAttribute(RICH_HTML_ATTR, keyName);
+    applyRichElement(el);
+  }
+
+  function clearRich(el) {
+    if (!(el instanceof HTMLElement)) return;
+    el.removeAttribute(RICH_HTML_ATTR);
+  }
+
   function apply(root = document.body) {
     if (!root) return;
     if (root instanceof Text) {
@@ -6259,7 +6310,17 @@
     }
 
     if (root instanceof HTMLElement) {
+      if (root.matches(RICH_SELECTOR)) {
+        applyRichElement(root);
+        return;
+      }
       applyElementAttrs(root);
+    }
+
+    if (root.querySelectorAll) {
+      root.querySelectorAll(RICH_SELECTOR).forEach((el) => {
+        applyRichElement(el);
+      });
     }
 
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -6439,6 +6500,7 @@
   window.IDSAI18n = {
     key,
     t,
+    html,
     apply,
     locale,
     compareStrings,
@@ -6448,5 +6510,7 @@
     relativeTime,
     getLanguage,
     setLanguage,
+    setRich,
+    clearRich,
   };
 })();
