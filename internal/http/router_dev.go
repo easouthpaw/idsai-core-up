@@ -40,6 +40,9 @@ func registerDevAndDocsRoutes(r *gin.Engine, pool *pgxpool.Pool) {
 	r.GET("/dev/404", handlers.DevNotFoundPage)
 	r.GET("/dev/tester", handlers.DevLoginPage)
 
+	r.HEAD("/", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
 	r.GET("/", handlers.DevLandingPage)
 	r.GET("/author", handlers.DevAuthorPage)
 	r.GET("/404", handlers.DevNotFoundPage)
