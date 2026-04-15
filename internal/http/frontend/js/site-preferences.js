@@ -549,6 +549,26 @@
       en: "Create account ☐",
       kk: "Аккаунт ашу ☐",
     },
+    "Вуз": {
+      en: "University",
+      kk: "ЖОО",
+    },
+    "Школа": {
+      en: "School",
+      kk: "Мектеп",
+    },
+    "Тип обучения": {
+      en: "Education type",
+      kk: "Оқу түрі",
+    },
+    "Учреждение": {
+      en: "Institution",
+      kk: "Мекеме",
+    },
+    "Факультет": {
+      en: "Faculty",
+      kk: "Факультет",
+    },
     "© 2026 IDSAI Corp. Все системы работают штатно.": {
       en: "© 2026 IDSAI Corp. All systems are operating normally.",
       kk: "© 2026 IDSAI Corp. Барлық жүйелер қалыпты жұмыс істеп тұр.",

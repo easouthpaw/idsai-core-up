@@ -8,11 +8,26 @@
   const panelRegisterEl = document.getElementById("panelRegister");
   const forgotPasswordBtn = document.getElementById("forgotPasswordBtn");
   const rememberMeEl = document.getElementById("rememberMe");
+  const regEducationTypeButtons = Array.from(document.querySelectorAll("[data-education-type]"));
+  const regUniversityFieldsEl = document.getElementById("regUniversityFields");
+  const regSchoolFieldsEl = document.getElementById("regSchoolFields");
+  const regInstitutionEl = document.getElementById("regInstitution");
+  const regInstitutionSuggestionsEl = document.getElementById("regInstitutionSuggestions");
+  const regInstitutionNoteEl = document.getElementById("regInstitutionNote");
+  const regFacultyEl = document.getElementById("regFaculty");
   const regDepartmentEl = document.getElementById("regDepartment");
   const regGroupEl = document.getElementById("regGroup");
   const regGroupPreviewEl = document.getElementById("regGroupPreview");
+  const regSchoolClassEl = document.getElementById("regSchoolClass");
   const registrationState = {
+    faculties: [],
     departments: [],
+    educationType: "UNIVERSITY",
+    institutionSearchTimer: 0,
+    institutionRequestID: 0,
+    institutionResults: [],
+    institutionActiveIndex: -1,
+    institutionSelection: null,
   };
   const PASSWORD_ICON_SHOW = "/dev/static/assets/icon-eye.svg";
   const PASSWORD_ICON_HIDE = "/dev/static/assets/icon-eye-slash.svg";
@@ -28,6 +43,33 @@
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
+  }
+
+  function escapeRegExp(value) {
+    return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function highlightInstitutionMatch(value, query) {
+    const text = String(value || "");
+    const needle = String(query || "").trim();
+    if (!text || !needle) {
+      return escapeHTML(text);
+    }
+
+    const pattern = new RegExp(`(${escapeRegExp(needle)})`, "i");
+    const parts = text.split(pattern);
+    if (parts.length < 3) {
+      return escapeHTML(text);
+    }
+
+    return parts
+      .map((part, index) => {
+        if (index % 2 === 1) {
+          return `<strong>${escapeHTML(part)}</strong>`;
+        }
+        return escapeHTML(part);
+      })
+      .join("");
   }
 
   function showConfirmDialog(options) {
@@ -192,6 +234,14 @@
     return auth.targetByProfile(profile);
   }
 
+  function selectedEducationType() {
+    return registrationState.educationType === "SCHOOL" ? "SCHOOL" : "UNIVERSITY";
+  }
+
+  function isSchoolClassValid(value) {
+    return /^(?:[1-9]|1[0-2])(?:[A-Za-zА-Яа-яЁё])?$/.test(String(value || "").trim());
+  }
+
   function buildGroupCode(departmentCode, rawGroup) {
     const department = String(departmentCode || "").trim().toUpperCase();
     const value = String(rawGroup || "").trim().toUpperCase();
@@ -200,6 +250,198 @@
       return `${department}-${value}`;
     }
     return value;
+  }
+
+  function institutionKindLabel() {
+    return selectedEducationType() === "SCHOOL" ? "школу" : "вуз";
+  }
+
+  function setInstitutionNote(message, tone = "") {
+    if (!regInstitutionNoteEl) return;
+    regInstitutionNoteEl.textContent = message;
+    regInstitutionNoteEl.dataset.tone = tone;
+  }
+
+  function clearInstitutionSuggestions() {
+    registrationState.institutionResults = [];
+    registrationState.institutionActiveIndex = -1;
+    if (!regInstitutionSuggestionsEl) return;
+    regInstitutionSuggestionsEl.hidden = true;
+    regInstitutionSuggestionsEl.innerHTML = "";
+  }
+
+  function clearInstitutionSelection(options = {}) {
+    registrationState.institutionSelection = null;
+    if (!options.keepInput && regInstitutionEl) {
+      regInstitutionEl.value = "";
+    }
+  }
+
+  function selectedInstitutionPayload() {
+    const selected = registrationState.institutionSelection;
+    if (selected && selected.name) {
+      return {
+        institution_provider: String(selected.provider || ""),
+        institution_external_id: String(selected.external_id || ""),
+        institution_name: String(selected.name || ""),
+        institution_address: String(selected.address || ""),
+      };
+    }
+    const manualName = String(regInstitutionEl?.value || "").trim();
+    return {
+      institution_provider: "",
+      institution_external_id: "",
+      institution_name: manualName,
+      institution_address: "",
+    };
+  }
+
+  function institutionOptionHTML(item, active) {
+    const query = String(regInstitutionEl?.value || "").trim();
+    const name = highlightInstitutionMatch(item && item.name, query);
+    const address = escapeHTML(item && item.address);
+    return `
+      <button class="institution-suggestion${active ? " is-active" : ""}" type="button" role="option" aria-selected="${active ? "true" : "false"}">
+        <svg class="institution-suggestion__icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="currentColor"/>
+        </svg>
+        <span class="institution-suggestion__body">
+          <span class="institution-suggestion__line">
+            <span class="institution-suggestion__name">${name}</span>
+            ${address ? `<span class="institution-suggestion__address">${address}</span>` : ""}
+          </span>
+        </span>
+      </button>
+    `;
+  }
+
+  function renderInstitutionSuggestions() {
+    if (!regInstitutionSuggestionsEl) return;
+    const items = Array.isArray(registrationState.institutionResults) ? registrationState.institutionResults : [];
+    if (!items.length) {
+      clearInstitutionSuggestions();
+      return;
+    }
+
+    regInstitutionSuggestionsEl.hidden = false;
+    regInstitutionSuggestionsEl.innerHTML = items
+      .map((item, index) => institutionOptionHTML(item, index === registrationState.institutionActiveIndex))
+      .join("");
+
+    Array.from(regInstitutionSuggestionsEl.querySelectorAll(".institution-suggestion")).forEach((button, index) => {
+      button.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+      });
+      button.addEventListener("click", () => {
+        const item = registrationState.institutionResults[index];
+        if (!item) return;
+        registrationState.institutionSelection = item;
+        registrationState.institutionActiveIndex = index;
+        if (regInstitutionEl) {
+          regInstitutionEl.value = String(item.name || "");
+        }
+        clearInstitutionSuggestions();
+        setInstitutionNote(
+          item.address
+            ? `Выбрали ${institutionKindLabel()}: ${item.address}`
+            : `Выбрали ${institutionKindLabel()} из подсказок.`,
+          "ok",
+        );
+      });
+    });
+  }
+
+  async function fetchInstitutionSuggestions(query) {
+    const requestID = ++registrationState.institutionRequestID;
+    const params = new URLSearchParams({
+      q: String(query || "").trim(),
+      kind: selectedEducationType(),
+    });
+    const { resp, data } = await auth.requestJSON(`/v2/auth/institutions/suggest?${params.toString()}`, {
+      method: "GET",
+      skipAuthRefresh: true,
+      skipAuthRedirect: true,
+    });
+    if (requestID !== registrationState.institutionRequestID) {
+      return;
+    }
+    if (!resp.ok) {
+      clearInstitutionSuggestions();
+      const reason = String(data && data.error || "").trim();
+      setInstitutionNote(
+        reason || `Подсказки для ${institutionKindLabel()} сейчас недоступны. Название можно ввести вручную.`,
+        "warning",
+      );
+      return;
+    }
+    const items = Array.isArray(data.items) ? data.items : [];
+    registrationState.institutionResults = items
+      .map((item) => ({
+        provider: String(item.provider || ""),
+        external_id: String(item.external_id || ""),
+        name: String(item.name || "").trim(),
+        address: String(item.address || "").trim(),
+      }))
+      .filter((item) => item.name);
+
+    if (!registrationState.institutionResults.length) {
+      clearInstitutionSuggestions();
+      setInstitutionNote(`Не нашли подходящую запись. Можно продолжить с ручным названием ${institutionKindLabel()}.`, "warning");
+      return;
+    }
+
+    registrationState.institutionActiveIndex = 0;
+    renderInstitutionSuggestions();
+    setInstitutionNote(`Выберите ${institutionKindLabel()} из списка или продолжайте вводить вручную.`, "");
+  }
+
+  function scheduleInstitutionSuggestions() {
+    if (registrationState.institutionSearchTimer) {
+      clearTimeout(registrationState.institutionSearchTimer);
+    }
+    const query = String(regInstitutionEl?.value || "").trim();
+    if (query.length < 2) {
+      registrationState.institutionRequestID += 1;
+      clearInstitutionSuggestions();
+      setInstitutionNote(`Начните вводить название ${institutionKindLabel()}.`, "");
+      return;
+    }
+    registrationState.institutionSearchTimer = window.setTimeout(() => {
+      fetchInstitutionSuggestions(query).catch(() => {
+        clearInstitutionSuggestions();
+        setInstitutionNote(`Подсказки для ${institutionKindLabel()} сейчас недоступны. Название можно ввести вручную.`, "warning");
+      });
+    }, 220);
+  }
+
+  function visibleDepartments() {
+    const facultyID = String(regFacultyEl?.value || "").trim();
+    const list = Array.isArray(registrationState.departments) ? registrationState.departments : [];
+    if (!facultyID) {
+      return [];
+    }
+    return list.filter((item) => String(item.faculty_id || "") === facultyID);
+  }
+
+  function setFacultyOptions(items) {
+    const list = Array.isArray(items) ? items : [];
+    if (!regFacultyEl) return;
+    regFacultyEl.innerHTML = "";
+    const first = document.createElement("option");
+    first.value = "";
+    first.textContent = "Выберите факультет";
+    regFacultyEl.appendChild(first);
+
+    list.forEach((item) => {
+      const id = String(item.id || "").trim();
+      const code = String(item.code || "").trim().toUpperCase();
+      const name = String(item.name || "").trim();
+      if (!id) return;
+      const opt = document.createElement("option");
+      opt.value = id;
+      opt.textContent = name ? `${code} — ${name}` : code;
+      regFacultyEl.appendChild(opt);
+    });
   }
 
   function updateRegistrationGroupField() {
@@ -224,22 +466,13 @@
     }
   }
 
-  async function callJSON(url, payload) {
-    return auth.requestJSON(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      skipAuthRefresh: true,
-      skipAuthRedirect: true,
-    });
-  }
-
   function setDepartmentOptions(items) {
+    if (!regDepartmentEl) return;
     const list = Array.isArray(items) ? items : [];
     regDepartmentEl.innerHTML = "";
     const first = document.createElement("option");
     first.value = "";
-    first.textContent = "Выберите кафедру";
+    first.textContent = regFacultyEl && !regFacultyEl.value ? "Сначала выберите факультет" : "Выберите кафедру";
     regDepartmentEl.appendChild(first);
 
     list.forEach((item) => {
@@ -250,6 +483,84 @@
       opt.textContent = name ? `${code} — ${name}` : code;
       regDepartmentEl.appendChild(opt);
     });
+
+    regDepartmentEl.disabled = list.length === 0;
+    if (!list.length) {
+      regDepartmentEl.value = "";
+    }
+  }
+
+  function syncRegistrationFields() {
+    const educationType = selectedEducationType();
+    const isUniversity = educationType === "UNIVERSITY";
+
+    regEducationTypeButtons.forEach((button) => {
+      if (!(button instanceof HTMLButtonElement)) {
+        return;
+      }
+      const active = String(button.dataset.educationType || "").toUpperCase() === educationType;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+
+    if (regUniversityFieldsEl) {
+      regUniversityFieldsEl.hidden = !isUniversity;
+    }
+    if (regSchoolFieldsEl) {
+      regSchoolFieldsEl.hidden = isUniversity;
+    }
+    if (regInstitutionEl) {
+      regInstitutionEl.placeholder = isUniversity
+        ? "Начните вводить название вуза"
+        : "Начните вводить название школы";
+    }
+    if (!isUniversity) {
+      if (regFacultyEl) regFacultyEl.value = "";
+      if (regDepartmentEl) regDepartmentEl.value = "";
+      if (regGroupEl) regGroupEl.value = "";
+      updateRegistrationGroupField();
+      return;
+    }
+
+    setDepartmentOptions(visibleDepartments());
+    updateRegistrationGroupField();
+  }
+
+  function setRegistrationEducationType(nextType) {
+    registrationState.educationType = String(nextType || "").toUpperCase() === "SCHOOL" ? "SCHOOL" : "UNIVERSITY";
+    registrationState.institutionRequestID += 1;
+    clearInstitutionSelection();
+    clearInstitutionSuggestions();
+    setInstitutionNote(`Начните вводить название ${institutionKindLabel()}.`, "");
+    syncRegistrationFields();
+  }
+
+  async function callJSON(url, payload) {
+    return auth.requestJSON(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      skipAuthRefresh: true,
+      skipAuthRedirect: true,
+    });
+  }
+
+  async function loadFaculties() {
+    const { resp, data } = await auth.requestJSON("/v2/auth/faculties", {
+      method: "GET",
+      skipAuthRefresh: true,
+      skipAuthRedirect: true,
+    });
+    if (!resp.ok) {
+      throw new Error((data && data.error) || "Не удалось загрузить факультеты");
+    }
+    const items = Array.isArray(data.faculties) ? data.faculties : [];
+    registrationState.faculties = items;
+    setFacultyOptions(items);
+    if (items.length === 1 && regFacultyEl && !regFacultyEl.value) {
+      regFacultyEl.value = String(items[0].id || "").trim();
+    }
+    syncRegistrationFields();
   }
 
   async function loadDepartments() {
@@ -263,8 +574,7 @@
     }
     const items = Array.isArray(data.departments) ? data.departments : [];
     registrationState.departments = items;
-    setDepartmentOptions(items);
-    updateRegistrationGroupField();
+    syncRegistrationFields();
   }
 
   async function resendVerification(email) {
@@ -306,11 +616,18 @@
       sub: out.data.user_id,
       tenant_id: out.data.tenant_id,
       faculty_id: out.data.faculty_id,
+      faculty_code: out.data.faculty_code,
       department_id: out.data.department_id,
       department_code: out.data.department_code,
       group_id: out.data.group_id,
       group_code: out.data.group_code,
       group_number: out.data.group_number,
+      education_type: out.data.education_type,
+      school_class: out.data.school_class,
+      institution_provider: out.data.institution_provider,
+      institution_external_id: out.data.institution_external_id,
+      institution_name: out.data.institution_name,
+      institution_address: out.data.institution_address,
       email: out.data.email,
       pending_email: out.data.pending_email,
       pending_email_status: out.data.pending_email_status,
@@ -328,32 +645,65 @@
 
   async function register() {
     const fullName = document.getElementById("regFullName").value.trim();
-    const department = String(regDepartmentEl.value || "").trim().toUpperCase();
-    const groupCode = buildGroupCode(department, regGroupEl.value);
+    const educationType = selectedEducationType();
+    const institution = selectedInstitutionPayload();
+    const facultyID = String(regFacultyEl?.value || "").trim();
+    const department = String(regDepartmentEl?.value || "").trim().toUpperCase();
+    const groupCode = buildGroupCode(department, regGroupEl?.value);
+    const schoolClass = String(regSchoolClassEl?.value || "").trim().toUpperCase();
     const email = document.getElementById("regEmail").value.trim();
     const password = document.getElementById("regPassword").value;
     const password2 = document.getElementById("regPassword2").value;
 
-    if (!email || !password || !department || !groupCode) {
-      setStatus("Заполните обязательные поля и укажите номер группы.", false);
-      return;
-    }
-    if (!/^[A-Z]{2,8}-\d{1,4}$/.test(groupCode)) {
-      setStatus("Номер группы должен содержать от 1 до 4 цифр.", false);
+    if (!email || !password) {
+      setStatus("Заполните обязательные поля регистрации.", false);
       return;
     }
     if (password !== password2) {
       setStatus("Пароли не совпадают", false);
       return;
     }
+    if (!institution.institution_name) {
+      setStatus(`Укажите ${selectedEducationType() === "SCHOOL" ? "школу" : "вуз"}.`, false);
+      return;
+    }
 
-    const out = await callJSON("/v2/auth/register", {
-      email,
-      password,
-      full_name: fullName,
-      department_code: department,
-      group_code: groupCode,
-    });
+    let payload;
+    if (educationType === "SCHOOL") {
+      if (!isSchoolClassValid(schoolClass)) {
+        setStatus("Для школы укажите класс в формате 5, 9A или 11Б.", false);
+        return;
+      }
+      payload = {
+        email,
+        password,
+        full_name: fullName,
+        education_type: "SCHOOL",
+        school_class: schoolClass,
+        ...institution,
+      };
+    } else {
+      if (!facultyID || !department || !groupCode) {
+        setStatus("Для вуза выберите факультет, кафедру и укажите группу.", false);
+        return;
+      }
+      if (!/^[A-Z]{2,8}-\d{1,4}$/.test(groupCode)) {
+        setStatus("Номер группы должен содержать от 1 до 4 цифр.", false);
+        return;
+      }
+      payload = {
+        email,
+        password,
+        full_name: fullName,
+        education_type: "UNIVERSITY",
+        faculty_id: facultyID,
+        department_code: department,
+        group_code: groupCode,
+        ...institution,
+      };
+    }
+
+    const out = await callJSON("/v2/auth/register", payload);
     if (!out.resp.ok) {
       setStatus("Ошибка регистрации: " + out.resp.status, false);
       showJSON(out.data);
@@ -540,16 +890,87 @@
 
   initPasswordToggles();
   handleQueryState();
+  regEducationTypeButtons.forEach((button) => {
+    if (!(button instanceof HTMLButtonElement)) {
+      return;
+    }
+    button.addEventListener("click", () => {
+      setRegistrationEducationType(button.dataset.educationType || "UNIVERSITY");
+    });
+  });
+  regFacultyEl?.addEventListener("change", () => {
+    if (regDepartmentEl) {
+      regDepartmentEl.value = "";
+    }
+    setDepartmentOptions(visibleDepartments());
+    updateRegistrationGroupField();
+  });
   regDepartmentEl?.addEventListener("change", () => {
     updateRegistrationGroupField();
   });
   regGroupEl?.addEventListener("input", () => {
     updateRegistrationGroupField();
   });
+  regInstitutionEl?.addEventListener("input", () => {
+    const typed = String(regInstitutionEl.value || "").trim();
+    const selected = registrationState.institutionSelection;
+    if (selected && typed !== String(selected.name || "").trim()) {
+      clearInstitutionSelection({ keepInput: true });
+    }
+    scheduleInstitutionSuggestions();
+  });
+  regInstitutionEl?.addEventListener("focus", () => {
+    if (Array.isArray(registrationState.institutionResults) && registrationState.institutionResults.length) {
+      renderInstitutionSuggestions();
+    }
+  });
+  regInstitutionEl?.addEventListener("blur", () => {
+    window.setTimeout(() => {
+      clearInstitutionSuggestions();
+    }, 200);
+  });
+  regInstitutionEl?.addEventListener("keydown", (event) => {
+    const items = Array.isArray(registrationState.institutionResults) ? registrationState.institutionResults : [];
+    if (!items.length) {
+      return;
+    }
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      registrationState.institutionActiveIndex = (registrationState.institutionActiveIndex + 1 + items.length) % items.length;
+      renderInstitutionSuggestions();
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      registrationState.institutionActiveIndex = (registrationState.institutionActiveIndex - 1 + items.length) % items.length;
+      renderInstitutionSuggestions();
+      return;
+    }
+    if (event.key === "Enter") {
+      const next = items[registrationState.institutionActiveIndex];
+      if (!next) return;
+      event.preventDefault();
+      registrationState.institutionSelection = next;
+      regInstitutionEl.value = String(next.name || "");
+      clearInstitutionSuggestions();
+      setInstitutionNote(
+        next.address
+          ? `Выбрали ${institutionKindLabel()}: ${next.address}`
+          : `Выбрали ${institutionKindLabel()} из подсказок.`,
+        "ok",
+      );
+      return;
+    }
+    if (event.key === "Escape") {
+      clearInstitutionSuggestions();
+    }
+  });
 
-  loadDepartments()
+  setRegistrationEducationType(registrationState.educationType);
+
+  Promise.all([loadFaculties(), loadDepartments()])
     .catch((e) => {
-      setStatus("Не удалось загрузить кафедры для регистрации", false);
+      setStatus("Не удалось загрузить данные для регистрации", false);
       showJSON(e.message || String(e));
     });
 

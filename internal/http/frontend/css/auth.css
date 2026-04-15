@@ -410,6 +410,10 @@ body.auth-body {
 .panel { display: none; }
 .panel.active { display: block; }
 
+.registration-branch[hidden] {
+  display: none !important;
+}
+
 label {
   display: block;
   margin: 14px 0 6px;
@@ -433,6 +437,35 @@ input:focus-visible, select:focus-visible {
   outline: 2px solid rgba(23, 40, 69, 0.28);
   outline-offset: 2px;
   border-bottom-color: #172845;
+}
+
+.registration-kind {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.registration-kind__option {
+  border: 1px solid rgba(23, 40, 69, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #5d6b84;
+  padding: 14px 16px;
+  font: 800 18px "Manrope", sans-serif;
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.registration-kind__option:hover {
+  transform: translateY(-1px);
+  border-color: rgba(23, 40, 69, 0.22);
+}
+
+.registration-kind__option.active {
+  color: #13223e;
+  border-color: rgba(11, 22, 53, 0.28);
+  box-shadow: 0 14px 28px rgba(11, 22, 53, 0.08);
 }
 
 .password-field {
@@ -493,11 +526,102 @@ input:focus-visible, select:focus-visible {
   gap: 18px;
 }
 
+.institution-autocomplete {
+  position: relative;
+}
+
+.institution-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.12);
+  overflow: hidden;
+}
+
+.institution-suggestions[hidden] {
+  display: none;
+}
+
+.institution-suggestion {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #1a2335;
+  padding: 10px 14px;
+  text-align: left;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  transition: background 100ms ease;
+  width: 100%;
+}
+
+.institution-suggestion:hover,
+.institution-suggestion.is-active {
+  background: #f0f4ff;
+}
+
+.institution-suggestion__icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  color: #e05c5c;
+}
+
+.institution-suggestion__body {
+  display: block;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.institution-suggestion__line {
+  display: block;
+  min-width: 0;
+  color: #1a2335;
+  font: 600 14px/1.45 "Manrope", sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.institution-suggestion__name {
+  color: inherit;
+}
+
+.institution-suggestion__name strong {
+  font-weight: 800;
+}
+
+.institution-suggestion__address {
+  margin-left: 4px;
+  color: #8a96aa;
+  font-size: 13px;
+  font-weight: 500;
+}
+
 .field-note {
   margin: 8px 0 0;
   color: #8a96aa;
   font-size: 13px;
   line-height: 1.5;
+}
+
+.field-note[data-tone="ok"] {
+  color: #166534;
+}
+
+.field-note[data-tone="warning"] {
+  color: #b45309;
 }
 
 .field-note span {

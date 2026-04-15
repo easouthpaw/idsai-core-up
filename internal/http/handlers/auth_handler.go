@@ -17,8 +17,9 @@ import (
 )
 
 type AuthHandler struct {
-	svc   *auth.Service
-	authz rbacsvc.Authorizer
+	svc          *auth.Service
+	authz        rbacsvc.Authorizer
+	institutions InstitutionSuggester
 }
 
 func NewAuthHandler(svc *auth.Service) *AuthHandler {
@@ -27,6 +28,10 @@ func NewAuthHandler(svc *auth.Service) *AuthHandler {
 
 func (h *AuthHandler) SetAuthorizer(authz rbacsvc.Authorizer) {
 	h.authz = authz
+}
+
+func (h *AuthHandler) SetInstitutionSuggester(suggester InstitutionSuggester) {
+	h.institutions = suggester
 }
 
 func tenantCodeFromHeader(c *gin.Context) string {
@@ -70,12 +75,16 @@ func writeAuthError(c *gin.Context, err error) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	case errors.Is(err, auth.ErrNotFound):
 		c.JSON(http.StatusBadRequest, gin.H{"error": "resource not found"})
+	case errors.Is(err, auth.ErrFacultyNotFound):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "faculty not found"})
 	case errors.Is(err, auth.ErrDepartmentNotFound):
 		c.JSON(http.StatusBadRequest, gin.H{"error": "department not found"})
 	case errors.Is(err, auth.ErrGroupNotFound):
 		c.JSON(http.StatusBadRequest, gin.H{"error": "group not found"})
 	case errors.Is(err, auth.ErrGroupMismatch):
 		c.JSON(http.StatusBadRequest, gin.H{"error": "selected group does not belong to selected department"})
+	case errors.Is(err, auth.ErrSchoolRegistrationUnavailable):
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "school registration is unavailable"})
 	case errors.Is(err, auth.ErrGroupUnchanged):
 		c.JSON(http.StatusBadRequest, gin.H{"error": "requested group matches current group"})
 	case errors.Is(err, auth.ErrPendingGroupRequestExists):
@@ -176,14 +185,35 @@ func (h *AuthHandler) RegisterStudent(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.RegisterStudent(
+	facultyID := uuid.Nil
+	if raw := strings.TrimSpace(req.FacultyID); raw != "" {
+		parsed, err := uuid.Parse(raw)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid faculty_id"})
+			return
+		}
+		facultyID = parsed
+	}
+
+	if err := h.svc.Register(
 		c.Request.Context(),
 		tenantCodeFromHeader(c),
-		req.Email,
-		req.Password,
-		req.FullName,
-		req.DepartmentCode,
-		req.GroupCode,
+		auth.RegistrationInput{
+			Email:          req.Email,
+			Password:       req.Password,
+			FullName:       req.FullName,
+			EducationType:  req.EducationType,
+			FacultyID:      facultyID,
+			DepartmentCode: req.DepartmentCode,
+			GroupCode:      req.GroupCode,
+			SchoolClass:    req.SchoolClass,
+			Institution: auth.InstitutionSelection{
+				Provider:   req.InstitutionProvider,
+				ExternalID: req.InstitutionExternalID,
+				Name:       req.InstitutionName,
+				Address:    req.InstitutionAddress,
+			},
+		},
 	); err != nil {
 		writeAuthError(c, err)
 		return

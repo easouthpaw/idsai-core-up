@@ -24,6 +24,18 @@ func (h *AuthHandler) ListDepartments(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.ListDepartmentsResponse{Departments: dto.DepartmentResponsesFromService(items)})
 }
 
+func (h *AuthHandler) ListFaculties(c *gin.Context) {
+	authResponseNoStore(c)
+
+	items, err := h.svc.ListFaculties(c.Request.Context(), tenantCodeFromHeader(c))
+	if err != nil {
+		writeAuthError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.ListFacultiesResponse{Faculties: dto.FacultyResponsesFromService(items)})
+}
+
 func (h *AuthHandler) ListDepartmentGroups(c *gin.Context) {
 	authResponseNoStore(c)
 

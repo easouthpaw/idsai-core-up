@@ -12,6 +12,17 @@ type ListDepartmentsResponse struct {
 	Departments []DepartmentResponse `json:"departments"`
 }
 
+type ListFacultiesResponse struct {
+	Faculties []FacultyResponse `json:"faculties"`
+}
+
+type FacultyResponse struct {
+	ID        uuid.UUID `json:"id"`
+	Code      string    `json:"code"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type DepartmentResponse struct {
 	ID        uuid.UUID `json:"id"`
 	FacultyID uuid.UUID `json:"faculty_id"`
@@ -106,6 +117,22 @@ func DepartmentResponsesFromService(items []auth.Department) []DepartmentRespons
 			Code:      item.Code,
 			Name:      item.Name,
 			ShortCode: item.ShortCode,
+			CreatedAt: item.CreatedAt,
+		})
+	}
+	return out
+}
+
+func FacultyResponsesFromService(items []auth.Faculty) []FacultyResponse {
+	if items == nil {
+		return nil
+	}
+	out := make([]FacultyResponse, 0, len(items))
+	for _, item := range items {
+		out = append(out, FacultyResponse{
+			ID:        item.ID,
+			Code:      item.Code,
+			Name:      item.Name,
 			CreatedAt: item.CreatedAt,
 		})
 	}

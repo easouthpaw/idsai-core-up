@@ -26,6 +26,14 @@ const dummyPasswordHash = "$2a$10$6zP4Lb6Tx0Jj8N4A7JwK3eVj3ljmd725LLJoPLD114F8Cb
 
 var groupCodePattern = regexp.MustCompile(`^[A-Z]{2,8}-[0-9]{1,4}$`)
 var groupNumberPattern = regexp.MustCompile(`^[0-9]{1,4}$`)
+var schoolClassPattern = regexp.MustCompile(`^(?:[1-9]|1[0-2])(?:\p{L})?$`)
+
+const (
+	EducationTypeUniversity          = "UNIVERSITY"
+	EducationTypeSchool              = "SCHOOL"
+	schoolRegistrationFacultySuffix  = "_SCHOOL"
+	schoolRegistrationDepartmentCode = "CLASS"
+)
 
 const (
 	maxProfileNameLen         = 120
@@ -50,11 +58,13 @@ type User struct {
 	PasswordChangedAt time.Time
 	Status            string
 	FacultyID         uuid.UUID
+	FacultyCode       string
 	DepartmentID      uuid.UUID
 	DepartmentCode    string
 	GroupID           *uuid.UUID
 	GroupCode         string
 	GroupNumber       *int
+	Institution       InstitutionSelection
 	FullName          string
 	Headline          string
 	About             string
@@ -98,6 +108,18 @@ type ProfileUpdate struct {
 	Interests     []string
 }
 
+type RegistrationInput struct {
+	Email          string
+	Password       string
+	FullName       string
+	EducationType  string
+	FacultyID      uuid.UUID
+	DepartmentCode string
+	GroupCode      string
+	SchoolClass    string
+	Institution    InstitutionSelection
+}
+
 type CreateUserParams struct {
 	TenantID          uuid.UUID
 	Email             string
@@ -128,6 +150,13 @@ type Department struct {
 	Code      string
 	Name      string
 	ShortCode string
+	CreatedAt time.Time
+}
+
+type Faculty struct {
+	ID        uuid.UUID
+	Code      string
+	Name      string
 	CreatedAt time.Time
 }
 
@@ -185,7 +214,7 @@ type DepartmentGroupsTree struct {
 type Repository interface {
 	FindTenantByCode(ctx context.Context, tenantCode string) (uuid.UUID, error)
 	CreateUser(ctx context.Context, in CreateUserParams) (uuid.UUID, error)
-	CreateProfile(ctx context.Context, tenantID, userID uuid.UUID, fullName string, facultyID, departmentID uuid.UUID, groupID *uuid.UUID) error
+	CreateProfile(ctx context.Context, tenantID, userID uuid.UUID, fullName string, facultyID, departmentID uuid.UUID, groupID *uuid.UUID, institution InstitutionSelection) error
 	GrantStudentFacultyRole(ctx context.Context, tenantID, userID, facultyID uuid.UUID) error
 	FindUserByEmail(ctx context.Context, tenantID uuid.UUID, email string) (User, error)
 	FindUserByID(ctx context.Context, tenantID, userID uuid.UUID) (User, error)
@@ -201,7 +230,10 @@ type Repository interface {
 	RevokeRefreshToken(ctx context.Context, tokenHash string) error
 	RevokeAndReturnRefreshToken(ctx context.Context, tokenHash string) (tenantID uuid.UUID, userID uuid.UUID, expiresAt time.Time, err error)
 	RevokeUserRefreshTokens(ctx context.Context, tenantID, userID uuid.UUID) error
+	ListFaculties(ctx context.Context, tenantID uuid.UUID) ([]Faculty, error)
 	FindDepartment(ctx context.Context, tenantID uuid.UUID, departmentCode string) (departmentID uuid.UUID, facultyID uuid.UUID, err error)
+	FindDepartmentInFaculty(ctx context.Context, tenantID, facultyID uuid.UUID, departmentCode string) (departmentID uuid.UUID, err error)
+	FindSchoolRegistrationScope(ctx context.Context, tenantID uuid.UUID) (facultyID uuid.UUID, departmentID uuid.UUID, err error)
 	FindGroupByCodeInDepartment(ctx context.Context, tenantID, departmentID uuid.UUID, groupCode string) (groupID uuid.UUID, err error)
 	CreateGroupInDepartment(ctx context.Context, tenantID, facultyID, departmentID uuid.UUID, groupCode string, groupNumber int) (groupID uuid.UUID, err error)
 	ListDepartments(ctx context.Context, tenantID uuid.UUID) ([]Department, error)
@@ -339,6 +371,33 @@ func (s *Service) RegistrationRequiresVerification() bool {
 	return !s.autoVerifyRegs
 }
 
+func EducationTypeFromFacultyCode(facultyCode string) string {
+	if strings.HasSuffix(strings.ToUpper(strings.TrimSpace(facultyCode)), schoolRegistrationFacultySuffix) {
+		return EducationTypeSchool
+	}
+	return EducationTypeUniversity
+}
+
+func SchoolClassFromGroupCode(groupCode string) string {
+	prefix := schoolRegistrationDepartmentCode + "-"
+	value := strings.ToUpper(strings.TrimSpace(groupCode))
+	if strings.HasPrefix(value, prefix) {
+		return strings.TrimSpace(strings.TrimPrefix(value, prefix))
+	}
+	return ""
+}
+
+func normalizeEducationType(value string) string {
+	switch strings.ToUpper(strings.TrimSpace(value)) {
+	case "", EducationTypeUniversity:
+		return EducationTypeUniversity
+	case EducationTypeSchool:
+		return EducationTypeSchool
+	default:
+		return ""
+	}
+}
+
 func normalizeDepartmentGroupCode(departmentCode, rawGroup string) string {
 	departmentCode = strings.ToUpper(strings.TrimSpace(departmentCode))
 	groupCode := strings.ToUpper(strings.TrimSpace(rawGroup))
@@ -349,6 +408,34 @@ func normalizeDepartmentGroupCode(departmentCode, rawGroup string) string {
 		return departmentCode + "-" + groupCode
 	}
 	return groupCode
+}
+
+func normalizeSchoolClass(rawClass string) (string, int, error) {
+	value := strings.ToUpper(strings.TrimSpace(rawClass))
+	if !schoolClassPattern.MatchString(value) {
+		return "", 0, ErrInvalidInput
+	}
+
+	numberPart := value
+	letterPart := ""
+	for idx, r := range value {
+		if r < '0' || r > '9' {
+			numberPart = value[:idx]
+			letterPart = value[idx:]
+			break
+		}
+	}
+
+	number, err := strconv.Atoi(numberPart)
+	if err != nil || number <= 0 {
+		return "", 0, ErrInvalidInput
+	}
+
+	order := number * 100
+	if letterPart != "" {
+		order += int([]rune(letterPart)[0])
+	}
+	return value, order, nil
 }
 
 func groupNumberFromCode(groupCode string) (int, error) {
@@ -363,10 +450,11 @@ func groupNumberFromCode(groupCode string) (int, error) {
 	return number, nil
 }
 
-func (s *Service) resolveOrCreateGroupByCode(
+func (s *Service) resolveOrCreateGroup(
 	ctx context.Context,
 	tenantID, facultyID, departmentID uuid.UUID,
 	groupCode string,
+	groupNumber int,
 ) (uuid.UUID, error) {
 	groupID, err := s.repo.FindGroupByCodeInDepartment(ctx, tenantID, departmentID, groupCode)
 	if err == nil {
@@ -376,43 +464,16 @@ func (s *Service) resolveOrCreateGroupByCode(
 		return uuid.Nil, err
 	}
 
-	groupNumber, err := groupNumberFromCode(groupCode)
-	if err != nil {
-		return uuid.Nil, err
-	}
 	return s.repo.CreateGroupInDepartment(ctx, tenantID, facultyID, departmentID, groupCode, groupNumber)
 }
 
-func (s *Service) RegisterStudent(ctx context.Context, tenantCode, email, password, fullName, departmentCode, groupCode string) error {
-	tenantCode = normalizeTenantCode(tenantCode)
-	tenantID, err := s.repo.FindTenantByCode(ctx, tenantCode)
-	if err != nil {
-		return err
-	}
-
-	email = normalizeEmail(email)
-	fullName = strings.TrimSpace(fullName)
-	departmentCode = strings.ToUpper(strings.TrimSpace(departmentCode))
-	groupCode = normalizeDepartmentGroupCode(departmentCode, groupCode)
-	if email == "" || departmentCode == "" || groupCode == "" {
-		return ErrInvalidInput
-	}
-	if !groupCodePattern.MatchString(groupCode) || !strings.HasPrefix(groupCode, departmentCode+"-") {
-		return ErrGroupMismatch
-	}
-	if err := passwords.Validate(password); err != nil {
-		return err
-	}
-
-	deptID, facultyID, err := s.repo.FindDepartment(ctx, tenantID, departmentCode)
-	if err != nil {
-		return err
-	}
-	groupID, err := s.resolveOrCreateGroupByCode(ctx, tenantID, facultyID, deptID, groupCode)
-	if err != nil {
-		return err
-	}
-
+func (s *Service) registerUserWithScope(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	email, password, fullName string,
+	facultyID, departmentID, groupID uuid.UUID,
+	institution InstitutionSelection,
+) error {
 	hash, err := passwords.Hash(password)
 	if err != nil {
 		return err
@@ -436,7 +497,8 @@ func (s *Service) RegisterStudent(ctx context.Context, tenantCode, email, passwo
 	if err != nil {
 		return err
 	}
-	if err := s.repo.CreateProfile(ctx, tenantID, userID, fullName, facultyID, deptID, &groupID); err != nil {
+
+	if err := s.repo.CreateProfile(ctx, tenantID, userID, fullName, facultyID, departmentID, &groupID, normalizeInstitutionSelection(institution)); err != nil {
 		return err
 	}
 	if err := s.repo.GrantStudentFacultyRole(ctx, tenantID, userID, facultyID); err != nil {
@@ -447,6 +509,92 @@ func (s *Service) RegisterStudent(ctx context.Context, tenantCode, email, passwo
 	}
 
 	return s.issueVerification(ctx, tenantID, userID, email)
+}
+
+func (s *Service) Register(ctx context.Context, tenantCode string, in RegistrationInput) error {
+	tenantCode = normalizeTenantCode(tenantCode)
+	tenantID, err := s.repo.FindTenantByCode(ctx, tenantCode)
+	if err != nil {
+		return err
+	}
+
+	email := normalizeEmail(in.Email)
+	fullName := strings.TrimSpace(in.FullName)
+	educationType := normalizeEducationType(in.EducationType)
+	institution := normalizeInstitutionSelection(in.Institution)
+	if email == "" || educationType == "" {
+		return ErrInvalidInput
+	}
+	if err := passwords.Validate(in.Password); err != nil {
+		return err
+	}
+
+	switch educationType {
+	case EducationTypeUniversity:
+		departmentCode := strings.ToUpper(strings.TrimSpace(in.DepartmentCode))
+		groupCode := normalizeDepartmentGroupCode(departmentCode, in.GroupCode)
+		if departmentCode == "" || groupCode == "" {
+			return ErrInvalidInput
+		}
+		if !groupCodePattern.MatchString(groupCode) || !strings.HasPrefix(groupCode, departmentCode+"-") {
+			return ErrGroupMismatch
+		}
+
+		var (
+			deptID    uuid.UUID
+			facultyID uuid.UUID
+		)
+		if in.FacultyID != uuid.Nil {
+			deptID, err = s.repo.FindDepartmentInFaculty(ctx, tenantID, in.FacultyID, departmentCode)
+			facultyID = in.FacultyID
+		} else {
+			deptID, facultyID, err = s.repo.FindDepartment(ctx, tenantID, departmentCode)
+		}
+		if err != nil {
+			return err
+		}
+
+		groupNumber, err := groupNumberFromCode(groupCode)
+		if err != nil {
+			return err
+		}
+		groupID, err := s.resolveOrCreateGroup(ctx, tenantID, facultyID, deptID, groupCode, groupNumber)
+		if err != nil {
+			return err
+		}
+
+		return s.registerUserWithScope(ctx, tenantID, email, in.Password, fullName, facultyID, deptID, groupID, institution)
+	case EducationTypeSchool:
+		facultyID, deptID, err := s.repo.FindSchoolRegistrationScope(ctx, tenantID)
+		if err != nil {
+			return err
+		}
+
+		schoolClass, groupNumber, err := normalizeSchoolClass(in.SchoolClass)
+		if err != nil {
+			return err
+		}
+		groupCode := schoolRegistrationDepartmentCode + "-" + schoolClass
+		groupID, err := s.resolveOrCreateGroup(ctx, tenantID, facultyID, deptID, groupCode, groupNumber)
+		if err != nil {
+			return err
+		}
+
+		return s.registerUserWithScope(ctx, tenantID, email, in.Password, fullName, facultyID, deptID, groupID, institution)
+	default:
+		return ErrInvalidInput
+	}
+}
+
+func (s *Service) RegisterStudent(ctx context.Context, tenantCode, email, password, fullName, departmentCode, groupCode string) error {
+	return s.Register(ctx, tenantCode, RegistrationInput{
+		Email:          email,
+		Password:       password,
+		FullName:       fullName,
+		EducationType:  EducationTypeUniversity,
+		DepartmentCode: departmentCode,
+		GroupCode:      groupCode,
+	})
 }
 
 func (s *Service) Login(ctx context.Context, actorKey, tenantCode, email, password string) (Session, error) {
@@ -657,6 +805,14 @@ func normalizeProfileTags(items []string, limit int) []string {
 	return out
 }
 
+func (s *Service) ListFaculties(ctx context.Context, tenantCode string) ([]Faculty, error) {
+	tenantID, err := s.repo.FindTenantByCode(ctx, normalizeTenantCode(tenantCode))
+	if err != nil {
+		return nil, err
+	}
+	return s.repo.ListFaculties(ctx, tenantID)
+}
+
 func (s *Service) ListDepartments(ctx context.Context, tenantCode string) ([]Department, error) {
 	tenantID, err := s.repo.FindTenantByCode(ctx, normalizeTenantCode(tenantCode))
 	if err != nil {
@@ -706,7 +862,11 @@ func (s *Service) SubmitGroupChangeRequest(
 	if err != nil {
 		return GroupChangeRequest{}, err
 	}
-	targetGroupID, err := s.resolveOrCreateGroupByCode(ctx, tenantID, targetFacultyID, targetDeptID, requestedGroupCode)
+	groupNumber, err := groupNumberFromCode(requestedGroupCode)
+	if err != nil {
+		return GroupChangeRequest{}, err
+	}
+	targetGroupID, err := s.resolveOrCreateGroup(ctx, tenantID, targetFacultyID, targetDeptID, requestedGroupCode, groupNumber)
 	if err != nil {
 		return GroupChangeRequest{}, err
 	}

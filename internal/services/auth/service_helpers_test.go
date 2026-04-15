@@ -15,6 +15,7 @@ import (
 type authRepoRecorder struct {
 	fakeRepo
 
+	facultiesOut   []Faculty
 	departmentsOut []Department
 	groupsOut      []StudentGroup
 	departmentID   uuid.UUID
@@ -85,6 +86,10 @@ func (r *authRepoRecorder) UpdateUserProfile(ctx context.Context, tenantID, user
 	return nil
 }
 
+func (r *authRepoRecorder) ListFaculties(ctx context.Context, tenantID uuid.UUID) ([]Faculty, error) {
+	return r.facultiesOut, nil
+}
+
 func (r *authRepoRecorder) ListDepartments(ctx context.Context, tenantID uuid.UUID) ([]Department, error) {
 	return r.departmentsOut, nil
 }
@@ -99,6 +104,26 @@ func (r *authRepoRecorder) FindDepartment(ctx context.Context, tenantID uuid.UUI
 		r.facultyID = uuid.New()
 	}
 	return r.departmentID, r.facultyID, nil
+}
+
+func (r *authRepoRecorder) FindDepartmentInFaculty(ctx context.Context, tenantID, facultyID uuid.UUID, departmentCode string) (uuid.UUID, error) {
+	r.findDepartmentTenantID = tenantID
+	r.findDepartmentCode = departmentCode
+	r.facultyID = facultyID
+	if r.departmentID == uuid.Nil {
+		r.departmentID = uuid.New()
+	}
+	return r.departmentID, nil
+}
+
+func (r *authRepoRecorder) FindSchoolRegistrationScope(ctx context.Context, tenantID uuid.UUID) (uuid.UUID, uuid.UUID, error) {
+	if r.facultyID == uuid.Nil {
+		r.facultyID = uuid.New()
+	}
+	if r.departmentID == uuid.Nil {
+		r.departmentID = uuid.New()
+	}
+	return r.facultyID, r.departmentID, nil
 }
 
 func (r *authRepoRecorder) ListGroupsByDepartmentCode(ctx context.Context, tenantID uuid.UUID, departmentCode string) ([]StudentGroup, error) {
@@ -298,7 +323,12 @@ func TestServiceGroupListAndReviewFlows(t *testing.T) {
 	reviewerID := uuid.New()
 	departmentID := uuid.New()
 	repo := &authRepoRecorder{
-		fakeRepo:       fakeRepo{tenantID: tenantID},
+		fakeRepo: fakeRepo{tenantID: tenantID},
+		facultiesOut: []Faculty{{
+			ID:   uuid.New(),
+			Code: "IDSAI_ENU",
+			Name: "IDSAI ENU",
+		}},
 		departmentsOut: []Department{{ID: departmentID, Code: "CPI", Name: "Computer Science"}},
 		groupsOut:      []StudentGroup{{ID: uuid.New(), GroupCode: "CPI-2201", GroupNumber: 2201}},
 		listOwnRequestsOut: []GroupChangeRequest{{
@@ -322,6 +352,11 @@ func TestServiceGroupListAndReviewFlows(t *testing.T) {
 	}
 	svc := NewService(repo, Config{JWTSecret: "01234567890123456789012345678901"})
 	svc.SetStorage(&authTestStorage{available: true})
+
+	faculties, err := svc.ListFaculties(context.Background(), " core ")
+	require.NoError(t, err)
+	require.Equal(t, "CORE", repo.findTenantCode)
+	require.Len(t, faculties, 1)
 
 	departments, err := svc.ListDepartments(context.Background(), " core ")
 	require.NoError(t, err)

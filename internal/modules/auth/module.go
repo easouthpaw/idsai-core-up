@@ -5,6 +5,8 @@ import (
 
 	"idsai-core-up/internal/config"
 	"idsai-core-up/internal/http/handlers"
+	"idsai-core-up/internal/infra/kzschools"
+	"idsai-core-up/internal/infra/photon"
 	"idsai-core-up/internal/repos/postgres"
 	"idsai-core-up/internal/services/auth"
 
@@ -32,6 +34,16 @@ func New(pool *pgxpool.Pool, cfg config.Config) Output {
 		LoginAttemptWindow:     time.Duration(cfg.LoginAttemptWindowMinutes) * time.Minute,
 	})
 	h := handlers.NewAuthHandler(svc)
+	h.SetInstitutionSuggester(auth.NewInstitutionSuggester(repo, auth.NewInstitutionAutocompleteProvider(
+		kzschools.New(),
+		photon.New(photon.Config{
+			BaseURL:        cfg.PhotonBaseURL,
+			Lang:           cfg.PhotonLang,
+			CountryCode:    cfg.PhotonCountryCode,
+			DefaultLon:     cfg.PhotonDefaultLon,
+			DefaultLat:     cfg.PhotonDefaultLat,
+			RequestTimeout: time.Duration(cfg.PhotonRequestTimeoutS) * time.Second,
+		}))))
 	return Output{
 		Repo:    repo,
 		Service: svc,

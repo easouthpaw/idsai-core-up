@@ -28,6 +28,8 @@
     fullNameInput: document.getElementById("fullNameInput"),
     saveProfileBtn: document.getElementById("saveProfileBtn"),
     fullNameStatus: document.getElementById("fullNameStatus"),
+    currentInstitutionLabel: document.getElementById("currentInstitutionLabel"),
+    currentInstitutionInput: document.getElementById("currentInstitutionInput"),
 
     currentDepartmentInput: document.getElementById("currentDepartmentInput"),
     currentGroupInput: document.getElementById("currentGroupInput"),
@@ -92,9 +94,20 @@
     return "Студент";
   }
 
+  function isSchoolProfile(profile) {
+    return Boolean(profile && String(profile.education_type || "").toUpperCase() === "SCHOOL");
+  }
+
+  function institutionLabel(profile) {
+    return isSchoolProfile(profile) ? "Школа" : "Вуз";
+  }
+
   function scopeLabel(profile) {
     if (profile && profile.is_admin) {
       return "Полный доступ";
+    }
+    if (isSchoolProfile(profile) && profile && profile.school_class) {
+      return `Класс ${profile.school_class}`;
     }
     if (profile && profile.group_code) {
       return `Группа ${profile.group_code}`;
@@ -176,11 +189,18 @@
       sub: String(data.user_id || ""),
       tenant_id: String(data.tenant_id || ""),
       faculty_id: String(data.faculty_id || ""),
+      faculty_code: String(data.faculty_code || ""),
       department_id: String(data.department_id || ""),
       department_code: String(data.department_code || ""),
       group_id: String(data.group_id || ""),
       group_code: String(data.group_code || ""),
       group_number: data.group_number !== undefined && data.group_number !== null ? Number(data.group_number) : null,
+      education_type: String(data.education_type || ""),
+      school_class: String(data.school_class || ""),
+      institution_provider: String(data.institution_provider || ""),
+      institution_external_id: String(data.institution_external_id || ""),
+      institution_name: String(data.institution_name || ""),
+      institution_address: String(data.institution_address || ""),
       email: String(data.email || ""),
       pending_email: String(data.pending_email || ""),
       pending_email_status: String(data.pending_email_status || ""),
@@ -238,12 +258,19 @@
     if (ui.heroScope) ui.heroScope.textContent = scopeLabel(profile);
 
     if (ui.fullNameInput) ui.fullNameInput.value = name;
+    if (ui.currentInstitutionLabel) {
+      ui.currentInstitutionLabel.textContent = institutionLabel(profile);
+    }
+    if (ui.currentInstitutionInput) {
+      ui.currentInstitutionInput.value = profile.institution_name || "—";
+      ui.currentInstitutionInput.title = profile.institution_address || profile.institution_name || "";
+    }
     if (ui.currentEmailInput) ui.currentEmailInput.value = email;
     if (ui.currentDepartmentInput) {
-      ui.currentDepartmentInput.value = profile.department_code || "—";
+      ui.currentDepartmentInput.value = isSchoolProfile(profile) ? "Школьное направление" : (profile.department_code || "—");
     }
     if (ui.currentGroupInput) {
-      ui.currentGroupInput.value = profile.group_code || "—";
+      ui.currentGroupInput.value = isSchoolProfile(profile) ? (profile.school_class || "—") : (profile.group_code || "—");
     }
 
     if (ui.newEmailInput && profile.pending_email) {
@@ -607,7 +634,8 @@
     syncSidebar(profile);
 
     const isStudent = !profile.is_admin && !profile.is_professor;
-    if (!isStudent && ui.groupChangeBox) {
+    const isSchool = isSchoolProfile(profile);
+    if ((!isStudent || isSchool) && ui.groupChangeBox) {
       ui.groupChangeBox.hidden = true;
     }
 
@@ -616,7 +644,7 @@
 
     try {
       await loadSettings();
-      if (isStudent) {
+      if (isStudent && !isSchool) {
         await loadDepartments();
         const currentDepartment = String(auth.getCachedProfile()?.department_code || "").toUpperCase();
         if (currentDepartment && ui.requestDepartmentInput) {

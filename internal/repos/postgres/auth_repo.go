@@ -52,6 +52,43 @@ WHERE d.tenant_id = $1
 	return deptID, facultyID, err
 }
 
+func (r *AuthRepo) FindDepartmentInFaculty(ctx context.Context, tenantID, facultyID uuid.UUID, departmentCode string) (uuid.UUID, error) {
+	const q = `
+SELECT d.id
+FROM departments d
+WHERE d.tenant_id = $1
+  AND d.faculty_id = $2
+  AND d.code = $3;
+`
+	var deptID uuid.UUID
+	err := r.db.QueryRow(ctx, q, tenantID, facultyID, departmentCode).Scan(&deptID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, svc.ErrDepartmentNotFound
+	}
+	return deptID, err
+}
+
+func (r *AuthRepo) FindSchoolRegistrationScope(ctx context.Context, tenantID uuid.UUID) (uuid.UUID, uuid.UUID, error) {
+	const q = `
+SELECT f.id, d.id
+FROM tenants t
+JOIN faculties f
+  ON f.tenant_id = t.id
+ AND f.code = t.code || '_SCHOOL'
+JOIN departments d
+  ON d.tenant_id = t.id
+ AND d.faculty_id = f.id
+ AND d.code = 'CLASS'
+WHERE t.id = $1;
+`
+	var facultyID, departmentID uuid.UUID
+	err := r.db.QueryRow(ctx, q, tenantID).Scan(&facultyID, &departmentID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, uuid.Nil, svc.ErrSchoolRegistrationUnavailable
+	}
+	return facultyID, departmentID, err
+}
+
 func (r *AuthRepo) FindGroupByCodeInDepartment(ctx context.Context, tenantID, departmentID uuid.UUID, groupCode string) (uuid.UUID, error) {
 	const q = `
 SELECT id
@@ -66,6 +103,101 @@ WHERE tenant_id = $1
 		return uuid.Nil, svc.ErrGroupNotFound
 	}
 	return groupID, err
+}
+
+func (r *AuthRepo) ListFaculties(ctx context.Context, tenantID uuid.UUID) ([]svc.Faculty, error) {
+	const q = `
+SELECT f.id, f.code, f.name, f.created_at
+FROM faculties f
+JOIN tenants t ON t.id = f.tenant_id
+WHERE f.tenant_id = $1
+  AND f.code <> t.code || '_SCHOOL'
+ORDER BY f.name ASC;
+`
+	rows, err := r.db.Query(ctx, q, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]svc.Faculty, 0, 8)
+	for rows.Next() {
+		var item svc.Faculty
+		if err := rows.Scan(&item.ID, &item.Code, &item.Name, &item.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (r *AuthRepo) SuggestKnownInstitutions(ctx context.Context, tenantID uuid.UUID, educationType, query string, limit int) ([]svc.InstitutionSuggestion, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+
+	const q = `
+SELECT
+  up.institution_provider,
+  up.institution_external_id,
+  up.institution_name,
+  up.institution_address,
+  COUNT(*) AS usage_count
+FROM user_profiles up
+JOIN faculties f
+  ON f.id = up.faculty_id
+ AND f.tenant_id = up.tenant_id
+JOIN tenants t
+  ON t.id = up.tenant_id
+WHERE up.tenant_id = $1
+  AND up.institution_name <> ''
+  AND (
+    up.institution_name ILIKE '%' || $3::text || '%'
+    OR up.institution_address ILIKE '%' || $3::text || '%'
+  )
+  AND (
+    ($2 = 'SCHOOL' AND f.code = t.code || '_SCHOOL')
+    OR ($2 <> 'SCHOOL' AND f.code <> t.code || '_SCHOOL')
+  )
+GROUP BY
+  up.institution_provider,
+  up.institution_external_id,
+  up.institution_name,
+  up.institution_address
+ORDER BY
+  CASE
+    WHEN LOWER(up.institution_name) = LOWER($3::text) THEN 0
+    WHEN LOWER(up.institution_name) LIKE LOWER($3::text) || '%' THEN 1
+    WHEN LOWER(up.institution_address) LIKE LOWER($3::text) || '%' THEN 2
+    ELSE 3
+  END,
+  usage_count DESC,
+  up.institution_name ASC
+LIMIT $4;
+`
+
+	rows, err := r.db.Query(ctx, q, tenantID, strings.ToUpper(strings.TrimSpace(educationType)), strings.TrimSpace(query), limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]svc.InstitutionSuggestion, 0, limit)
+	for rows.Next() {
+		var item svc.InstitutionSuggestion
+		var usageCount int
+		if err := rows.Scan(&item.Provider, &item.ExternalID, &item.Name, &item.Address, &usageCount); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 func (r *AuthRepo) CreateGroupInDepartment(
@@ -107,7 +239,10 @@ func (r *AuthRepo) ListDepartments(ctx context.Context, tenantID uuid.UUID) ([]s
 	const q = `
 SELECT d.id, d.faculty_id, d.code, d.name, d.created_at
 FROM departments d
+JOIN faculties f ON f.id = d.faculty_id AND f.tenant_id = d.tenant_id
+JOIN tenants t ON t.id = d.tenant_id
 WHERE d.tenant_id = $1
+  AND f.code <> t.code || '_SCHOOL'
 ORDER BY d.name ASC;
 `
 	rows, err := r.db.Query(ctx, q, tenantID)
@@ -185,12 +320,36 @@ RETURNING id;
 	return id, err
 }
 
-func (r *AuthRepo) CreateProfile(ctx context.Context, tenantID, userID uuid.UUID, fullName string, facultyID, departmentID uuid.UUID, groupID *uuid.UUID) error {
+func (r *AuthRepo) CreateProfile(ctx context.Context, tenantID, userID uuid.UUID, fullName string, facultyID, departmentID uuid.UUID, groupID *uuid.UUID, institution svc.InstitutionSelection) error {
 	const q = `
-INSERT INTO user_profiles(tenant_id, user_id, full_name, faculty_id, department_id, group_id)
-VALUES ($1, $2, $3, $4, $5, $6);
+INSERT INTO user_profiles(
+  tenant_id,
+  user_id,
+  full_name,
+  faculty_id,
+  department_id,
+  group_id,
+  institution_provider,
+  institution_external_id,
+  institution_name,
+  institution_address
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
 `
-	_, err := r.db.Exec(ctx, q, tenantID, userID, fullName, facultyID, departmentID, groupID)
+	_, err := r.db.Exec(
+		ctx,
+		q,
+		tenantID,
+		userID,
+		fullName,
+		facultyID,
+		departmentID,
+		groupID,
+		institution.Provider,
+		institution.ExternalID,
+		institution.Name,
+		institution.Address,
+	)
 	return err
 }
 
@@ -222,15 +381,20 @@ func (r *AuthRepo) FindUserByEmail(ctx context.Context, tenantID uuid.UUID, emai
 	  u.tenant_id,
 	  u.email,
 	  COALESCE(u.pending_email, ''),
-	  u.password_hash,
-	  u.password_changed_at,
-	  u.status,
-	  p.faculty_id,
+	u.password_hash,
+	u.password_changed_at,
+	u.status,
+	p.faculty_id,
+  COALESCE(f.code, ''),
   p.department_id,
   COALESCE(d.code, ''),
   p.group_id,
   COALESCE(sg.group_code, ''),
   sg.group_number,
+  COALESCE(p.institution_provider, ''),
+  COALESCE(p.institution_external_id, ''),
+  COALESCE(p.institution_name, ''),
+  COALESCE(p.institution_address, ''),
   p.full_name,
   COALESCE(p.headline, ''),
   COALESCE(p.about, ''),
@@ -270,6 +434,7 @@ func (r *AuthRepo) FindUserByEmail(ctx context.Context, tenantID uuid.UUID, emai
   u.avatar_updated_at
 FROM users u
 JOIN user_profiles p ON p.user_id=u.id
+JOIN faculties f ON f.id = p.faculty_id
 JOIN departments d ON d.id = p.department_id
 LEFT JOIN student_groups sg ON sg.id = p.group_id
 WHERE u.tenant_id = $1
@@ -285,15 +450,20 @@ func (r *AuthRepo) FindUserByID(ctx context.Context, tenantID, userID uuid.UUID)
 	  u.tenant_id,
 	  u.email,
 	  COALESCE(u.pending_email, ''),
-	  u.password_hash,
-	  u.password_changed_at,
-	  u.status,
-	  p.faculty_id,
+	u.password_hash,
+	u.password_changed_at,
+	u.status,
+	p.faculty_id,
+  COALESCE(f.code, ''),
   p.department_id,
   COALESCE(d.code, ''),
   p.group_id,
   COALESCE(sg.group_code, ''),
   sg.group_number,
+  COALESCE(p.institution_provider, ''),
+  COALESCE(p.institution_external_id, ''),
+  COALESCE(p.institution_name, ''),
+  COALESCE(p.institution_address, ''),
   p.full_name,
   COALESCE(p.headline, ''),
   COALESCE(p.about, ''),
@@ -333,6 +503,7 @@ func (r *AuthRepo) FindUserByID(ctx context.Context, tenantID, userID uuid.UUID)
   u.avatar_updated_at
 FROM users u
 JOIN user_profiles p ON p.user_id=u.id
+JOIN faculties f ON f.id = p.faculty_id
 JOIN departments d ON d.id = p.department_id
 LEFT JOIN student_groups sg ON sg.id = p.group_id
 WHERE u.tenant_id = $1
@@ -1091,11 +1262,16 @@ func (r *AuthRepo) scanUser(ctx context.Context, q string, args ...any) (svc.Use
 		&out.PasswordChangedAt,
 		&out.Status,
 		&out.FacultyID,
+		&out.FacultyCode,
 		&out.DepartmentID,
 		&out.DepartmentCode,
 		&out.GroupID,
 		&out.GroupCode,
 		&out.GroupNumber,
+		&out.Institution.Provider,
+		&out.Institution.ExternalID,
+		&out.Institution.Name,
+		&out.Institution.Address,
 		&out.FullName,
 		&out.Headline,
 		&out.About,

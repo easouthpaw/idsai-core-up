@@ -20,6 +20,7 @@ import (
 type authHandlerRepo struct {
 	tenantID             uuid.UUID
 	user                 auth.User
+	faculties            []auth.Faculty
 	departments          []auth.Department
 	groups               []auth.StudentGroup
 	insertedGroupRequest auth.GroupChangeRequest
@@ -40,7 +41,7 @@ func (f *authHandlerRepo) CreateUser(ctx context.Context, in auth.CreateUserPara
 	return uuid.New(), nil
 }
 
-func (f *authHandlerRepo) CreateProfile(ctx context.Context, tenantID, userID uuid.UUID, fullName string, facultyID, departmentID uuid.UUID, groupID *uuid.UUID) error {
+func (f *authHandlerRepo) CreateProfile(ctx context.Context, tenantID, userID uuid.UUID, fullName string, facultyID, departmentID uuid.UUID, groupID *uuid.UUID, institution auth.InstitutionSelection) error {
 	return nil
 }
 
@@ -107,7 +108,19 @@ func (f *authHandlerRepo) RevokeUserRefreshTokens(ctx context.Context, tenantID,
 	return nil
 }
 
+func (f *authHandlerRepo) ListFaculties(ctx context.Context, tenantID uuid.UUID) ([]auth.Faculty, error) {
+	return f.faculties, nil
+}
+
 func (f *authHandlerRepo) FindDepartment(ctx context.Context, tenantID uuid.UUID, departmentCode string) (uuid.UUID, uuid.UUID, error) {
+	return uuid.New(), uuid.New(), nil
+}
+
+func (f *authHandlerRepo) FindDepartmentInFaculty(ctx context.Context, tenantID, facultyID uuid.UUID, departmentCode string) (uuid.UUID, error) {
+	return uuid.New(), nil
+}
+
+func (f *authHandlerRepo) FindSchoolRegistrationScope(ctx context.Context, tenantID uuid.UUID) (uuid.UUID, uuid.UUID, error) {
 	return uuid.New(), uuid.New(), nil
 }
 

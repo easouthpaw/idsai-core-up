@@ -29,6 +29,7 @@
       normalized.group_id = "";
       normalized.group_code = "";
       normalized.group_number = null;
+      normalized.school_class = "";
     }
     return normalized;
   }
@@ -71,11 +72,18 @@
       sub: String(data.user_id || ""),
       tenant_id: String(data.tenant_id || ""),
       faculty_id: String(data.faculty_id || ""),
+      faculty_code: String(data.faculty_code || ""),
       department_id: String(data.department_id || ""),
       department_code: String(data.department_code || ""),
       group_id: String(data.group_id || ""),
       group_code: String(data.group_code || ""),
       group_number: data.group_number !== undefined && data.group_number !== null ? Number(data.group_number) : null,
+      education_type: String(data.education_type || ""),
+      school_class: String(data.school_class || ""),
+      institution_provider: String(data.institution_provider || ""),
+      institution_external_id: String(data.institution_external_id || ""),
+      institution_name: String(data.institution_name || ""),
+      institution_address: String(data.institution_address || ""),
       email: String(data.email || ""),
       pending_email: String(data.pending_email || ""),
       pending_email_status: String(data.pending_email_status || ""),

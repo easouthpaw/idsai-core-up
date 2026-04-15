@@ -54,6 +54,12 @@ func TestDepartmentAndGroupResponsesFromService(t *testing.T) {
 	now := time.Date(2026, time.April, 10, 12, 0, 0, 0, time.UTC)
 	departmentID := uuid.New()
 	facultyID := uuid.New()
+	faculties := FacultyResponsesFromService([]authsvc.Faculty{{
+		ID:        facultyID,
+		Code:      "IDSAI_ENU",
+		Name:      "IDSAI ENU",
+		CreatedAt: now,
+	}})
 
 	departments := DepartmentResponsesFromService([]authsvc.Department{{
 		ID:        departmentID,
@@ -72,12 +78,15 @@ func TestDepartmentAndGroupResponsesFromService(t *testing.T) {
 		UpdatedAt:    now.Add(time.Hour),
 	}})
 
+	require.Len(t, faculties, 1)
+	require.Equal(t, "IDSAI_ENU", faculties[0].Code)
 	require.Len(t, departments, 1)
 	require.Equal(t, "CPI", departments[0].Code)
 	require.Equal(t, "Computer Science", departments[0].Name)
 	require.Len(t, groups, 1)
 	require.Equal(t, "CPI-2201", groups[0].GroupCode)
 	require.Equal(t, 2201, groups[0].GroupNumber)
+	require.Nil(t, FacultyResponsesFromService(nil))
 	require.Nil(t, DepartmentResponsesFromService(nil))
 	require.Nil(t, StudentGroupResponsesFromService(nil))
 }

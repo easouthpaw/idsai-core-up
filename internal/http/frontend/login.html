@@ -115,27 +115,67 @@
           <label for="regFullName">ФИО</label>
           <input id="regFullName" type="text" name="full_name" autocomplete="name" placeholder="Иванов Иван Иванович" />
 
-          <div class="row2">
-            <div>
-              <label for="regDepartment">Кафедра</label>
-              <select id="regDepartment" name="department" autocomplete="off">
-                <option value="">Выберите кафедру</option>
-              </select>
+          <label>Тип обучения</label>
+          <div class="registration-kind" role="group" aria-label="Тип обучения">
+            <button class="registration-kind__option active" type="button" data-education-type="UNIVERSITY" aria-pressed="true">Вуз</button>
+            <button class="registration-kind__option" type="button" data-education-type="SCHOOL" aria-pressed="false">Школа</button>
+          </div>
+
+          <label for="regInstitution">Учреждение</label>
+          <div class="institution-autocomplete">
+            <input
+              id="regInstitution"
+              type="text"
+              name="institution"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Начните вводить название вуза"
+            />
+            <div id="regInstitutionSuggestions" class="institution-suggestions" role="listbox" hidden></div>
+          </div>
+          <p id="regInstitutionNote" class="field-note">Начните вводить название вуза.</p>
+
+          <div id="regUniversityFields" class="registration-branch">
+            <div class="row2">
+              <div>
+                <label for="regFaculty">Факультет</label>
+                <select id="regFaculty" name="faculty" autocomplete="off">
+                  <option value="">Выберите факультет</option>
+                </select>
+              </div>
+              <div>
+                <label for="regDepartment">Кафедра</label>
+                <select id="regDepartment" name="department" autocomplete="off" disabled>
+                  <option value="">Сначала выберите факультет</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <label for="regGroup">Группа</label>
-              <input
-                id="regGroup"
-                type="text"
-                name="group"
-                autocomplete="off"
-                inputmode="numeric"
-                maxlength="4"
-                placeholder="Сначала выберите кафедру"
-                disabled
-              />
-              <p class="field-note">Код группы: <span id="regGroupPreview">-</span></p>
-            </div>
+
+            <label for="regGroup">Группа</label>
+            <input
+              id="regGroup"
+              type="text"
+              name="group"
+              autocomplete="off"
+              inputmode="numeric"
+              maxlength="4"
+              placeholder="Сначала выберите кафедру"
+              disabled
+            />
+            <p class="field-note">Код группы: <span id="regGroupPreview">-</span></p>
+          </div>
+
+          <div id="regSchoolFields" class="registration-branch" hidden>
+            <label for="regSchoolClass">Класс</label>
+            <input
+              id="regSchoolClass"
+              type="text"
+              name="school_class"
+              autocomplete="off"
+              maxlength="3"
+              placeholder="Например 9A или 11"
+            />
+            <p class="field-note">Можно указать только номер класса или номер с буквой.</p>
           </div>
 
           <label for="regEmail">Email</label>

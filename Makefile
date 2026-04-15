@@ -6,7 +6,7 @@ REPORT_DIR ?= .tmp/report
 .PHONY: run up migrate migrate-all migrate-status test test-integration bench coverage coverage-html report-artifacts
 
 run:
-	DATABASE_URL="$(DB_URL)" go run $(APP)
+	set -a && . ./.env && set +a && go run $(APP)
 
 up:
 	docker compose up -d postgres minio

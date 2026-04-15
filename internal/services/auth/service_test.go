@@ -19,6 +19,7 @@ import (
 type fakeRepo struct {
 	tenantID              uuid.UUID
 	user                  User
+	faculties             []Faculty
 	findUserErr           error
 	findGroupErr          error
 	createdUser           CreateUserParams
@@ -33,6 +34,7 @@ type fakeRepo struct {
 	createdGroupCode      string
 	createdGroupNumber    int
 	profileGroupID        uuid.UUID
+	profileInstitution    InstitutionSelection
 }
 
 type fakeNotifier struct {
@@ -78,10 +80,11 @@ func (f *fakeRepo) CreateUser(ctx context.Context, in CreateUserParams) (uuid.UU
 	return uuid.New(), nil
 }
 
-func (f *fakeRepo) CreateProfile(ctx context.Context, tenantID, userID uuid.UUID, fullName string, facultyID, departmentID uuid.UUID, groupID *uuid.UUID) error {
+func (f *fakeRepo) CreateProfile(ctx context.Context, tenantID, userID uuid.UUID, fullName string, facultyID, departmentID uuid.UUID, groupID *uuid.UUID, institution InstitutionSelection) error {
 	if groupID != nil {
 		f.profileGroupID = *groupID
 	}
+	f.profileInstitution = institution
 	return nil
 }
 
@@ -151,7 +154,19 @@ func (f *fakeRepo) RevokeUserRefreshTokens(ctx context.Context, tenantID, userID
 	return nil
 }
 
+func (f *fakeRepo) ListFaculties(ctx context.Context, tenantID uuid.UUID) ([]Faculty, error) {
+	return f.faculties, nil
+}
+
 func (f *fakeRepo) FindDepartment(ctx context.Context, tenantID uuid.UUID, departmentCode string) (uuid.UUID, uuid.UUID, error) {
+	return uuid.New(), uuid.New(), nil
+}
+
+func (f *fakeRepo) FindDepartmentInFaculty(ctx context.Context, tenantID, facultyID uuid.UUID, departmentCode string) (uuid.UUID, error) {
+	return uuid.New(), nil
+}
+
+func (f *fakeRepo) FindSchoolRegistrationScope(ctx context.Context, tenantID uuid.UUID) (uuid.UUID, uuid.UUID, error) {
 	return uuid.New(), uuid.New(), nil
 }
 
@@ -375,6 +390,41 @@ func TestRegisterStudentCreatesMissingGroupFromManualNumber(t *testing.T) {
 	require.Equal(t, "CS-101", repo.createdGroupCode)
 	require.Equal(t, 101, repo.createdGroupNumber)
 	require.Equal(t, repo.createdGroupID, repo.profileGroupID)
+}
+
+func TestRegisterSchoolCreatesMissingClassGroup(t *testing.T) {
+	repo := &fakeRepo{
+		tenantID:     uuid.New(),
+		findGroupErr: ErrGroupNotFound,
+	}
+	svc := NewService(repo, Config{
+		JWTSecret: "01234567890123456789012345678901",
+	})
+
+	err := svc.Register(
+		context.Background(),
+		"CORE",
+		RegistrationInput{
+			Email:         "school.student@example.edu",
+			Password:      "DemoPass123!",
+			FullName:      "School Student",
+			EducationType: EducationTypeSchool,
+			SchoolClass:   "10A",
+			Institution: InstitutionSelection{
+				Provider:   InstitutionProviderPhoton,
+				ExternalID: "school-17",
+				Name:       "Школа-лицей №17",
+				Address:    "Астана, ул. Абая, 1",
+			},
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, "CLASS-10A", repo.createdGroupCode)
+	require.Equal(t, 1065, repo.createdGroupNumber)
+	require.Equal(t, repo.createdGroupID, repo.profileGroupID)
+	require.Equal(t, InstitutionProviderPhoton, repo.profileInstitution.Provider)
+	require.Equal(t, "school-17", repo.profileInstitution.ExternalID)
+	require.Equal(t, "Школа-лицей №17", repo.profileInstitution.Name)
 }
 
 func TestRequestPasswordResetRejectsUnknownAccount(t *testing.T) {

@@ -56,6 +56,7 @@
     heroName: document.getElementById("heroName"),
     heroHeadline: document.getElementById("heroHeadline"),
     heroEmail: document.getElementById("heroEmail"),
+    heroInstitution: document.getElementById("heroInstitution"),
     heroDepartment: document.getElementById("heroDepartment"),
     heroGroup: document.getElementById("heroGroup"),
     heroStackPreview: document.getElementById("heroStackPreview"),
@@ -85,6 +86,8 @@
     interestCheckboxes: Array.from(document.querySelectorAll('input[name="interests"]')),
 
     emailInput: document.getElementById("emailInput"),
+    institutionInput: document.getElementById("institutionInput"),
+    institutionInputLabel: document.getElementById("institutionInputLabel"),
     departmentInput: document.getElementById("departmentInput"),
     groupInput: document.getElementById("groupInput"),
 
@@ -122,7 +125,39 @@
   }
 
   function shouldShowGroup(profile) {
-    return Boolean(profile && !profile.is_professor && !profile.is_admin && String(profile.group_code || "").trim());
+    return Boolean(
+      profile &&
+      !profile.is_professor &&
+      !profile.is_admin &&
+      String(profile.education_type || "").toUpperCase() !== "SCHOOL" &&
+      String(profile.group_code || "").trim()
+    );
+  }
+
+  function isSchoolProfile(profile) {
+    return Boolean(profile && String(profile.education_type || "").toUpperCase() === "SCHOOL");
+  }
+
+  function institutionFieldLabel(profile) {
+    if (!profile) {
+      return "Место обучения";
+    }
+    return isSchoolProfile(profile) ? "Школа" : "Вуз";
+  }
+
+  function hasInstitution(profile) {
+    return Boolean(profile && String(profile.institution_name || "").trim());
+  }
+
+  function institutionDisplayValue(profile) {
+    return hasInstitution(profile) ? String(profile.institution_name || "").trim() : "—";
+  }
+
+  function displayGroupValue(profile) {
+    if (isSchoolProfile(profile)) {
+      return String(profile.school_class || "").trim() || "—";
+    }
+    return shouldShowGroup(profile) ? String(profile.group_code || "").trim() : "—";
   }
 
   function escapeHTML(value) {
@@ -183,11 +218,18 @@
       sub: String(source.user_id || source.sub || ""),
       tenant_id: String(source.tenant_id || ""),
       faculty_id: String(source.faculty_id || ""),
+      faculty_code: String(source.faculty_code || ""),
       department_id: String(source.department_id || ""),
       department_code: String(source.department_code || ""),
       group_id: isProfessor || isAdmin ? "" : String(source.group_id || ""),
       group_code: isProfessor || isAdmin ? "" : String(source.group_code || ""),
       group_number: isProfessor || isAdmin ? null : source.group_number !== undefined && source.group_number !== null ? Number(source.group_number) : null,
+      education_type: String(source.education_type || ""),
+      school_class: String(source.school_class || ""),
+      institution_provider: String(source.institution_provider || ""),
+      institution_external_id: String(source.institution_external_id || ""),
+      institution_name: String(source.institution_name || ""),
+      institution_address: String(source.institution_address || ""),
       email: String(source.email || ""),
       pending_email: String(source.pending_email || ""),
       pending_email_status: String(source.pending_email_status || ""),
@@ -387,10 +429,24 @@
 
   function fillFormFromSaved() {
     if (!state.profile) return;
+    const institutionLabel = ui.institutionInputLabel;
+    const departmentLabel = document.querySelector('label[for="departmentInput"] span');
+    const groupLabel = document.querySelector('label[for="groupInput"] span');
+    if (institutionLabel) {
+      institutionLabel.textContent = institutionFieldLabel(state.profile);
+    }
+    if (departmentLabel) {
+      departmentLabel.textContent = isSchoolProfile(state.profile) ? "Контекст" : "Кафедра";
+    }
+    if (groupLabel) {
+      groupLabel.textContent = isSchoolProfile(state.profile) ? "Класс" : "Группа";
+    }
     ui.fullNameInput.value = state.profile.full_name || "";
     ui.emailInput.value = state.profile.email || "";
+    ui.institutionInput.value = institutionDisplayValue(state.profile);
+    ui.institutionInput.title = state.profile.institution_address || state.profile.institution_name || "";
     ui.departmentInput.value = state.profile.department_code || "—";
-    ui.groupInput.value = shouldShowGroup(state.profile) ? state.profile.group_code : "—";
+    ui.groupInput.value = displayGroupValue(state.profile);
     fillExtendedForm(state.extended);
   }
 
@@ -456,10 +512,12 @@
     const hasInterests = ext.interests.length > 0;
     const hasAvailability = Boolean(ext.availability);
     const showGroup = shouldShowGroup(profile);
+    const isSchool = isSchoolProfile(profile);
+    const showSchoolClass = Boolean(isSchool && String(profile.school_class || "").trim());
 
     setHidden(ui.heroHeadline, isViewMode && !ext.headline);
-    setHidden(ui.heroDepartment, isViewMode && !profile.department_code);
-    setHidden(ui.heroGroup, !showGroup);
+    setHidden(ui.heroDepartment, isViewMode && (!profile.department_code || isSchool));
+    setHidden(ui.heroGroup, !showGroup && !showSchoolClass);
     setHidden(ui.heroStackPreview, !hasStacks);
 
     setFieldHidden(ui.headlineInput, isViewMode && !ext.headline);
@@ -473,8 +531,8 @@
     setFieldHidden(ui.telegramInput, isViewMode && !ext.telegram);
     setFieldHidden(ui.portfolioInput, isViewMode && !ext.portfolio);
 
-    setFieldHidden(ui.departmentInput, isViewMode && !profile.department_code);
-    setFieldHidden(ui.groupInput, !showGroup);
+    setFieldHidden(ui.departmentInput, isSchool || (isViewMode && !profile.department_code));
+    setFieldHidden(ui.groupInput, !showGroup && !showSchoolClass);
 
     setHidden(ui.stackPanel, isViewMode && !hasStacks);
     setHidden(ui.linksPanel, isViewMode && !hasLinks);
@@ -502,6 +560,12 @@
     ui.heroHeadline.textContent = headline;
     ui.heroEmail.textContent = profile.email || "user@idsai.dev";
 
+    if (ui.heroInstitution) {
+      const span = ui.heroInstitution.querySelectorAll("span");
+      if (span.length > 1) {
+        span[1].textContent = `${institutionFieldLabel(profile)}: ${institutionDisplayValue(profile)}`;
+      }
+    }
     // Update department and group text (inside the span child of gh-meta-item)
     if (ui.heroDepartment) {
       const span = ui.heroDepartment.querySelectorAll("span");
@@ -509,7 +573,11 @@
     }
     if (ui.heroGroup) {
       const span = ui.heroGroup.querySelectorAll("span");
-      if (span.length > 1) span[1].textContent = `Группа: ${shouldShowGroup(profile) ? profile.group_code : "—"}`;
+      if (span.length > 1) {
+        span[1].textContent = isSchoolProfile(profile)
+          ? `Класс: ${displayGroupValue(profile)}`
+          : `Группа: ${displayGroupValue(profile)}`;
+      }
     }
 
     ui.profileCompletionBadge.textContent = `Профиль ${completion}%`;

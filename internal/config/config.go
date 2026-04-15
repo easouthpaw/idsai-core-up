@@ -14,6 +14,12 @@ type Config struct {
 	DatabaseURL               string
 	JWTSecret                 string
 	PublicBaseURL             string
+	PhotonBaseURL             string
+	PhotonLang                string
+	PhotonCountryCode         string
+	PhotonDefaultLon          string
+	PhotonDefaultLat          string
+	PhotonRequestTimeoutS     int
 	AuthAutoVerifyRegistrants bool
 	SMTPHost                  string
 	SMTPPort                  string
@@ -64,6 +70,12 @@ func Load() Config {
 		DatabaseURL:               getenv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/idsai?sslmode=disable"),
 		JWTSecret:                 getenv("JWT_SECRET", ""),
 		PublicBaseURL:             getenvFirstNonEmpty([]string{"PUBLIC_BASE_URL", "RENDER_EXTERNAL_URL"}, "http://localhost:8080"),
+		PhotonBaseURL:             getenv("PHOTON_BASE_URL", "https://photon.komoot.io"),
+		PhotonLang:                getenv("PHOTON_LANG", "ru"),
+		PhotonCountryCode:         getenv("PHOTON_COUNTRY_CODE", "KZ"),
+		PhotonDefaultLon:          getenv("PHOTON_DEFAULT_LON", ""),
+		PhotonDefaultLat:          getenv("PHOTON_DEFAULT_LAT", ""),
+		PhotonRequestTimeoutS:     getenvInt("PHOTON_REQUEST_TIMEOUT_SECONDS", 4),
 		AuthAutoVerifyRegistrants: getenvBool("AUTH_AUTO_VERIFY_REGISTRATIONS", false),
 		SMTPHost:                  getenv("SMTP_HOST", ""),
 		SMTPPort:                  getenv("SMTP_PORT", "587"),

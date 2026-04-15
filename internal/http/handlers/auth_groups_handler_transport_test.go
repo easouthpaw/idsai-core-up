@@ -1,18 +1,29 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"idsai-core-up/internal/http/dto"
+	"idsai-core-up/internal/infra/photon"
 	"idsai-core-up/internal/services/auth"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
+
+type fakeInstitutionSuggester struct {
+	items []auth.InstitutionSuggestion
+	err   error
+}
+
+func (f *fakeInstitutionSuggester) Suggest(ctx context.Context, in auth.InstitutionSuggestRequest) ([]auth.InstitutionSuggestion, error) {
+	return f.items, f.err
+}
 
 func newAuthHandlerWithRepo(repo *authHandlerRepo) *AuthHandler {
 	return NewAuthHandler(auth.NewService(repo, auth.Config{
@@ -48,6 +59,88 @@ func TestAuthHandlerListDepartments_UsesTransportDTO(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.JSONEq(t, mustJSON(t, dto.ListDepartmentsResponse{Departments: dto.DepartmentResponsesFromService(repo.departments)}), rec.Body.String())
+}
+
+func TestAuthHandlerListFaculties_UsesTransportDTO(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	now := time.Date(2026, 4, 1, 8, 30, 0, 0, time.UTC)
+	repo := &authHandlerRepo{
+		tenantID: uuid.New(),
+		faculties: []auth.Faculty{
+			{
+				ID:        uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+				Code:      "IDSAI_ENU",
+				Name:      "IDSAI ENU",
+				CreatedAt: now,
+			},
+		},
+	}
+
+	handler := newAuthHandlerWithRepo(repo)
+	router := gin.New()
+	router.GET("/v2/auth/faculties", handler.ListFaculties)
+
+	req := httptest.NewRequest(http.MethodGet, "/v2/auth/faculties", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.JSONEq(t, mustJSON(t, dto.ListFacultiesResponse{Faculties: dto.FacultyResponsesFromService(repo.faculties)}), rec.Body.String())
+}
+
+func TestAuthHandlerSuggestInstitutions_UsesTransportDTO(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	handler := newAuthHandlerWithRepo(&authHandlerRepo{tenantID: uuid.New()})
+	handler.SetInstitutionSuggester(&fakeInstitutionSuggester{
+		items: []auth.InstitutionSuggestion{
+			{
+				Provider:   auth.InstitutionProviderPhoton,
+				ExternalID: "school-1",
+				Name:       "Школа-лицей №17",
+				Address:    "Астана, ул. Абая, 1",
+			},
+		},
+	})
+
+	router := gin.New()
+	router.GET("/v2/auth/institutions/suggest", handler.SuggestInstitutions)
+
+	req := httptest.NewRequest(http.MethodGet, "/v2/auth/institutions/suggest?q=%D0%BB%D0%B8%D1%86%D0%B5%D0%B9&kind=SCHOOL", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.JSONEq(t, mustJSON(t, dto.SuggestInstitutionsResponse{
+		Items: dto.InstitutionSuggestionResponsesFromService([]auth.InstitutionSuggestion{
+			{
+				Provider:   auth.InstitutionProviderPhoton,
+				ExternalID: "school-1",
+				Name:       "Школа-лицей №17",
+				Address:    "Астана, ул. Абая, 1",
+			},
+		}),
+	}), rec.Body.String())
+}
+
+func TestAuthHandlerSuggestInstitutions_ReturnsPhotonUnavailable(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	handler := newAuthHandlerWithRepo(&authHandlerRepo{tenantID: uuid.New()})
+	handler.SetInstitutionSuggester(&fakeInstitutionSuggester{
+		err: photon.ErrUnavailable,
+	})
+
+	router := gin.New()
+	router.GET("/v2/auth/institutions/suggest", handler.SuggestInstitutions)
+
+	req := httptest.NewRequest(http.MethodGet, "/v2/auth/institutions/suggest?q=%D0%B5%D0%B2%D1%80%D0%B0%D0%B7%D0%B8&kind=UNIVERSITY", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusServiceUnavailable, rec.Code)
+	require.JSONEq(t, `{"error":"Photon autocomplete is unavailable"}`, rec.Body.String())
 }
 
 func TestAuthHandlerSettingsListGroupChangeRequests_UsesTransportDTO(t *testing.T) {

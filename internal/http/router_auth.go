@@ -15,7 +15,9 @@ func registerAuthRoutes(v2 *gin.RouterGroup, authMW gin.HandlerFunc, rbacSvc rba
 
 	enforce := rbacFeatureEnabled("RBAC_ENFORCE_ADMIN_PERMS", true)
 	auth := v2.Group("/auth")
+	auth.GET("/faculties", authHandler.ListFaculties)
 	auth.GET("/departments", authHandler.ListDepartments)
+	auth.GET("/institutions/suggest", authHandler.SuggestInstitutions)
 	auth.GET("/departments/:department_code/groups", authHandler.ListDepartmentGroups)
 	auth.POST("/register", authHandler.RegisterStudent)
 	auth.POST("/login", authHandler.Login)

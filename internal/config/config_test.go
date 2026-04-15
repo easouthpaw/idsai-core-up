@@ -60,6 +60,9 @@ func TestLoad_ReadsEnvAndAppliesDefaults(t *testing.T) {
 	if cfg.StorageBucket != "idsai-media" {
 		t.Fatalf("expected default bucket, got %q", cfg.StorageBucket)
 	}
+	if cfg.PhotonCountryCode != "KZ" {
+		t.Fatalf("expected default photon country code KZ, got %q", cfg.PhotonCountryCode)
+	}
 }
 
 func TestLoad_ReadsDotEnvFile(t *testing.T) {
