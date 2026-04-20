@@ -40,6 +40,20 @@
         <button id="loadTemplateBtn" class="ghost-btn criteria-template-btn" type="button">Загрузить шаблон</button>
       </header>
 
+      <div class="criteria-guide-bar">
+        <section id="profGuidePanel" class="prof-guide-panel criteria-guide">
+          <div class="prof-guide-panel__head">
+            <div>
+              <strong>Порядок</strong>
+              <p>Контекст проекта, доступ к редактированию и полнота чек-листа.</p>
+            </div>
+            <button id="profGuideToggleBtn" class="ghost-btn" type="button">Скрыть</button>
+          </div>
+          <div id="profGuideSteps" class="prof-guide-steps"></div>
+        </section>
+        <button id="profGuideRestoreBtn" class="ghost-btn prof-guide-restore" type="button" hidden>Показать порядок</button>
+      </div>
+
       <div class="criteria-workbench">
         <aside class="criteria-side">
           <section class="criteria-context-card">
@@ -58,18 +72,6 @@
             <strong id="criteriaWeightMeta" class="criteria-editor-meta criteria-weight-meta">Вес 0 / 100</strong>
             <p>Лимит помогает сохранить честную шкалу оценки.</p>
           </section>
-
-          <section id="profGuidePanel" class="prof-guide-panel criteria-guide">
-            <div class="prof-guide-panel__head">
-              <div>
-                <strong>Порядок</strong>
-                <p>Контекст проекта, доступ к редактированию и полнота чек-листа.</p>
-              </div>
-              <button id="profGuideToggleBtn" class="ghost-btn" type="button">Скрыть</button>
-            </div>
-            <div id="profGuideSteps" class="prof-guide-steps"></div>
-          </section>
-          <button id="profGuideRestoreBtn" class="ghost-btn prof-guide-restore" type="button" hidden>Показать порядок</button>
         </aside>
 
         <section class="criteria-editor-card criteria-board">
