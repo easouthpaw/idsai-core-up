@@ -464,7 +464,7 @@ body.projects-body .hero.hero--welcome #tabSubtitle {
 
 .create-btn {
   border: 1px solid #12833a;
-  border-radius: 10px;
+  border-radius: 999px;
   background: linear-gradient(180deg, #22c55e 0%, var(--green) 100%);
   color: #fff;
   font: 700 15px "Manrope", sans-serif;
@@ -1231,11 +1231,11 @@ body.projects-body .hero.hero--welcome #tabSubtitle {
 .cancel-btn,
 .submit-btn {
   border: 1px solid var(--line-strong);
-  border-radius: 9px;
+  border-radius: 999px;
   background: #fff;
   color: #1f2937;
   font: 700 14px "Manrope", sans-serif;
-  padding: 10px 14px;
+  padding: 10px 16px;
   cursor: pointer;
 }
 

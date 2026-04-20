@@ -153,9 +153,9 @@ body.modal-open { overflow: hidden; }
   justify-content: center;
   gap: 8px;
   min-height: 44px;
-  padding: 0 16px;
+  padding: 0 18px;
   border: 1px solid var(--adm-border);
-  border-radius: 14px;
+  border-radius: 999px;
   background: rgba(255, 255, 255, 0.95);
   color: var(--adm-text);
   font: 700 13px/1 "Inter", sans-serif;
@@ -192,6 +192,7 @@ body.modal-open { overflow: hidden; }
   width: 44px;
   height: 44px;
   padding: 0;
+  border-radius: 14px;
   font-size: 18px;
 }
 
@@ -632,8 +633,8 @@ body.admin-body #view-dashboard .hero-action-command {
 
 body.admin-body #view-dashboard .hero-action-btn {
   min-height: 32px;
-  padding: 0 12px;
-  border-radius: 10px;
+  padding: 0 14px;
+  border-radius: 999px;
   text-decoration: none;
   font-size: 12px;
 }

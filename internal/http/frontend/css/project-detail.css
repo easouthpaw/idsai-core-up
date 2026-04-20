@@ -3118,8 +3118,8 @@ textarea:focus {
 .icon-btn,
 .mini-link {
   border: 1px solid transparent;
-  border-radius: 8px;
-  padding: 8px 12px;
+  border-radius: 999px;
+  padding: 8px 14px;
   font: 700 12px "Manrope", sans-serif;
   cursor: pointer;
   white-space: nowrap;
@@ -3170,6 +3170,7 @@ textarea:focus {
   width: 34px;
   height: 34px;
   padding: 0;
+  border-radius: 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;

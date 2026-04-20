@@ -414,8 +414,8 @@
 .settings-body .primary-btn,
 .settings-body .ghost-btn {
   min-height: 36px;
-  padding: 0 14px;
-  border-radius: 6px;
+  padding: 0 16px;
+  border-radius: 999px;
   font: 600 13px/1 "Inter", "Segoe UI", sans-serif;
   transition:
     background 140ms ease,

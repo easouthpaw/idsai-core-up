@@ -174,11 +174,11 @@ body.professor-body [hidden] {
 
 .primary-btn,
 .ghost-btn {
-  border-radius: 10px;
+  border-radius: 999px;
   font-weight: 700;
   font-size: 13px;
   text-decoration: none;
-  padding: 10px 14px;
+  padding: 9px 16px;
   cursor: pointer;
 }
 
@@ -461,41 +461,48 @@ td .muted {
 }
 
 body.professor-criteria-body {
-  background: #f4f3f0;
+  background: #f4f6f8;
 }
 
 body.professor-criteria-body .criteria-main {
   min-height: 100vh;
   gap: 0;
-  padding: 30px 28px 40px;
-  background: #f4f3f0;
+  padding: 0;
+  background: #f4f6f8;
+  display: flex;
+  flex-direction: column;
 }
 
 body.professor-criteria-body .criteria-shell {
-  width: min(1080px, 100%);
-  margin: 0 auto;
+  flex: 1;
   display: grid;
-  gap: 16px;
-  padding: 42px 48px 38px;
-  border: 1px solid #e5e0d8;
-  border-radius: 8px;
-  background: #ffffff;
-  box-shadow: 0 28px 62px rgba(28, 24, 20, 0.1);
+  gap: 0;
+  padding: 0;
+  background: transparent;
 }
 
 body.professor-criteria-body .criteria-page-head {
-  display: grid;
-  gap: 6px;
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 14px 24px;
+  border-bottom: 1px solid #e4e7ec;
+  background: rgba(244, 246, 248, 0.94);
+  backdrop-filter: blur(12px);
 }
 
 body.professor-criteria-body .criteria-page-head .crumb {
-  color: #706d66;
+  color: #667085;
   font-size: 12px;
 }
 
 body.professor-criteria-body .criteria-page-head h1 {
   margin: 0;
-  color: #111111;
+  color: #111827;
   font-size: 22px;
   line-height: 1.18;
   letter-spacing: 0;
@@ -504,17 +511,16 @@ body.professor-criteria-body .criteria-page-head h1 {
 body.professor-criteria-body .criteria-page-head .head-sub {
   margin: 0;
   max-width: 70ch;
-  color: #5f5b55;
+  color: #667085;
   font-size: 13px;
   line-height: 1.45;
 }
 
 .criteria-context-card {
   padding: 12px;
-  border-color: #dfc0a8;
+  border: 1px solid rgba(22, 163, 74, 0.2);
   border-radius: 8px;
-  background: linear-gradient(90deg, #e9d7ff 0%, #daa0aa 46%, #e38f4d 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42);
+  background: linear-gradient(135deg, rgba(22, 163, 74, 0.06) 0%, rgba(16, 185, 129, 0.08) 100%);
 }
 
 .criteria-context-grid {
@@ -534,7 +540,7 @@ body.professor-criteria-body .criteria-page-head .head-sub {
 
 .criteria-context-field label,
 .criterion-form-grid label {
-  color: #4a3630;
+  color: #667085;
   font: 700 10px "JetBrains Mono", monospace;
   text-transform: uppercase;
   letter-spacing: 0;
@@ -546,17 +552,17 @@ body.professor-criteria-body .criteria-page-head .head-sub {
 .criterion-form-grid textarea {
   width: 100%;
   min-height: 38px;
-  border: 1px solid rgba(255, 255, 255, 0.48);
+  border: 1px solid #d0d5dd;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.68);
-  color: #171310;
+  background: #ffffff;
+  color: #111827;
   padding: 9px 11px;
   font: 600 13px "Inter", sans-serif;
 }
 
 .criteria-context-field input[readonly] {
-  color: #4f4239;
-  background: rgba(255, 255, 255, 0.52);
+  color: #667085;
+  background: #f8fafc;
 }
 
 .criteria-context-field select:focus,
@@ -568,7 +574,7 @@ body.professor-criteria-body .criteria-page-head .head-sub {
 
 .criterion-form-grid input,
 .criterion-form-grid textarea {
-  border-color: #ded8cf;
+  border-color: #d0d5dd;
   background: #ffffff;
 }
 
@@ -581,10 +587,10 @@ body.professor-criteria-body .criteria-page-head .head-sub {
   display: flex;
   gap: 10px;
   align-items: flex-start;
-  border: 1px solid #e7e1d8;
+  border: 1px solid #e4e7ec;
   border-radius: 8px;
-  background: #fbfaf8;
-  color: #4f4942;
+  background: #f8fafc;
+  color: #374151;
   padding: 12px;
 }
 
@@ -594,8 +600,8 @@ body.professor-criteria-body .criteria-page-head .head-sub {
   display: grid;
   place-items: center;
   border-radius: 999px;
-  background: #ece6dd;
-  color: #4c463e;
+  background: #e4e7ec;
+  color: #374151;
   font: 700 13px "JetBrains Mono", monospace;
 }
 
@@ -614,7 +620,7 @@ body.professor-criteria-body .prof-guide-panel {
   display: grid;
   gap: 12px;
   padding: 14px;
-  border: 1px solid #ece8e1;
+  border: 1px solid #e4e7ec;
   border-radius: 8px;
   background: #ffffff;
 }
@@ -624,14 +630,14 @@ body.professor-criteria-body .prof-guide-panel__head {
 }
 
 body.professor-criteria-body .prof-guide-panel__head strong {
-  color: #151515;
+  color: #111827;
   font-size: 16px;
   letter-spacing: 0;
 }
 
 body.professor-criteria-body .prof-guide-panel__head p {
   margin-top: 4px;
-  color: #706d66;
+  color: #667085;
   font-size: 12px;
   line-height: 1.45;
 }
@@ -642,24 +648,24 @@ body.professor-criteria-body .prof-guide-steps {
 
 body.professor-criteria-body .prof-guide-step {
   gap: 8px;
-  border-color: #ebe6de;
+  border-color: #e4e7ec;
   border-radius: 8px;
-  background: #fbfaf8;
+  background: #f8fafc;
   padding: 12px;
 }
 
 body.professor-criteria-body .prof-guide-step small {
-  color: #7a746b;
+  color: #667085;
   letter-spacing: 0;
 }
 
 body.professor-criteria-body .prof-guide-step strong {
-  color: #191715;
+  color: #111827;
   font-size: 13px;
 }
 
 body.professor-criteria-body .prof-guide-step p {
-  color: #6c665d;
+  color: #667085;
   font-size: 12px;
 }
 
@@ -681,7 +687,7 @@ body.professor-criteria-body .prof-guide-step--blocked {
 .criteria-editor-card {
   overflow: hidden;
   padding: 0;
-  border-color: #ece8e1;
+  border-color: #e4e7ec;
   border-radius: 8px;
   background: #ffffff;
   box-shadow: none;
@@ -690,7 +696,7 @@ body.professor-criteria-body .prof-guide-step--blocked {
 .criteria-editor-head {
   margin-bottom: 0;
   padding: 13px 16px;
-  border-bottom: 1px solid #efebe5;
+  border-bottom: 1px solid #e4e7ec;
   background: #ffffff;
 }
 
@@ -702,17 +708,17 @@ body.professor-criteria-body .prof-guide-step--blocked {
 }
 
 .criteria-editor-title h2 {
-  color: #151515;
+  color: #111827;
   font-size: 15px;
   line-height: 1.2;
   letter-spacing: 0;
 }
 
 .criteria-editor-meta {
-  border: 1px solid #ded8cf;
+  border: 1px solid #e4e7ec;
   border-radius: 999px;
-  background: #faf8f5;
-  color: #5e5951;
+  background: #f8fafc;
+  color: #374151;
   padding: 4px 9px;
   font: 700 10px "JetBrains Mono", monospace;
 }
@@ -738,17 +744,17 @@ body.professor-criteria-body .prof-guide-step--blocked {
   grid-template-columns: 18px 28px minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
-  border-bottom: 1px solid #efebe5;
+  border-bottom: 1px solid #e4e7ec;
   background: #ffffff;
   padding: 13px 16px;
 }
 
 .criterion-row:hover {
-  background: #fbfaf8;
+  background: #f8fafc;
 }
 
 .criterion-grip {
-  color: #c7bfb5;
+  color: #d0d5dd;
   font: 700 13px "JetBrains Mono", monospace;
   user-select: none;
 }
@@ -758,56 +764,56 @@ body.professor-criteria-body .prof-guide-step--blocked {
   height: 28px;
   display: grid;
   place-items: center;
-  border: 1px solid #ded8cf;
+  border: 1px solid #e4e7ec;
   border-radius: 999px;
-  background: #faf8f5;
-  color: #4f4942;
+  background: #f8fafc;
+  color: #374151;
   font: 700 11px "JetBrains Mono", monospace;
 }
 
 .criterion-main strong {
   display: block;
-  color: #171717;
+  color: #111827;
   font-size: 14px;
   line-height: 1.3;
 }
 
 .criterion-main p {
   margin: 4px 0 0;
-  color: #706d66;
+  color: #667085;
   font-size: 12px;
   line-height: 1.45;
 }
 
 .criterion-weight {
-  border: 1px solid #ded8cf;
+  border: 1px solid #e4e7ec;
   border-radius: 999px;
-  background: #faf8f5;
-  color: #4d4942;
+  background: #f8fafc;
+  color: #374151;
   padding: 5px 10px;
   font: 700 10px "JetBrains Mono", monospace;
   white-space: nowrap;
 }
 
 .criterion-row.draft {
-  background: #fbfaf8;
+  background: #f8fafc;
 }
 
 .criterion-row.draft .criterion-idx {
   border-style: dashed;
-  color: #746d64;
+  color: #667085;
 }
 
 .criterion-row.draft .criterion-weight {
   border-style: dashed;
-  color: #746d64;
+  color: #667085;
 }
 
 .criteria-add-wrap {
   display: grid;
   gap: 12px;
-  border-top: 1px solid #efebe5;
-  background: #fbfaf8;
+  border-top: 1px solid #e4e7ec;
+  background: #f8fafc;
   padding: 12px 16px 14px;
 }
 
@@ -815,15 +821,15 @@ body.professor-criteria-body .prof-guide-step--blocked {
   width: 100%;
   justify-content: center;
   border-style: dashed;
-  border-color: #d8d1c6;
-  color: #4d4942;
+  border-color: #d0d5dd;
+  color: #374151;
   padding: 10px 14px;
 }
 
 .criterion-form-grid {
   display: grid;
   gap: 12px;
-  border: 1px solid #e7e1d8;
+  border: 1px solid #e4e7ec;
   border-radius: 8px;
   background: #ffffff;
   padding: 14px;
@@ -848,7 +854,7 @@ body.professor-criteria-body .prof-guide-step--blocked {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  border-top: 1px solid #efebe5;
+  border-top: 1px solid #e4e7ec;
   background: #ffffff;
   padding: 12px 16px 14px;
 }
@@ -873,70 +879,69 @@ body.professor-criteria-body .criteria-shell .primary-btn:hover {
 }
 
 body.professor-criteria-body .criteria-shell .ghost-btn {
-  border-color: #d8d1c6;
+  border-color: #d0d5dd;
   background: #ffffff;
-  color: #2d2924;
+  color: #374151;
 }
 
 body.professor-criteria-body .criteria-shell .ghost-btn:hover {
-  border-color: #bfb6a8;
-  background: #f6f3ee;
+  border-color: #98a2b3;
+  background: #f8fafc;
 }
 
 body.professor-reviews-body,
 body.professor-criteria-body {
-  background: #f4f3f0;
+  background: #f4f6f8;
 }
 
-body.professor-reviews-body .reviews-main,
-body.professor-criteria-body .criteria-main {
+body.professor-reviews-body .reviews-main {
   min-height: 100vh;
-  padding: 30px 28px 40px;
-  background: #f4f3f0;
+  padding: 0;
+  background: #f4f6f8;
+  display: flex;
+  flex-direction: column;
 }
 
-.review-workspace,
-body.professor-criteria-body .criteria-shell {
-  width: min(1120px, 100%);
-  margin: 0 auto;
+.review-workspace {
+  flex: 1;
   display: grid;
-  gap: 18px;
-  padding: 40px 46px 38px;
-  border: 1px solid #e5e0d8;
-  border-radius: 8px;
-  background: #ffffff;
-  box-shadow: 0 28px 62px rgba(28, 24, 20, 0.1);
+  gap: 0;
+  padding: 0;
+  background: transparent;
 }
 
-.review-topbar,
-body.professor-criteria-body .criteria-page-head {
+.review-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 6;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 18px;
+  padding: 14px 24px;
+  border-bottom: 1px solid #e4e7ec;
+  background: rgba(244, 246, 248, 0.94);
+  backdrop-filter: blur(12px);
 }
 
-.review-topbar h1,
-body.professor-criteria-body .criteria-page-head h1 {
+.review-topbar h1 {
   margin: 0;
-  color: #111111;
+  color: #111827;
   font-size: 24px;
   line-height: 1.18;
   letter-spacing: 0;
 }
 
-.review-topbar .crumb,
-body.professor-criteria-body .criteria-page-head .crumb {
+.review-topbar .crumb {
   margin: 0 0 6px;
-  color: #706d66;
+  color: #667085;
   font-size: 12px;
 }
 
-.review-topbar .head-sub,
-body.professor-criteria-body .criteria-page-head .head-sub {
+.review-topbar .head-sub {
   margin: 6px 0 0;
   max-width: 68ch;
-  color: #5f5b55;
+  color: #667085;
   font-size: 13px;
   line-height: 1.45;
 }
@@ -954,6 +959,7 @@ body.professor-criteria-body .criteria-workbench {
   grid-template-columns: minmax(250px, 300px) minmax(0, 1fr);
   gap: 16px;
   align-items: start;
+  padding: 20px 24px 32px;
 }
 
 .review-side,
@@ -967,7 +973,7 @@ body.professor-criteria-body .prof-guide-panel {
   display: grid;
   gap: 12px;
   padding: 14px;
-  border: 1px solid #ece8e1;
+  border: 1px solid #e4e7ec;
   border-radius: 8px;
   background: #ffffff;
 }
@@ -979,7 +985,7 @@ body.professor-criteria-body .prof-guide-panel__head {
 
 body.professor-reviews-body .prof-guide-panel__head strong,
 body.professor-criteria-body .prof-guide-panel__head strong {
-  color: #151515;
+  color: #111827;
   font-size: 16px;
   letter-spacing: 0;
 }
@@ -987,7 +993,7 @@ body.professor-criteria-body .prof-guide-panel__head strong {
 body.professor-reviews-body .prof-guide-panel__head p,
 body.professor-criteria-body .prof-guide-panel__head p {
   margin-top: 4px;
-  color: #706d66;
+  color: #667085;
   font-size: 12px;
   line-height: 1.45;
 }
@@ -1001,27 +1007,27 @@ body.professor-criteria-body .prof-guide-steps {
 body.professor-reviews-body .prof-guide-step,
 body.professor-criteria-body .prof-guide-step {
   gap: 8px;
-  border-color: #ebe6de;
+  border-color: #e4e7ec;
   border-radius: 8px;
-  background: #fbfaf8;
+  background: #f8fafc;
   padding: 12px;
 }
 
 body.professor-reviews-body .prof-guide-step small,
 body.professor-criteria-body .prof-guide-step small {
-  color: #7a746b;
+  color: #667085;
   letter-spacing: 0;
 }
 
 body.professor-reviews-body .prof-guide-step strong,
 body.professor-criteria-body .prof-guide-step strong {
-  color: #191715;
+  color: #111827;
   font-size: 13px;
 }
 
 body.professor-reviews-body .prof-guide-step p,
 body.professor-criteria-body .prof-guide-step p {
-  color: #6c665d;
+  color: #667085;
   font-size: 12px;
 }
 
@@ -1030,10 +1036,10 @@ body.professor-criteria-body .criteria-progress-card {
   display: flex;
   gap: 12px;
   align-items: flex-start;
-  border: 1px solid #dfc0a8;
+  border: 1px solid rgba(22, 163, 74, 0.2);
   border-radius: 8px;
-  background: linear-gradient(135deg, #e9d7ff 0%, #daa0aa 48%, #e38f4d 100%);
-  color: #2f211c;
+  background: linear-gradient(135deg, rgba(22, 163, 74, 0.06) 0%, rgba(16, 185, 129, 0.1) 100%);
+  color: #111827;
   padding: 14px;
 }
 
@@ -1043,14 +1049,15 @@ body.professor-criteria-body .criteria-progress-card {
   display: grid;
   place-items: center;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.64);
+  background: rgba(22, 163, 74, 0.12);
   font-size: 21px;
+  color: #16a34a;
 }
 
 .review-command-card small,
 body.professor-criteria-body .criteria-progress-card small {
   display: block;
-  color: #5b4139;
+  color: #667085;
   font: 700 10px "JetBrains Mono", monospace;
   text-transform: uppercase;
   letter-spacing: 0;
@@ -1060,7 +1067,7 @@ body.professor-criteria-body .criteria-progress-card small {
 body.professor-criteria-body .criteria-progress-card strong {
   display: block;
   margin-top: 5px;
-  color: #1a1512;
+  color: #111827;
   font-size: 15px;
   line-height: 1.25;
 }
@@ -1068,7 +1075,7 @@ body.professor-criteria-body .criteria-progress-card strong {
 .review-command-card p,
 body.professor-criteria-body .criteria-progress-card p {
   margin: 6px 0 0;
-  color: #5b4139;
+  color: #667085;
   font-size: 12px;
   line-height: 1.45;
 }
@@ -1076,7 +1083,7 @@ body.professor-criteria-body .criteria-progress-card p {
 .review-board,
 body.professor-criteria-body .criteria-board {
   overflow: hidden;
-  border: 1px solid #ece8e1;
+  border: 1px solid #e4e7ec;
   border-radius: 8px;
   background: #ffffff;
 }
@@ -1088,13 +1095,13 @@ body.professor-criteria-body .criteria-board-toolbar {
   align-items: flex-start;
   gap: 12px;
   padding: 15px 16px;
-  border-bottom: 1px solid #efebe5;
+  border-bottom: 1px solid #e4e7ec;
 }
 
 .review-board__head h2,
 body.professor-criteria-body .criteria-board-toolbar h2 {
   margin: 0;
-  color: #151515;
+  color: #111827;
   font-size: 16px;
   line-height: 1.25;
 }
@@ -1102,7 +1109,7 @@ body.professor-criteria-body .criteria-board-toolbar h2 {
 .review-board__head p,
 body.professor-criteria-body .criteria-board-toolbar p {
   margin: 4px 0 0;
-  color: #706d66;
+  color: #667085;
   font-size: 12px;
   line-height: 1.45;
 }
@@ -1116,7 +1123,7 @@ body.professor-criteria-body .criteria-board-toolbar p {
   grid-template-columns: minmax(0, 1fr) minmax(210px, 0.62fr) auto;
   gap: 14px;
   align-items: center;
-  border-bottom: 1px solid #efebe5;
+  border-bottom: 1px solid #e4e7ec;
   background: #ffffff;
   padding: 15px 16px;
 }
@@ -1126,7 +1133,7 @@ body.professor-criteria-body .criteria-board-toolbar p {
 }
 
 .review-decision-card:hover {
-  background: #fbfaf8;
+  background: #f8fafc;
 }
 
 .review-project-main {
@@ -1142,23 +1149,23 @@ body.professor-criteria-body .criteria-board-toolbar p {
   height: 34px;
   display: grid;
   place-items: center;
-  border: 1px solid #ded8cf;
+  border: 1px solid #e4e7ec;
   border-radius: 999px;
-  background: #faf8f5;
-  color: #4f4942;
+  background: #f8fafc;
+  color: #374151;
   font: 700 11px "JetBrains Mono", monospace;
 }
 
 .review-project-main strong {
   display: block;
-  color: #171717;
+  color: #111827;
   font-size: 14px;
   line-height: 1.3;
 }
 
 .review-project-main p {
   margin: 5px 0 0;
-  color: #706d66;
+  color: #667085;
   font-size: 12px;
   line-height: 1.45;
 }
@@ -1171,15 +1178,15 @@ body.professor-criteria-body .criteria-board-toolbar p {
 
 .review-meta-grid div {
   min-width: 0;
-  border: 1px solid #eee9e2;
+  border: 1px solid #e4e7ec;
   border-radius: 8px;
-  background: #fbfaf8;
+  background: #f8fafc;
   padding: 9px;
 }
 
 .review-meta-grid small {
   display: block;
-  color: #7a746b;
+  color: #667085;
   font: 700 10px "JetBrains Mono", monospace;
   text-transform: uppercase;
 }
@@ -1188,7 +1195,7 @@ body.professor-criteria-body .criteria-board-toolbar p {
   display: block;
   overflow: hidden;
   margin-top: 4px;
-  color: #24201b;
+  color: #111827;
   font-size: 12px;
   line-height: 1.3;
   text-overflow: ellipsis;
@@ -1223,9 +1230,9 @@ body.professor-criteria-body .criteria-shell .primary-btn {
 body.professor-reviews-body .ghost-btn,
 body.professor-reviews-body .action-btn,
 body.professor-criteria-body .criteria-shell .ghost-btn {
-  border: 1px solid #d8d1c6;
+  border: 1px solid #d0d5dd;
   background: #ffffff;
-  color: #2d2924;
+  color: #374151;
 }
 
 body.professor-reviews-body .action-btn.danger {
@@ -1239,7 +1246,7 @@ body.professor-criteria-body .criteria-empty-state {
   align-items: center;
   gap: 12px;
   padding: 24px 16px;
-  color: #706d66;
+  color: #667085;
   font-size: 13px;
 }
 
@@ -1249,10 +1256,10 @@ body.professor-criteria-body .criteria-empty-state .material-symbols-outlined {
   height: 42px;
   display: grid;
   place-items: center;
-  border: 1px solid #e7e1d8;
+  border: 1px solid #e4e7ec;
   border-radius: 999px;
-  background: #fbfaf8;
-  color: #5d554b;
+  background: #f8fafc;
+  color: #374151;
   font-size: 21px;
   flex-shrink: 0;
 }
@@ -1260,14 +1267,14 @@ body.professor-criteria-body .criteria-empty-state .material-symbols-outlined {
 .review-empty strong,
 body.professor-criteria-body .criteria-empty-state strong {
   display: block;
-  color: #171717;
+  color: #111827;
   font-size: 14px;
 }
 
 .review-empty p,
 body.professor-criteria-body .criteria-empty-state p {
   margin: 4px 0 0;
-  color: #706d66;
+  color: #667085;
   font-size: 12px;
   line-height: 1.45;
 }
@@ -1283,9 +1290,9 @@ body.professor-criteria-body .criteria-progress-card {
 
 body.professor-criteria-body .criteria-progress-card .criteria-editor-meta {
   width: fit-content;
-  border-color: rgba(255, 255, 255, 0.54);
-  background: rgba(255, 255, 255, 0.72);
-  color: #171310;
+  border-color: rgba(22, 163, 74, 0.24);
+  background: rgba(255, 255, 255, 0.8);
+  color: #111827;
 }
 
 body.professor-criteria-body .criteria-composer {
@@ -1299,7 +1306,7 @@ body.professor-criteria-body .criteria-list {
 
 body.professor-criteria-body .criterion-row {
   grid-template-columns: 42px minmax(0, 1fr) 78px;
-  border-bottom: 1px solid #efebe5;
+  border-bottom: 1px solid #e4e7ec;
   padding: 15px 16px;
 }
 
@@ -1317,38 +1324,40 @@ body.professor-criteria-body .criterion-weight {
 }
 
 body.professor-criteria-body .criterion-weight small {
-  color: #7a746b;
+  color: #667085;
   font: 700 10px "JetBrains Mono", monospace;
   text-transform: uppercase;
 }
 
 body.professor-criteria-body .criterion-weight strong {
-  color: #171717;
+  color: #111827;
   font-size: 16px;
   line-height: 1;
 }
 
 body.professor-criteria-body .criteria-footer-actions {
-  border-top: 1px solid #efebe5;
+  border-top: 1px solid #e4e7ec;
 }
 
 @media (max-width: 720px) {
-  .review-workspace,
-  body.professor-criteria-body .criteria-shell {
-    padding: 24px 18px;
+  .review-workbench,
+  body.professor-criteria-body .criteria-workbench {
+    grid-template-columns: 1fr;
+    padding: 14px 14px 24px;
   }
 
   .review-topbar,
-  body.professor-criteria-body .criteria-page-head,
-  .review-workbench,
-  body.professor-criteria-body .criteria-workbench,
+  body.professor-criteria-body .criteria-page-head {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px 14px;
+  }
+
   .review-decision-card,
   .review-meta-grid {
     grid-template-columns: 1fr;
   }
 
-  .review-topbar,
-  body.professor-criteria-body .criteria-page-head,
   .review-board__head,
   body.professor-criteria-body .criteria-board-toolbar {
     flex-direction: column;
@@ -1357,14 +1366,6 @@ body.professor-criteria-body .criteria-footer-actions {
 
   .review-card-actions {
     grid-template-columns: 1fr;
-  }
-
-  body.professor-criteria-body .criteria-main {
-    padding: 14px 10px 24px;
-  }
-
-  body.professor-criteria-body .criteria-shell {
-    padding: 24px 18px;
   }
 
   body.professor-criteria-body .criteria-editor-head,
