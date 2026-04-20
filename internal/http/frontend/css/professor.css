@@ -938,19 +938,69 @@ body.professor-reviews-body .reviews-main {
   gap: 8px;
 }
 
-.review-workbench,
-body.professor-criteria-body .criteria-workbench {
+/* reviews page: flatten side into grid, guide spans full width below */
+body.professor-reviews-body .review-workbench {
   display: grid;
   grid-template-columns: minmax(250px, 300px) minmax(0, 1fr);
+  grid-template-rows: auto auto;
   gap: 16px;
   align-items: start;
   padding: 20px 24px 32px;
 }
 
-.review-side,
-body.professor-criteria-body .criteria-side {
+body.professor-reviews-body .review-side {
+  display: contents;
+}
+
+body.professor-reviews-body .review-command-card {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+body.professor-reviews-body .review-board {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+body.professor-reviews-body .prof-guide-panel.reviews-guide,
+body.professor-reviews-body .prof-guide-restore-btn {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+
+/* criteria page: context+progress in col 1, board in col 2, guide full-width below */
+body.professor-criteria-body .criteria-workbench {
   display: grid;
-  gap: 12px;
+  grid-template-columns: minmax(250px, 300px) minmax(0, 1fr);
+  grid-template-rows: auto auto auto;
+  gap: 16px;
+  align-items: start;
+  padding: 20px 24px 32px;
+}
+
+body.professor-criteria-body .criteria-side {
+  display: contents;
+}
+
+body.professor-criteria-body .criteria-context-card {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+body.professor-criteria-body .criteria-progress-card {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+body.professor-criteria-body .criteria-board {
+  grid-column: 2;
+  grid-row: 1 / 3;
+}
+
+body.professor-criteria-body .prof-guide-panel.criteria-guide,
+body.professor-criteria-body .prof-guide-restore-btn {
+  grid-column: 1 / -1;
+  grid-row: 3;
 }
 
 body.professor-reviews-body .prof-guide-panel,
@@ -985,8 +1035,8 @@ body.professor-criteria-body .prof-guide-panel__head p {
 
 body.professor-reviews-body .prof-guide-steps,
 body.professor-criteria-body .prof-guide-steps {
-  grid-template-columns: 1fr;
-  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
 }
 
 body.professor-reviews-body .prof-guide-step,
@@ -1371,8 +1421,14 @@ body.professor-criteria-body .criteria-footer-actions {
     grid-template-columns: 1fr;
   }
 
+  body.professor-reviews-body .prof-guide-steps,
+  body.professor-criteria-body .prof-guide-steps {
+    grid-template-columns: 1fr;
+  }
+
   body.professor-criteria-body .criteria-editor-head,
-  body.professor-criteria-body .prof-guide-panel__head {
+  body.professor-criteria-body .prof-guide-panel__head,
+  body.professor-reviews-body .prof-guide-panel__head {
     flex-direction: column;
     align-items: stretch;
   }
