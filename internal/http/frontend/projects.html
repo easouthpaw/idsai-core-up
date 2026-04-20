@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="kk">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -46,18 +46,64 @@
         </div>
       </header>
 
-      <main class="content">
-        <section class="hero hero--welcome">
-          <div class="hero-copy">
-            <p class="hero-kicker">Студенческое рабочее пространство</p>
-            <h1 id="heroGreeting">Привет!</h1>
-            <div class="hero-title-row">
-              <p id="tabTitle" class="hero-section-title">Мои проекты</p>
-              <span id="tabCounter" class="hero-counter" hidden>0 активных</span>
+      <main class="content student-dashboard">
+        <section class="student-dashboard-grid">
+          <section class="hero hero--welcome student-hero-card">
+            <div class="hero-copy">
+              <p class="hero-kicker">Студенческое рабочее пространство</p>
+              <h1 id="heroGreeting">Привет!</h1>
+              <div class="hero-title-row">
+                <p id="tabTitle" class="hero-section-title">Мои проекты</p>
+                <span id="tabCounter" class="hero-counter" hidden>0 активных</span>
+              </div>
+              <p id="tabSubtitle">Управляйте репозиториями и отслеживайте прогресс команды.</p>
             </div>
-            <p id="tabSubtitle">Управляйте репозиториями и отслеживайте прогресс команды.</p>
+            <div class="student-hero-actions">
+              <button id="createToggleBtn" class="create-btn" type="button">＋ Создать проект</button>
+              <a class="ghost-btn student-kb-link" href="/dev/kb">База знаний</a>
+            </div>
+          </section>
+
+          <aside class="student-summary-panel" aria-label="Сводка студента">
+            <div class="student-summary-head">
+              <div>
+                <span>Обзор</span>
+                <strong>Рабочая сводка</strong>
+              </div>
+              <a href="/dev/kb" aria-label="Открыть базу знаний">↗</a>
+            </div>
+            <div class="student-stat-grid">
+              <div class="student-stat-card">
+                <span>Проекты</span>
+                <strong id="studentStatProjects">0</strong>
+              </div>
+              <div class="student-stat-card">
+                <span>В работе</span>
+                <strong id="studentStatInwork">0</strong>
+              </div>
+              <div class="student-stat-card">
+                <span>Проверка</span>
+                <strong id="studentStatReview">0</strong>
+              </div>
+              <div class="student-stat-card">
+                <span>Статьи</span>
+                <strong id="studentStatArticles">0</strong>
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        <section class="student-article-strip" aria-labelledby="kbQuickTitle">
+          <div class="student-section-head">
+            <div>
+              <span>База знаний</span>
+              <h2 id="kbQuickTitle">Полезные статьи</h2>
+            </div>
+            <a href="/dev/kb">Все статьи</a>
           </div>
-          <button id="createToggleBtn" class="create-btn" type="button">＋ Создать проект</button>
+          <div id="kbQuickLinks" class="student-article-grid">
+            <article class="student-kb-empty">Загрузка статей...</article>
+          </div>
         </section>
 
         <section id="toolbarMine" class="toolbar">

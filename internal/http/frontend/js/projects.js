@@ -37,6 +37,11 @@
   const tabSubtitleEl = document.getElementById("tabSubtitle");
   const tabCounterEl = document.getElementById("tabCounter");
   const crumbTabEl = document.getElementById("crumbTab");
+  const studentStatProjectsEl = document.getElementById("studentStatProjects");
+  const studentStatInworkEl = document.getElementById("studentStatInwork");
+  const studentStatReviewEl = document.getElementById("studentStatReview");
+  const studentStatArticlesEl = document.getElementById("studentStatArticles");
+  const kbQuickLinksEl = document.getElementById("kbQuickLinks");
   const searchInputEl = document.getElementById("searchInput");
   const communitySearchInputEl = document.getElementById("communitySearchInput");
   const communityTechFilterEl = document.getElementById("communityTechFilter");
@@ -58,6 +63,8 @@
   let selectedVisibility = "PUBLIC";
   let myProjects = [];
   let publicProjects = [];
+  let kbArticles = [];
+  let kbArticleTotal = 0;
   let activeCardMenuID = "";
 
   function logLine(text) {
@@ -497,6 +504,41 @@
     document.getElementById("countInwork").textContent = String(stats.inwork);
     document.getElementById("countReview").textContent = String(stats.review);
     document.getElementById("countDone").textContent = String(stats.done);
+
+    if (studentStatProjectsEl) studentStatProjectsEl.textContent = String(stats.all);
+    if (studentStatInworkEl) studentStatInworkEl.textContent = String(stats.inwork);
+    if (studentStatReviewEl) studentStatReviewEl.textContent = String(stats.review);
+  }
+
+  function renderKBArticles() {
+    if (!kbQuickLinksEl) return;
+    if (studentStatArticlesEl) {
+      studentStatArticlesEl.textContent = String(kbArticleTotal || kbArticles.length);
+    }
+
+    if (kbArticles.length === 0) {
+      kbQuickLinksEl.innerHTML = '<article class="student-kb-empty">Пока нет опубликованных статей.</article>';
+      return;
+    }
+
+    kbQuickLinksEl.innerHTML = kbArticles.slice(0, 4).map((article) => {
+      const id = escapeHTML(article.id || "");
+      const tags = Array.isArray(article.tags) ? article.tags.slice(0, 2) : [];
+      const date = article.published_at || article.updated_at || article.created_at;
+      const tagsHTML = tags.map((tag) => `<span>${escapeHTML(tag)}</span>`).join("");
+      return `
+        <a class="student-article-card" href="/dev/kb/article?id=${id}">
+          <div class="student-article-card__top">
+            <span>Материал</span>
+            <strong>${escapeHTML(article.title || "Без названия")}</strong>
+          </div>
+          <div class="student-article-card__meta">
+            <span>${escapeHTML(article.author_name || "IDSAI")}</span>
+            <span>${escapeHTML(formatDate(date))}</span>
+          </div>
+          ${tagsHTML ? `<div class="student-article-card__tags">${tagsHTML}</div>` : ""}
+        </a>`;
+    }).join("");
   }
 
   function renderMine() {
@@ -868,6 +910,28 @@
     renderCommunity();
   }
 
+  async function loadKBArticles() {
+    const started = performance.now();
+    const params = new URLSearchParams({ limit: "4", offset: "0", status: "PUBLISHED" });
+    const { resp, data } = await auth.requestJSON(`/v2/kb/articles?${params.toString()}`, {
+      method: "GET",
+    });
+    const elapsed = Math.round(performance.now() - started);
+
+    if (!resp.ok) {
+      kbArticles = [];
+      kbArticleTotal = 0;
+      logLine(`Не удалось загрузить статьи: ${resp.status} (${elapsed} ms)`);
+      renderKBArticles();
+      return;
+    }
+
+    kbArticles = Array.isArray(data && data.items) ? data.items : [];
+    kbArticleTotal = Number.isFinite(Number(data && data.total)) ? Number(data.total) : kbArticles.length;
+    logLine(`Статьи загружены: ${kbArticles.length} (${elapsed} ms)`);
+    renderKBArticles();
+  }
+
   async function createProject() {
     const title = document.getElementById("title").value.trim();
     const description = document.getElementById("description").value.trim();
@@ -949,10 +1013,10 @@
 
   document.getElementById("refreshActiveBtn").addEventListener("click", async () => {
     if (activeTab === "mine") {
-      await loadMineProjects();
+      await Promise.all([loadMineProjects(), loadKBArticles()]);
       return;
     }
-    await loadCommunityProjects();
+    await Promise.all([loadCommunityProjects(), loadKBArticles()]);
   });
 
   createToggleBtnEl.addEventListener("click", openCreateModal);
@@ -1058,8 +1122,7 @@
       await syncCapabilities();
       logLine("session initialized");
       await loadGroups();
-      await loadMineProjects();
-      await loadCommunityProjects();
+      await Promise.all([loadMineProjects(), loadCommunityProjects(), loadKBArticles()]);
       switchTab(activeTab);
       logLine("all systems operational");
       auth.setPageLoading(false);

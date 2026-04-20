@@ -1039,6 +1039,38 @@
       en: "Knowledge base",
       kk: "Білім қоры",
     },
+    "Обзор": {
+      en: "Overview",
+      kk: "Шолу",
+    },
+    "Рабочая сводка": {
+      en: "Workspace summary",
+      kk: "Жұмыс қорытындысы",
+    },
+    "Сводка студента": {
+      en: "Student summary",
+      kk: "Студент қорытындысы",
+    },
+    "Открыть базу знаний": {
+      en: "Open knowledge base",
+      kk: "Білім қорын ашу",
+    },
+    "Статьи": {
+      en: "Articles",
+      kk: "Мақалалар",
+    },
+    "Полезные статьи": {
+      en: "Useful articles",
+      kk: "Пайдалы мақалалар",
+    },
+    "Загрузка статей...": {
+      en: "Loading articles...",
+      kk: "Мақалалар жүктелуде...",
+    },
+    "Пока нет опубликованных статей.": {
+      en: "No published articles yet.",
+      kk: "Әзірге жарияланған мақалалар жоқ.",
+    },
     "Дашборд": {
       en: "Dashboard",
       kk: "Басқару панелі",
@@ -5306,7 +5338,7 @@
   const TRANSLATION_INDEX = buildTranslationIndex();
 
   const state = {
-    lang: normalizeLanguage(readStorage(STORAGE_LANG)) || "ru",
+    lang: normalizeLanguage(readStorage(STORAGE_LANG)) || "kk",
   };
 
   let observer = null;
