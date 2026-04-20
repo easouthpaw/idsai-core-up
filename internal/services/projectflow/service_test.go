@@ -162,6 +162,14 @@ type projectFlowRepos struct {
 	replacedAssignable   []string
 	replacedWanted       []string
 	replaceAssignableErr error
+	customAccessRoles    []AccessCatalogItem
+	customAccessRolesErr error
+	createdAccessRole    AccessCatalogItem
+	createAccessRoleErr  error
+	createAccessRoleCode string
+	createAccessRoleName string
+	createAccessRoleDesc string
+	createAccessRolePerm []string
 	accessStatus         string
 	accessCreatorID      uuid.UUID
 	accessErr            error
@@ -489,6 +497,31 @@ func (r *projectFlowRepos) GetMemberStatusAndCreator(ctx context.Context, userID
 	return r.accessStatus, r.accessCreatorID, r.accessErr
 }
 
+func (r *projectFlowRepos) ListProjectAccessRoles(ctx context.Context, projectID uuid.UUID) ([]AccessCatalogItem, error) {
+	return append([]AccessCatalogItem(nil), r.customAccessRoles...), r.customAccessRolesErr
+}
+
+func (r *projectFlowRepos) CreateProjectAccessRole(ctx context.Context, projectID, createdBy uuid.UUID, roleCode, displayCode, name, description string, permissionCodes []string) (AccessCatalogItem, error) {
+	r.createAccessRoleCode = displayCode
+	r.createAccessRoleName = name
+	r.createAccessRoleDesc = description
+	r.createAccessRolePerm = append([]string(nil), permissionCodes...)
+	if r.createAccessRoleErr != nil {
+		return AccessCatalogItem{}, r.createAccessRoleErr
+	}
+	if r.createdAccessRole.Code != "" {
+		return r.createdAccessRole, nil
+	}
+	return AccessCatalogItem{
+		Code:            roleCode,
+		DisplayCode:     displayCode,
+		Name:            name,
+		Description:     description,
+		PermissionCodes: append([]string(nil), permissionCodes...),
+		Custom:          true,
+	}, nil
+}
+
 func newProjectFlowService(repo *projectFlowRepos, authz *projectFlowAuthz, grantor *projectFlowGrantor) *Service {
 	return &Service{
 		authz:          authz,
@@ -758,11 +791,51 @@ func TestMemberAccessOperations(t *testing.T) {
 
 	t.Run("get access catalog requires permission", func(t *testing.T) {
 		authz := &projectFlowAuthz{canResult: true}
-		svc := newProjectFlowService(&projectFlowRepos{}, authz, &projectFlowGrantor{})
+		repo := &projectFlowRepos{customAccessRoles: []AccessCatalogItem{{
+			Code:            projectAccessRoleCode(projectID, "TESTER"),
+			DisplayCode:     "TESTER",
+			Name:            "Tester",
+			Description:     "Checks the project",
+			PermissionCodes: []string{"task.view"},
+			Custom:          true,
+		}}}
+		svc := newProjectFlowService(repo, authz, &projectFlowGrantor{})
 
 		items, err := svc.GetAccessCatalog(context.Background(), callerID, projectID)
 		require.NoError(t, err)
-		require.Len(t, items, 3)
+		require.Len(t, items, 4)
+		require.Equal(t, "TESTER", items[3].DisplayCode)
+		require.True(t, items[3].Custom)
+	})
+
+	t.Run("list access permissions returns assignable permission catalog", func(t *testing.T) {
+		authz := &projectFlowAuthz{canResult: true}
+		svc := newProjectFlowService(&projectFlowRepos{}, authz, &projectFlowGrantor{})
+
+		items, err := svc.ListProjectAccessPermissions(context.Background(), callerID, projectID)
+		require.NoError(t, err)
+		require.NotEmpty(t, items)
+		require.Contains(t, projectPermissionCodeSet(), "member.access.manage")
+	})
+
+	t.Run("create project access role normalizes and validates permissions", func(t *testing.T) {
+		authz := &projectFlowAuthz{canResult: true}
+		repo := &projectFlowRepos{}
+		svc := newProjectFlowService(repo, authz, &projectFlowGrantor{})
+
+		item, err := svc.CreateProjectAccessRole(context.Background(), callerID, projectID, " manager roles ", " Менеджер ролей ", "  Может выдавать доступ  ", []string{"member.access.manage", "task.view", "task.view"})
+		require.NoError(t, err)
+		require.True(t, item.Custom)
+		require.Equal(t, "MANAGER_ROLES", repo.createAccessRoleCode)
+		require.Equal(t, "Менеджер ролей", repo.createAccessRoleName)
+		require.Equal(t, "Может выдавать доступ", repo.createAccessRoleDesc)
+		require.Equal(t, []string{"member.access.manage", "task.view"}, repo.createAccessRolePerm)
+
+		_, err = svc.CreateProjectAccessRole(context.Background(), callerID, projectID, "team_lead", "Bad", "", nil)
+		require.ErrorIs(t, err, ErrInvalidInput)
+
+		_, err = svc.CreateProjectAccessRole(context.Background(), callerID, projectID, "tester", "Tester", "", []string{"project.delete"})
+		require.ErrorIs(t, err, ErrInvalidInput)
 	})
 
 	t.Run("get member access rejects non-active member", func(t *testing.T) {
@@ -775,7 +848,7 @@ func TestMemberAccessOperations(t *testing.T) {
 		require.ErrorIs(t, err, ErrInvalidInput)
 	})
 
-	t.Run("replace member access validates and sorts assignable roles", func(t *testing.T) {
+	t.Run("replace member access validates one assignable role", func(t *testing.T) {
 		authz := &projectFlowAuthz{canResult: true, listCodes: []string{"project.view", "task.view"}}
 		repo := &projectFlowRepos{
 			accessStatus:    "ACTIVE",
@@ -784,14 +857,27 @@ func TestMemberAccessOperations(t *testing.T) {
 		}
 		svc := newProjectFlowService(repo, authz, &projectFlowGrantor{})
 
-		access, err := svc.ReplaceMemberAccess(context.Background(), callerID, projectID, targetUserID, []string{"TASK_MANAGER", "CO_LEAD", "TASK_MANAGER"})
+		access, err := svc.ReplaceMemberAccess(context.Background(), callerID, projectID, targetUserID, []string{"TASK_MANAGER", "TASK_MANAGER"})
 		require.NoError(t, err)
 		require.NotNil(t, access)
 		require.Equal(t, []string{"CO_LEAD", "RECRUITER", "TASK_MANAGER"}, repo.replacedAssignable)
-		require.Equal(t, []string{"CO_LEAD", "TASK_MANAGER"}, repo.replacedWanted)
+		require.Equal(t, []string{"TASK_MANAGER"}, repo.replacedWanted)
 		require.Equal(t, []string{"TASK_MANAGER", "MEMBER", "CO_LEAD"}, access.RoleCodes)
 		require.Equal(t, []string{"TASK_MANAGER", "CO_LEAD"}, access.ManagedRoleCodes)
 		require.Equal(t, []string{"project.view", "task.view"}, access.EffectivePermissionCodes)
+	})
+
+	t.Run("replace member access rejects multiple roles", func(t *testing.T) {
+		authz := &projectFlowAuthz{canResult: true}
+		repo := &projectFlowRepos{
+			accessStatus:    "ACTIVE",
+			accessCreatorID: creatorID,
+		}
+		svc := newProjectFlowService(repo, authz, &projectFlowGrantor{})
+
+		access, err := svc.ReplaceMemberAccess(context.Background(), callerID, projectID, targetUserID, []string{"TASK_MANAGER", "CO_LEAD"})
+		require.Nil(t, access)
+		require.ErrorIs(t, err, ErrInvalidInput)
 	})
 
 	t.Run("replace member access rejects creator and unknown role", func(t *testing.T) {

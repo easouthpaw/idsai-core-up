@@ -97,11 +97,25 @@ func (r *ProjectFlowRepo) ListProjectMembers(ctx context.Context, projectID uuid
 SELECT m.id, m.project_id, m.user_id, m.position_id, m.status, m.invite_comment, m.invited_by, m.responded_at, m.joined_at, m.created_at,
        p.code, p.name,
        COALESCE(NULLIF(TRIM(up.full_name), ''), split_part(COALESCE(u.email, ''), '@', 1), '') AS full_name,
-       COALESCE(u.email, '') AS email
+       COALESCE(u.email, '') AS email,
+       ar.access_role_name,
+       ar.access_role_code
 FROM project_members m
 LEFT JOIN project_positions p ON p.id = m.position_id
 LEFT JOIN users u ON u.id = m.user_id
 LEFT JOIN user_profiles up ON up.user_id = m.user_id
+LEFT JOIN (
+  SELECT ra.user_id,
+    COALESCE(par.name, r.name) AS access_role_name,
+    COALESCE(par.code, r.code) AS access_role_code
+  FROM role_assignments ra
+  JOIN roles r ON r.id = ra.role_id
+  LEFT JOIN project_access_roles par ON par.role_id = r.id AND par.tenant_id = ra.tenant_id AND par.project_id = ra.scope_id
+  WHERE ra.tenant_id = $1
+    AND ra.scope_type = 'PROJECT'
+    AND ra.scope_id = $2
+    AND r.code NOT IN ('TEAM_LEAD', 'MEMBER', 'INVITED_MEMBER', 'PROJECT_PROFESSOR')
+) ar ON ar.user_id = m.user_id
 WHERE m.tenant_id = $1
   AND (p.id IS NULL OR p.tenant_id = $1)
   AND (u.id IS NULL OR u.tenant_id = $1)
@@ -143,6 +157,8 @@ ORDER BY m.created_at ASC;
 			&posName,
 			&m.FullName,
 			&m.Email,
+			&m.AccessRoleName,
+			&m.AccessRoleCode,
 		); err != nil {
 			return nil, err
 		}

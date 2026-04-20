@@ -1440,6 +1440,36 @@ body.project-body {
   font-size: 11px;
 }
 
+.member-role-pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: 190px;
+  min-height: 28px;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #1e3a8a;
+  padding: 5px 9px;
+  font: 800 12px/1.2 "Manrope", sans-serif;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-role-pill.muted {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
+.member-action-empty {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  color: #94a3b8;
+  font: 700 12px "Manrope", sans-serif;
+}
+
 .activity-list {
   margin: 0;
   padding: 10px 12px 12px;
@@ -1775,6 +1805,365 @@ body.project-body {
 .tab-stage-hint--completed {
   --tab-hint-accent: #16a34a;
   --tab-hint-soft: #dcfce7;
+}
+
+/* Minimal connected stage hint + requirement checklist */
+.stage-spotlight {
+  --spotlight-accent: #4f29f0;
+  --spotlight-accent-soft: #f3f0ff;
+  --spotlight-warning: #ffe84d;
+  --spotlight-warning-line: #e4bd18;
+  --spotlight-warning-text: #414856;
+  --spotlight-muted: #c3c8de;
+  margin-top: 16px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  overflow: visible;
+  box-shadow: none;
+  animation: none;
+  display: grid;
+  gap: 14px;
+}
+
+.stage-spotlight[hidden],
+.stage-hints-restore[hidden] {
+  display: none;
+}
+
+.stage-spotlight::before,
+.stage-spotlight::after,
+.stage-spotlight:hover::after,
+.tab-stage-hint::before,
+.tab-stage-hint::after,
+.tab-stage-hint:hover::after {
+  display: none;
+}
+
+.stage-spotlight:hover {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.stage-spotlight-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+  margin: 0;
+  border: 1px solid var(--spotlight-warning-line);
+  border-radius: 8px;
+  background: var(--spotlight-warning);
+  padding: 13px 14px;
+  box-shadow: 0 10px 22px rgba(65, 72, 86, 0.08);
+}
+
+.stage-spotlight-kicker {
+  margin: 0 0 7px;
+}
+
+.stage-spotlight .hint-badge--spotlight {
+  border: 0;
+  background: transparent;
+  color: var(--spotlight-warning-text);
+  padding: 0;
+  min-height: 20px;
+  box-shadow: none;
+}
+
+.stage-spotlight .hint-badge--spotlight .hint-badge-icon {
+  width: 24px;
+  height: 24px;
+  background: #567ed8;
+  color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+.stage-spotlight h3 {
+  color: #313642;
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.stage-spotlight-copy {
+  margin: 6px 0 0;
+  max-width: 860px;
+  color: var(--spotlight-warning-text);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.stage-spotlight:hover h3,
+.stage-spotlight:hover .stage-spotlight-copy {
+  color: var(--spotlight-warning-text);
+}
+
+.stage-spotlight-badges {
+  gap: 6px;
+  justify-content: flex-end;
+  align-items: flex-start;
+}
+
+.stage-spotlight-badge {
+  min-height: 28px;
+  border-radius: 8px;
+  border-color: rgba(142, 103, 0, 0.22);
+  background: rgba(255, 255, 255, 0.42);
+  color: #6f5100;
+  padding: 0 9px;
+  font-size: 10px;
+}
+
+.stage-spotlight-badge.accent {
+  border-color: rgba(79, 41, 240, 0.18);
+  background: rgba(255, 255, 255, 0.58);
+  color: #4f29f0;
+}
+
+#hideStageHintsBtn {
+  min-height: 28px;
+  border-color: rgba(142, 103, 0, 0.24);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.52);
+  color: #9a5d00;
+  padding: 6px 10px;
+  font-family: "Manrope", sans-serif;
+}
+
+.stage-spotlight-grid {
+  grid-template-columns: minmax(280px, 520px) minmax(260px, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.stage-spotlight.is-full-width .stage-spotlight-grid {
+  grid-template-columns: minmax(280px, 520px);
+}
+
+.stage-checklist {
+  --background: #ffffff;
+  --text: #414856;
+  --check: #4f29f0;
+  --disabled: #c3c8de;
+  border: 0;
+  border-radius: 8px;
+  background: var(--background);
+  box-shadow: 0 14px 32px rgba(65, 72, 86, 0.08);
+  padding: 18px 22px;
+  gap: 14px;
+}
+
+.stage-checklist-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #edf0f7;
+  padding-bottom: 12px;
+  color: var(--text);
+}
+
+.stage-checklist-head span {
+  font: 800 12px "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.stage-checklist-head strong {
+  color: #4f29f0;
+  font: 800 12px "Manrope", sans-serif;
+  white-space: nowrap;
+}
+
+.stage-checklist-items {
+  display: grid;
+  gap: 8px;
+}
+
+.stage-checklist-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 8px 0;
+}
+
+.stage-checklist-item.is-done {
+  border-color: transparent;
+  background: transparent;
+}
+
+.stage-checklist .stage-checklist-label {
+  position: relative;
+  color: var(--text);
+  cursor: default;
+  display: grid;
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0;
+  text-transform: none;
+  letter-spacing: 0;
+  transition: color 0.3s ease, transform 0.3s ease;
+}
+
+.stage-checklist .stage-checklist-label::before,
+.stage-checklist .stage-checklist-label::after {
+  content: "";
+  position: absolute;
+}
+
+.stage-checklist .stage-checklist-label::before {
+  height: 2px;
+  width: 8px;
+  left: -27px;
+  top: 11px;
+  background: var(--check);
+  border-radius: 2px;
+  transition: background 0.3s ease;
+}
+
+.stage-checklist .stage-checklist-label::after {
+  height: 4px;
+  width: 4px;
+  top: 10px;
+  left: -25px;
+  border-radius: 50%;
+}
+
+.stage-checklist input[type="checkbox"] {
+  height: 16px;
+  width: 16px;
+  margin: 4px 0 0;
+  background: var(--background);
+}
+
+.stage-checklist input[type="checkbox"]:checked::before {
+  animation: checklist-check-01 0.4s ease forwards;
+}
+
+.stage-checklist input[type="checkbox"]:checked::after {
+  animation: checklist-check-02 0.4s ease forwards;
+}
+
+.stage-checklist-title {
+  position: relative;
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  color: var(--text);
+  font: 700 15px/1.45 "Manrope", sans-serif;
+}
+
+.stage-checklist-title::after,
+.stage-checklist-item.is-done .stage-checklist-title::after {
+  display: none;
+  animation: none;
+}
+
+.stage-checklist-hint {
+  color: #697182;
+  font: 500 12px/1.5 "Manrope", sans-serif;
+}
+
+.stage-checklist-actions {
+  grid-column: 2;
+  margin-top: -2px;
+}
+
+.stage-checklist-item.is-done .stage-checklist-label {
+  color: var(--disabled);
+  animation: checklist-move 0.3s ease 0.1s forwards;
+}
+
+.stage-checklist-item.is-done .stage-checklist-label::before {
+  background: var(--disabled);
+  animation: checklist-slice 0.4s ease forwards;
+}
+
+.stage-checklist-item.is-done .stage-checklist-label::after {
+  animation: checklist-firework 0.5s ease forwards 0.1s;
+}
+
+.stage-checklist-item.is-done .stage-checklist-title {
+  color: var(--disabled);
+}
+
+.stage-checklist-item.is-done .stage-checklist-title::after {
+  animation: checklist-title-slice 0.35s ease forwards;
+}
+
+.stage-checklist-item.is-done .stage-checklist-hint {
+  color: #a5abc2;
+}
+
+.tab-stage-hint {
+  --tab-hint-accent: #4f29f0;
+  --tab-hint-soft: #fff1a4;
+  border-color: #e4bd18;
+  border-radius: 8px;
+  background: #ffe84d;
+  box-shadow: 0 10px 22px rgba(65, 72, 86, 0.08);
+  animation: none;
+  padding: 13px 14px;
+}
+
+.tab-stage-hint:hover {
+  border-color: #d9ad00;
+  background: #ffe84d;
+  box-shadow: 0 12px 24px rgba(65, 72, 86, 0.1);
+}
+
+.tab-stage-hint strong,
+.tab-stage-hint p,
+.tab-stage-hint:hover strong,
+.tab-stage-hint:hover p {
+  color: #414856;
+}
+
+.tab-stage-hint .hint-badge {
+  border: 0;
+  background: transparent;
+  color: #414856;
+  padding: 0;
+}
+
+.tab-stage-hint--restore {
+  border-style: dashed;
+  background: #fff8c7;
+}
+
+.stage-hints-restore {
+  margin-top: 16px;
+  min-height: 44px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-color: #e4bd18;
+  border-radius: 8px;
+  background: #fff8c7;
+  color: #414856;
+  padding: 8px 10px 8px 14px;
+  box-shadow: 0 8px 18px rgba(65, 72, 86, 0.06);
+}
+
+.stage-hints-restore-title {
+  color: #414856;
+  font: 800 12px "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.stage-hints-restore:hover {
+  border-color: #d9ad00;
+  background: #ffe84d;
 }
 
 .invite-list {
@@ -3199,6 +3588,515 @@ textarea:focus {
   background: #f8fafc;
 }
 
+/* Role assignment modal */
+.permissions-card {
+  width: min(840px, 94vw);
+  max-height: min(92vh, 800px);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.permissions-card .perm-head {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  border-bottom: 0;
+  background: #ffffff;
+  padding: 22px 52px 14px;
+  text-align: center;
+}
+
+.perm-head-main {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  max-width: 520px;
+}
+
+.permissions-card .perm-head-icon {
+  width: 60px;
+  height: 60px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #eff6ff;
+}
+
+.permissions-card .perm-head-icon img {
+  width: 34px;
+  height: 34px;
+  opacity: 0.82;
+}
+
+.perm-head-kicker {
+  margin: 4px 0 0;
+  color: #0f5c9f;
+  font: 800 11px/1.2 "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.permissions-card .perm-head h3 {
+  margin: 0;
+  color: #0b4c8c;
+  font: 800 22px/1.2 "Manrope", sans-serif;
+  letter-spacing: 0;
+}
+
+.permissions-card .perm-head-sub {
+  margin: 0;
+  color: #64748b;
+  font: 600 13px/1.45 "Manrope", sans-serif;
+}
+
+.perm-role-dots {
+  min-height: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.perm-role-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: #d7dee8;
+  transition: width 160ms ease, background 160ms ease;
+}
+
+.perm-role-dot.active {
+  width: 30px;
+  background: #0f5c9f;
+}
+
+.permissions-card .perm-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+.permissions-card .perm-body {
+  padding: 0 28px 20px;
+  max-height: min(68vh, 620px);
+  overflow: auto;
+}
+
+.permissions-card #permLoading {
+  margin: 0 0 16px;
+  border-color: #dbeafe;
+  background: #f8fbff;
+  text-align: center;
+}
+
+.permissions-card .perm-section {
+  margin: 0 0 18px;
+}
+
+.permissions-card .perm-section-head {
+  display: flex;
+  justify-content: center;
+  margin: 0 0 10px;
+  text-align: center;
+}
+
+.permissions-card .perm-section-head h4,
+.permissions-card .perm-details-toggle h4 {
+  margin: 0;
+  color: #172033;
+  font: 800 13px/1.3 "Manrope", sans-serif;
+}
+
+.permissions-card .perm-system-chips {
+  justify-content: center;
+}
+
+.permissions-card .perm-system-chip {
+  border-color: #c7d2fe;
+  background: #eef2ff;
+  color: #3730a3;
+}
+
+.permissions-card .perm-position-section {
+  border: 1px solid #e7edf5;
+  border-radius: 8px;
+  background: #f8fbff;
+  padding: 14px;
+}
+
+.permissions-card .perm-field {
+  display: grid;
+  gap: 6px;
+  width: min(420px, 100%);
+  margin: 0 auto;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.permissions-card .perm-field span {
+  color: #475569;
+  font: 800 11px/1.2 "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.permissions-card .perm-field select {
+  min-height: 42px;
+  border-color: #cbd5e1;
+  background: #ffffff;
+  color: #172033;
+  font-weight: 800;
+}
+
+.permissions-card .perm-inline-hint {
+  width: min(520px, 100%);
+  margin: 8px auto 0;
+  color: #64748b;
+  font: 600 12px/1.45 "Manrope", sans-serif;
+  text-align: center;
+}
+
+.perm-empty-panel {
+  grid-column: 1 / -1;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #64748b;
+  padding: 14px;
+  text-align: center;
+  font: 700 12px/1.45 "Manrope", sans-serif;
+}
+
+.perm-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: stretch;
+}
+
+.permissions-card .perm-role-card {
+  position: relative;
+  display: block;
+  min-height: 374px;
+  border: 1.5px solid #e7edf5;
+  border-radius: 8px;
+  background: #f8fbff;
+  padding: 16px 14px;
+  color: #172033;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.permissions-card .perm-role-card:hover,
+.permissions-card .perm-role-card:focus-within {
+  border-color: #8ab8e8;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(15, 92, 159, 0.1);
+  transform: translateY(-1px);
+}
+
+.permissions-card .perm-role-card.active {
+  border-color: #0f5c9f;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(15, 92, 159, 0.12), 0 16px 30px rgba(15, 92, 159, 0.12);
+}
+
+.permissions-card .perm-role-card input.perm-role-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.perm-role-check {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 20px;
+  height: 20px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #ffffff;
+  z-index: 1;
+}
+
+.perm-role-card.active .perm-role-check {
+  border-color: #0f5c9f;
+  background: #0f5c9f;
+}
+
+.perm-role-card.active .perm-role-check::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 3px;
+  width: 5px;
+  height: 10px;
+  border: solid #ffffff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.permissions-card .perm-role-card-body {
+  min-height: 100%;
+  display: grid;
+  grid-template-rows: auto auto auto auto 1fr;
+  justify-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.perm-role-asset {
+  width: 76px;
+  height: 76px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #eef6ff;
+}
+
+.perm-role-asset img {
+  width: 42px;
+  height: 42px;
+  opacity: 0.76;
+}
+
+.perm-role-card.active .perm-role-asset {
+  border-color: #bfdbfe;
+  background: #dbeafe;
+}
+
+.permissions-card .perm-role-card strong {
+  color: #111827;
+  font: 800 15px/1.25 "Manrope", sans-serif;
+}
+
+.perm-role-code {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 3px 8px;
+  font: 700 10px/1.2 "IBM Plex Mono", ui-monospace, monospace;
+}
+
+.permissions-card .perm-role-desc {
+  min-height: 52px;
+  color: #5f6d7e;
+  font: 600 12px/1.45 "Manrope", sans-serif;
+}
+
+.perm-role-rights {
+  align-self: stretch;
+  margin-top: 2px;
+  border-top: 1px solid #e7edf5;
+  padding-top: 10px;
+  text-align: left;
+}
+
+.perm-role-rights-title {
+  display: block;
+  color: #0f5c9f;
+  font: 800 10px/1.2 "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.perm-role-rights ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.perm-role-rights li {
+  display: grid;
+  gap: 2px;
+  color: #172033;
+  font: 700 11px/1.3 "Manrope", sans-serif;
+}
+
+.perm-role-rights code {
+  color: #778396;
+  font: 600 9px/1.3 "IBM Plex Mono", ui-monospace, monospace;
+  word-break: break-word;
+}
+
+.permissions-card .perm-details {
+  border-top: 1px solid #e7edf5;
+  padding-top: 2px;
+}
+
+.permissions-card .perm-details-toggle {
+  padding: 12px 0 8px;
+}
+
+.permissions-card .perm-effective-list {
+  padding: 0 0 4px;
+}
+
+.permissions-card .perm-eff-chip {
+  border-radius: 999px;
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #9a3412;
+  font-family: "Manrope", sans-serif;
+  font-weight: 800;
+}
+
+.permissions-card .perm-foot {
+  background: #f8fafc;
+  padding: 12px 28px;
+}
+
+.access-role-card {
+  width: min(760px, 94vw);
+  max-height: min(92vh, 780px);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.modal-kicker {
+  margin: 0 0 4px;
+  color: #0f5c9f;
+  font: 800 10px/1.2 "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.access-role-body {
+  display: grid;
+  gap: 14px;
+  max-height: min(68vh, 620px);
+  overflow: auto;
+}
+
+.access-role-body label {
+  display: grid;
+  gap: 6px;
+  color: #475569;
+  font: 800 11px/1.2 "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.access-role-body input,
+.access-role-body textarea {
+  color: #172033;
+  font-family: "Manrope", sans-serif;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.access-role-permissions-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid #e7edf5;
+  padding-top: 14px;
+}
+
+.access-role-permissions-head h4 {
+  margin: 0;
+  color: #172033;
+  font: 800 14px/1.25 "Manrope", sans-serif;
+}
+
+.access-role-permissions-head p {
+  margin: 3px 0 0;
+  color: #64748b;
+  font: 600 12px/1.4 "Manrope", sans-serif;
+}
+
+.access-role-permissions-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.access-role-permission-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 10px;
+  min-height: 76px;
+  border: 1px solid #e7edf5;
+  border-radius: 8px;
+  background: #f8fbff;
+  padding: 12px;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.access-role-permission-item:hover,
+.access-role-permission-item.checked {
+  border-color: #8ab8e8;
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgba(15, 92, 159, 0.08);
+}
+
+.access-role-permission-item input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.access-role-permission-check {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+}
+
+.access-role-permission-item.checked .access-role-permission-check {
+  border-color: #0f5c9f;
+  background: #0f5c9f;
+  box-shadow: inset 0 0 0 3px #ffffff;
+}
+
+.access-role-permission-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.access-role-permission-copy strong {
+  color: #172033;
+  font: 800 13px/1.25 "Manrope", sans-serif;
+}
+
+.access-role-permission-copy small {
+  color: #64748b;
+  font: 600 12px/1.35 "Manrope", sans-serif;
+}
+
+.access-role-permission-copy code {
+  width: fit-content;
+  max-width: 100%;
+  color: #778396;
+  font: 700 10px/1.2 "IBM Plex Mono", ui-monospace, monospace;
+  word-break: break-word;
+}
+
 .empty-state {
   border: 1px dashed var(--line-strong);
   border-radius: 8px;
@@ -3306,6 +4204,34 @@ textarea:focus {
     width: 10px;
     top: 10px;
     transform: rotate(-45deg);
+  }
+}
+
+@keyframes checklist-firework {
+  0% {
+    opacity: 1;
+    box-shadow:
+      0 0 0 -2px #4f29f0,
+      0 0 0 -2px #4f29f0,
+      0 0 0 -2px #4f29f0,
+      0 0 0 -2px #4f29f0,
+      0 0 0 -2px #4f29f0,
+      0 0 0 -2px #4f29f0;
+  }
+
+  30% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    box-shadow:
+      0 -15px 0 0 #4f29f0,
+      14px -8px 0 0 #4f29f0,
+      14px 8px 0 0 #4f29f0,
+      0 15px 0 0 #4f29f0,
+      -14px 8px 0 0 #4f29f0,
+      -14px -8px 0 0 #4f29f0;
   }
 }
 
@@ -3446,8 +4372,29 @@ textarea:focus {
 
   .modal-grid.two,
   .perm-options,
+  .access-role-permissions-list,
   .criterion-form {
     grid-template-columns: 1fr;
+  }
+
+  .permissions-card .perm-head {
+    padding: 18px 44px 12px;
+  }
+
+  .permissions-card .perm-body {
+    padding: 0 16px 16px;
+  }
+
+  .permissions-card .perm-role-card {
+    min-height: 0;
+  }
+
+  .permissions-card .perm-role-desc {
+    min-height: 0;
+  }
+
+  .permissions-card .perm-foot {
+    padding: 12px 16px;
   }
 
   .criterion-form textarea,
@@ -3464,10 +4411,14 @@ textarea:focus {
   }
 
   .stage-spotlight-head {
-    flex-direction: column;
+    grid-template-columns: 1fr;
   }
 
   .stage-spotlight {
+    padding: 0;
+  }
+
+  .stage-checklist {
     padding: 16px;
   }
 

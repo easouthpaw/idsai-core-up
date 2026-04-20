@@ -184,7 +184,7 @@
       return "Проект уже передан на финальную проверку. Откройте оценивание и завершите ревью по критериям.";
     }
     if (canActivateProject(project)) {
-      return "Команда, преподавательское ревью и критерии готовы. Вы можете дать разрешение на запуск и перевести проект в ACTIVE.";
+      return "Команда, ревью преподавателя и критерии готовы. Можно разрешить запуск проекта.";
     }
     if (isAcceptedReviewer(project) && (status === "DRAFT" || status === "REVIEW" || status === "RECRUITMENT")) {
       if (ready && Number(ready.criteria_count || 0) === 0) {
@@ -341,7 +341,7 @@
       if (canActivateProject(project)) {
         focus.push({
           title: project.title || "Без названия",
-          text: "Команда готова к старту. Вы можете дать разрешение на запуск и перевести проект в ACTIVE.",
+          text: "Команда готова к старту. Можно разрешить запуск проекта.",
           actions: [
             { label: "Дать разрешение на запуск и запустить", act: "activate", id: project.id, primary: true },
             { label: "Открыть критерии", act: "criteria", id: project.id, primary: false },
@@ -414,7 +414,7 @@
         <article class="prof-project-card prof-project-card--empty">
           <div class="prof-project-card__meta">
             <strong>Проекты пока не найдены</strong>
-            <p>Когда в faculty-контуре появятся проекты, они отобразятся здесь автоматически.</p>
+            <p>Когда в учебном контуре появятся проекты, они отобразятся здесь автоматически.</p>
           </div>
         </article>
       `;
@@ -471,7 +471,7 @@
 
   async function actionActivateProject(projectID) {
     await request("POST", `/v2/projects/${projectID}/approve`, {});
-    setStatus("Разрешение на запуск выдано. Проект переведен в ACTIVE.", false);
+    setStatus("Разрешение на запуск выдано. Проект переведен в активную фазу.", false);
   }
 
   function actionOpenCriteria(projectID) {
@@ -549,7 +549,7 @@
       updateStats(state.projects);
       renderFocus(focusProjects);
       renderProjects(state.projects);
-      setStatus(`Вижу проектов в faculty-контуре: ${state.projects.length}.`, false);
+      setStatus(`Вижу проектов в учебном контуре: ${state.projects.length}.`, false);
     } catch (err) {
       setStatus(err.message || String(err), true);
     }

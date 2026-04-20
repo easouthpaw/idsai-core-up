@@ -229,8 +229,8 @@
 
   function visibilityLabel(value) {
     const v = String(value || "").toUpperCase();
-    if (v === "PUBLIC") return "PUBLIC";
-    if (v === "GROUP" || v === "FACULTY" || v === "PRIVATE") return "PRIVATE";
+    if (v === "PUBLIC") return "Публичный";
+    if (v === "GROUP" || v === "FACULTY" || v === "PRIVATE") return "Приватный";
     return v || "-";
   }
 
@@ -692,14 +692,14 @@
     if (isMine) {
       tabTitleEl.textContent = "Мои проекты";
       tabSubtitleEl.textContent = "Управляйте репозиториями и отслеживайте прогресс команды.";
-      crumbTabEl.textContent = "projects";
+      crumbTabEl.textContent = "Проекты";
       tabCounterEl.hidden = true;
       renderMine();
     } else {
       const activeCount = publicProjects.filter((p) => isRecruiting(p)).length;
       tabTitleEl.textContent = "Обзор проектов";
       tabSubtitleEl.textContent = "Публичные проекты на стадии набора и активной разработки.";
-      crumbTabEl.textContent = "public-overview";
+      crumbTabEl.textContent = "Обзор проектов";
       tabCounterEl.hidden = false;
       tabCounterEl.textContent = `${activeCount} активных`;
       renderCommunity();
@@ -838,13 +838,13 @@
 
     if (!resp.ok) {
       myProjects = [];
-      setStatus(null, `List failed: ${resp.status} (${elapsed} ms)`, false);
+      setStatus(null, `Не удалось загрузить проекты: ${resp.status} (${elapsed} ms)`, false);
       renderMine();
       return;
     }
 
     myProjects = Array.isArray(data) ? data : [];
-    setStatus(null, `Projects loaded: ${myProjects.length} (${elapsed} ms)`, true);
+    setStatus(null, `Проекты загружены: ${myProjects.length} (${elapsed} ms)`, true);
     renderMine();
   }
 
@@ -858,13 +858,13 @@
 
     if (!resp.ok) {
       publicProjects = [];
-      setStatus(null, `Public list failed: ${resp.status} (${elapsed} ms)`, false);
+      setStatus(null, `Не удалось загрузить публичные проекты: ${resp.status} (${elapsed} ms)`, false);
       renderCommunity();
       return;
     }
 
     publicProjects = Array.isArray(data) ? data : [];
-    setStatus(null, `Public projects loaded: ${publicProjects.length} (${elapsed} ms)`, true);
+    setStatus(null, `Публичные проекты загружены: ${publicProjects.length} (${elapsed} ms)`, true);
     renderCommunity();
   }
 

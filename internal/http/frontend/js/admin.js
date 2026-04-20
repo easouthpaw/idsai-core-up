@@ -834,7 +834,15 @@
       el.classList.toggle("active", el.id === `view-${next}`);
     });
 
-    crumbCurrentEl.textContent = next;
+    if (next === "dashboard") {
+      crumbCurrentEl.textContent = "Панель";
+    } else if (next === "users") {
+      crumbCurrentEl.textContent = "Пользователи";
+    } else if (next === "projects") {
+      crumbCurrentEl.textContent = "Проекты";
+    } else {
+      crumbCurrentEl.textContent = next;
+    }
     syncTopbarByView();
     syncViewInURL(next);
 

@@ -41,6 +41,104 @@ ORDER BY r.code ASC;
 	return out, rows.Err()
 }
 
+func (r *ProjectFlowRepo) ListProjectAccessRoles(ctx context.Context, projectID uuid.UUID) ([]projectflow.AccessCatalogItem, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	const q = `
+SELECT r.code,
+       par.code AS display_code,
+       par.name,
+       par.description,
+       COALESCE(array_agg(p.code ORDER BY p.code) FILTER (WHERE p.code IS NOT NULL), '{}') AS permission_codes
+FROM project_access_roles par
+JOIN roles r ON r.id = par.role_id
+LEFT JOIN role_permissions rp ON rp.role_id = r.id
+LEFT JOIN permissions p ON p.id = rp.permission_id
+WHERE par.tenant_id = $1
+  AND par.project_id = $2
+GROUP BY r.code, par.code, par.name, par.description, par.created_at
+ORDER BY par.created_at ASC, par.name ASC;
+`
+	rows, err := r.db.Query(ctx, q, tenantID, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]projectflow.AccessCatalogItem, 0, 8)
+	for rows.Next() {
+		var item projectflow.AccessCatalogItem
+		if err := rows.Scan(&item.Code, &item.DisplayCode, &item.Name, &item.Description, &item.PermissionCodes); err != nil {
+			return nil, err
+		}
+		item.Custom = true
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
+func (r *ProjectFlowRepo) CreateProjectAccessRole(
+	ctx context.Context,
+	projectID, createdBy uuid.UUID,
+	roleCode, displayCode, name, description string,
+	permissionCodes []string,
+) (projectflow.AccessCatalogItem, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return projectflow.AccessCatalogItem{}, err
+	}
+
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return projectflow.AccessCatalogItem{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	var roleID uuid.UUID
+	if err := tx.QueryRow(ctx, `
+INSERT INTO roles(code, name)
+VALUES ($1, $2)
+RETURNING id;
+`, roleCode, name).Scan(&roleID); err != nil {
+		return projectflow.AccessCatalogItem{}, err
+	}
+
+	if _, err := tx.Exec(ctx, `
+INSERT INTO project_access_roles(tenant_id, project_id, role_id, code, name, description, created_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7);
+`, tenantID, projectID, roleID, displayCode, name, description, createdBy); err != nil {
+		return projectflow.AccessCatalogItem{}, err
+	}
+
+	if len(permissionCodes) > 0 {
+		if _, err := tx.Exec(ctx, `
+INSERT INTO role_permissions(role_id, permission_id)
+SELECT $1, p.id
+FROM permissions p
+WHERE p.code = ANY($2)
+ON CONFLICT DO NOTHING;
+`, roleID, permissionCodes); err != nil {
+			return projectflow.AccessCatalogItem{}, err
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return projectflow.AccessCatalogItem{}, err
+	}
+
+	return projectflow.AccessCatalogItem{
+		Code:            roleCode,
+		DisplayCode:     displayCode,
+		Name:            name,
+		Description:     description,
+		PermissionCodes: append([]string(nil), permissionCodes...),
+		Custom:          true,
+	}, nil
+}
+
 func (r *ProjectFlowRepo) ReplaceAssignableRoles(
 	ctx context.Context,
 	userID, projectID uuid.UUID,

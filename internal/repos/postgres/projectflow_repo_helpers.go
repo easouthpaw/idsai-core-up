@@ -3,6 +3,7 @@ package postgres
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 
 	"idsai-core-up/internal/domain"
@@ -214,6 +215,10 @@ func mapProjectFlowErr(err error) error {
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return projectflow.ErrNotFound
+	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return fmt.Errorf("%w: already exists", projectflow.ErrInvalidInput)
 	}
 	return err
 }

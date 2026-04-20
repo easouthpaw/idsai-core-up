@@ -90,7 +90,7 @@
             </header>
             <div class="card-body lifecycle-body">
               <div id="lifecycleTimeline" class="lifecycle-timeline" aria-label="Жизненный цикл проекта"></div>
-              <section id="stageSpotlight" class="stage-spotlight" aria-live="polite">
+              <section id="stageSpotlight" class="stage-spotlight" aria-live="polite" aria-labelledby="stageSpotlightTitle" hidden>
                 <div class="stage-spotlight-head">
                   <div>
                     <p class="stage-spotlight-kicker">
@@ -109,12 +109,12 @@
                   <div class="stage-spotlight-badges">
                     <span id="stageCurrentBadge" class="stage-spotlight-badge">Сейчас: подготовка</span>
                     <span id="stageNextBadge" class="stage-spotlight-badge accent">Дальше: набор</span>
-                    <button id="hideStageHintsBtn" class="hint-toggle-btn" type="button">Скрыть подсказки</button>
+                    <button id="hideStageHintsBtn" class="hint-toggle-btn" type="button" aria-label="Скрыть подсказки">Скрыть</button>
                   </div>
                 </div>
 
                 <div class="stage-spotlight-grid">
-                  <div id="readinessList" class="stage-checklist" aria-label="Требования следующего этапа"></div>
+                  <div id="readinessList" class="stage-checklist" aria-label="Требования следующего этапа" aria-describedby="stageSpotlightCopy"></div>
 
                   <div class="stage-spotlight-side">
                     <div id="pipelineStatusNote" class="pipeline-status-note" role="alert" aria-live="polite" hidden></div>
@@ -126,7 +126,10 @@
                   </div>
                 </div>
               </section>
-              <button id="showStageHintsBtn" class="stage-hints-restore" type="button" hidden>Показать подсказки по этапам</button>
+              <div id="stageHintsCollapsed" class="stage-hints-restore" hidden>
+                <span class="stage-hints-restore-title">Подсказка</span>
+                <button id="showStageHintsBtn" class="hint-toggle-btn" type="button">Показать</button>
+              </div>
             </div>
           </article>
 
@@ -143,7 +146,7 @@
               <article id="applyCard" class="card" hidden>
                 <header class="card-head">
                   <h2>Заявка в команду</h2>
-                  <span>RECRUITMENT</span>
+                  <span>Набор</span>
                 </header>
                 <div class="card-body">
                   <p id="applyHint" class="muted-text">Оставьте короткий комментарий и отправьте заявку в проект.</p>
@@ -209,12 +212,7 @@
                 <p>Управляйте участниками и ролями в проекте.</p>
               </div>
               <div class="team-head-actions">
-                <form id="positionForm" class="position-form">
-                  <input id="positionNameInput" type="text" name="position_name" autocomplete="off" aria-label="Название роли" placeholder="Название роли" required />
-                  <input id="positionCodeInput" type="text" name="position_code" autocomplete="off" aria-label="Код роли" placeholder="Код роли" />
-                  <input id="positionCapacityInput" type="number" name="position_capacity" autocomplete="off" aria-label="Количество мест" min="1" value="1" required />
-                  <button class="ghost-btn" type="submit">Добавить роль</button>
-                </form>
+                <button id="openAccessRoleModalBtn" class="ghost-btn" type="button">Создать роль доступа</button>
               </div>
             </header>
 
@@ -443,11 +441,11 @@
                     <div class="visibility-grid">
                       <label class="visibility-item">
                         <input id="editVisibilityPublic" type="radio" name="editVisibility" value="PUBLIC" checked />
-                        <span>Public</span>
+                        <span>Публичный</span>
                       </label>
                       <label class="visibility-item">
                         <input id="editVisibilityPrivate" type="radio" name="editVisibility" value="PRIVATE" />
-                        <span>Private</span>
+                        <span>Приватный</span>
                       </label>
                     </div>
                   </div>
@@ -483,7 +481,7 @@
           <div>
             <label for="taskModalStatusSelect">Статус</label>
             <select id="taskModalStatusSelect" name="task_status" autocomplete="off">
-              <option value="OPEN">Backlog</option>
+              <option value="OPEN">Бэклог</option>
               <option value="IN_PROGRESS">В работе</option>
             </select>
           </div>
@@ -509,7 +507,7 @@
         </div>
 
         <label for="taskModalTagsInput">Теги</label>
-        <input id="taskModalTagsInput" type="text" name="task_tags" autocomplete="off" placeholder="Design, Frontend" />
+        <input id="taskModalTagsInput" type="text" name="task_tags" autocomplete="off" placeholder="Дизайн, фронтенд" />
 
         <label for="taskModalDescriptionInput">Описание</label>
         <textarea id="taskModalDescriptionInput" name="task_description" rows="6" autocomplete="off" placeholder="Добавьте подробности..."></textarea>
@@ -551,36 +549,96 @@
 
   <div id="permissionsModal" class="modal" hidden>
     <div class="modal-card permissions-card">
-      <header class="modal-head">
-        <h3>Настройка прав доступа: <span id="permMemberName">Участник</span></h3>
-        <button class="icon-btn" type="button" data-close-modal="permissionsModal" aria-label="Закрыть окно прав доступа">×</button>
+      <header class="modal-head perm-head">
+        <div class="perm-head-main">
+          <span class="perm-head-icon" aria-hidden="true">
+            <img src="/dev/static/assets/role-access.svg" alt="" width="40" height="40" />
+          </span>
+          <p class="perm-head-kicker">Проектный доступ</p>
+          <h3>Выберите роль участника</h3>
+          <p class="perm-head-sub">Участник: <span id="permMemberName">Участник</span></p>
+          <div id="permRoleDots" class="perm-role-dots" aria-hidden="true"></div>
+        </div>
+        <button class="icon-btn perm-close-btn" type="button" data-close-modal="permissionsModal" aria-label="Закрыть окно прав доступа">×</button>
       </header>
 
-      <div class="modal-body">
+      <div class="modal-body perm-body">
         <div id="permLoading" class="empty-state">Загрузка данных…</div>
 
         <div id="permContent" hidden>
           <div class="perm-section">
-            <h4>Системные роли</h4>
-            <div id="permSystemRoles" class="chips"></div>
+            <div class="perm-section-head">
+              <h4>Базовые роли</h4>
+            </div>
+            <div id="permSystemRoles" class="perm-system-chips"></div>
           </div>
 
           <div class="perm-section">
-            <h4>Делегируемые роли</h4>
-            <p class="muted-text">Выберите роли, которые вы хотите назначить участнику.</p>
-            <div id="permAssignableRoles" class="perm-options"></div>
+            <div class="perm-section-head">
+              <h4>Роль доступа</h4>
+            </div>
+            <div id="permAssignableRoles" class="perm-options" role="radiogroup" aria-label="Роль доступа участника"></div>
           </div>
 
-          <details class="perm-section">
-            <summary><h4 style="display:inline">Итоговые разрешения</h4></summary>
-            <div id="permEffectivePermissions" class="chips perm-effective"></div>
+          <details class="perm-section perm-details">
+            <summary class="perm-details-toggle">
+              <h4>Итоговые разрешения</h4>
+              <span id="permEffectiveCount" class="perm-count-badge">0</span>
+            </summary>
+            <div id="permEffectivePermissions" class="perm-effective-list"></div>
           </details>
         </div>
       </div>
 
-      <footer class="modal-foot">
+      <footer class="modal-foot perm-foot">
         <button class="ghost-btn" type="button" data-close-modal="permissionsModal">Отмена</button>
-        <button id="savePermissionsBtn" class="primary-btn" type="button">Сохранить права</button>
+        <button id="savePermissionsBtn" class="primary-btn" type="button">Сохранить роль</button>
+      </footer>
+    </div>
+  </div>
+
+  <div id="accessRoleModal" class="modal" hidden>
+    <div class="modal-card access-role-card">
+      <header class="modal-head">
+        <div>
+          <p class="modal-kicker">Проектная роль доступа</p>
+          <h3>Создать роль для проекта</h3>
+        </div>
+        <button class="icon-btn" type="button" data-close-modal="accessRoleModal" aria-label="Закрыть создание роли">×</button>
+      </header>
+
+      <div class="modal-body access-role-body">
+        <div class="modal-grid two">
+          <label>
+            Название роли
+            <input id="accessRoleNameInput" type="text" name="access_role_name" autocomplete="off" placeholder="Например, Тестер" />
+          </label>
+          <label>
+            Код роли
+            <input id="accessRoleCodeInput" type="text" name="access_role_code" autocomplete="off" placeholder="TESTER" />
+          </label>
+        </div>
+
+        <label>
+          Описание
+          <textarea id="accessRoleDescriptionInput" name="access_role_description" rows="3" autocomplete="off" placeholder="Коротко объясните, зачем нужна эта роль"></textarea>
+        </label>
+
+        <div class="access-role-permissions-head">
+          <div>
+            <h4>Права внутри проекта</h4>
+            <p>Можно оставить список пустым, если роль нужна только как метка.</p>
+          </div>
+          <span id="accessRolePermissionCount" class="perm-count-badge">0</span>
+        </div>
+
+        <div id="accessRoleLoading" class="empty-state">Загрузка прав…</div>
+        <div id="accessRolePermissionsList" class="access-role-permissions-list"></div>
+      </div>
+
+      <footer class="modal-foot">
+        <button class="ghost-btn" type="button" data-close-modal="accessRoleModal">Отмена</button>
+        <button id="saveAccessRoleBtn" class="primary-btn" type="button">Создать роль</button>
       </footer>
     </div>
   </div>

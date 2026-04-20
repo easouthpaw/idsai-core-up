@@ -66,6 +66,8 @@ func registerProjectFlowRoutes(
 	projectFlow.POST("/tasks/:task_id/claim", requireProject("task.claim"), projectFlowH.ClaimTask)
 	projectFlow.POST("/tasks/:task_id/complete", requireProject("task.update"), projectFlowH.CompleteTask)
 	projectFlow.GET("/access/catalog", requireProject("member.access.manage"), projectFlowH.GetAccessCatalog)
+	projectFlow.GET("/access/permissions", requireProject("member.access.manage"), projectFlowH.ListProjectAccessPermissions)
+	projectFlow.POST("/access/roles", requireProject("member.access.manage"), projectFlowH.CreateProjectAccessRole)
 	projectFlow.GET("/members/:user_id/access", requireProject("member.access.manage"), projectFlowH.GetMemberAccess)
 	projectFlow.PUT("/members/:user_id/access", requireProject("member.access.manage"), projectFlowH.ReplaceMemberAccess)
 	projectFlow.GET("/my-permissions", requireProject("project.view"), projectFlowH.MyPermissions)

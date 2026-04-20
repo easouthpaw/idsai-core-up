@@ -18,8 +18,28 @@
   const LS_TASK_META_PREFIX = "idsai_task_meta:";
   const LS_STAGE_HINTS_HIDDEN_PREFIX = "idsai_stage_hints_hidden:";
 
-  const ASSIGNABLE_LIFECYCLE_ROLES = new Set(["CO_LEAD", "RECRUITER", "TASK_MANAGER"]);
   const SYSTEM_LIFECYCLE_ROLES = new Set(["TEAM_LEAD", "MEMBER", "INVITED_MEMBER", "PROJECT_PROFESSOR"]);
+  const ROLE_ASSETS = {
+    CO_LEAD: "/dev/static/assets/role-co-lead.svg",
+    RECRUITER: "/dev/static/assets/role-recruiter.svg",
+    TASK_MANAGER: "/dev/static/assets/role-task-manager.svg",
+  };
+  const PERMISSION_LABELS = {
+    "project.view": "Просмотр проекта",
+    "project.edit": "Редактирование проекта",
+    "project.invite_professor": "Приглашение преподавателя",
+    "project.submit_for_review": "Отправка на проверку",
+    "position.create": "Создание проектных ролей",
+    "member.approve": "Управление заявками",
+    "member.access.manage": "Управление ролями доступа",
+    "task.view": "Просмотр задач",
+    "task.create": "Создание задач",
+    "task.assign": "Назначение задач",
+    "task.update": "Изменение задач",
+    "task.delete": "Удаление задач",
+    "task.claim": "Взять задачу в работу",
+    "grading.view": "Просмотр критериев и оценок",
+  };
   const SYSTEM_TASK_POSITION_CODES = new Set(["TEAM_LEAD"]);
   const PRIMARY_LIFECYCLE_FLOW = ["DRAFT", "RECRUITMENT", "ACTIVE", "GRADING", "COMPLETED"];
   const DEFAULT_PROJECT_COVERS = [
@@ -71,6 +91,7 @@
     stageCurrentBadge: document.getElementById("stageCurrentBadge"),
     stageNextBadge: document.getElementById("stageNextBadge"),
     hideStageHintsBtn: document.getElementById("hideStageHintsBtn"),
+    stageHintsCollapsed: document.getElementById("stageHintsCollapsed"),
     showStageHintsBtn: document.getElementById("showStageHintsBtn"),
 
     tabButtons: Array.from(document.querySelectorAll(".tab-btn")),
@@ -117,6 +138,7 @@
     positionNameInput: document.getElementById("positionNameInput"),
     positionCodeInput: document.getElementById("positionCodeInput"),
     positionCapacityInput: document.getElementById("positionCapacityInput"),
+    openAccessRoleModalBtn: document.getElementById("openAccessRoleModalBtn"),
     teamTableBody: document.getElementById("teamTableBody"),
     inviteSearchInput: document.getElementById("inviteSearchInput"),
     inviteRefreshBtn: document.getElementById("inviteRefreshBtn"),
@@ -192,15 +214,25 @@
     taskResultSubmitBtn: document.getElementById("taskResultSubmitBtn"),
 
     permissionsModal: document.getElementById("permissionsModal"),
+    accessRoleModal: document.getElementById("accessRoleModal"),
     finalReportPreviewModal: document.getElementById("finalReportPreviewModal"),
     finalReportPreviewFrame: document.getElementById("finalReportPreviewFrame"),
     permMemberName: document.getElementById("permMemberName"),
+    permRoleDots: document.getElementById("permRoleDots"),
     permLoading: document.getElementById("permLoading"),
     permContent: document.getElementById("permContent"),
     permSystemRoles: document.getElementById("permSystemRoles"),
     permAssignableRoles: document.getElementById("permAssignableRoles"),
     permEffectivePermissions: document.getElementById("permEffectivePermissions"),
+    permEffectiveCount: document.getElementById("permEffectiveCount"),
     savePermissionsBtn: document.getElementById("savePermissionsBtn"),
+    accessRoleNameInput: document.getElementById("accessRoleNameInput"),
+    accessRoleCodeInput: document.getElementById("accessRoleCodeInput"),
+    accessRoleDescriptionInput: document.getElementById("accessRoleDescriptionInput"),
+    accessRolePermissionCount: document.getElementById("accessRolePermissionCount"),
+    accessRoleLoading: document.getElementById("accessRoleLoading"),
+    accessRolePermissionsList: document.getElementById("accessRolePermissionsList"),
+    saveAccessRoleBtn: document.getElementById("saveAccessRoleBtn"),
     teamHelperCard: document.querySelector("#view-team .helper-card"),
     professorAssignWrap: document.querySelector(".professor-assign"),
 
@@ -226,7 +258,9 @@
     taskMeta: {},
     myPermissions: [],
     currentPermUserID: "",
+    currentPermCanManageAccess: false,
     accessCatalog: [],
+    accessPermissionCatalog: [],
     noticeTimer: null,
     favorite: false,
     studentCandidates: [],
@@ -261,6 +295,34 @@
     if (!s) return "-";
     if (s.length <= 8) return s;
     return `${s.slice(0, 8)}...${s.slice(-4)}`;
+  }
+
+  function permissionLabel(code) {
+    const key = String(code || "").trim();
+    return PERMISSION_LABELS[key] || key;
+  }
+
+  function roleSaveErrorMessage(err) {
+    const msg = String(err?.message || err || "");
+    if (msg.includes("position capacity reached")) {
+      return "В выбранной роли уже заняты все места. Увеличьте лимит роли или выберите другую роль.";
+    }
+    if (msg.includes("forbidden")) {
+      return "У вас нет права менять роли доступа. Нужно право member.access.manage.";
+    }
+    if (msg.includes("cannot modify system-managed access")) {
+      return "Системную роль тимлида нельзя менять через эту модалку.";
+    }
+    if (msg.includes("only one managed role")) {
+      return "У участника может быть только одна роль доступа.";
+    }
+    if (msg.includes("reserved position_id")) {
+      return "TEAM_LEAD - системная роль, ее нельзя назначить как обычную роль проекта.";
+    }
+    if (msg.includes("unknown position_id")) {
+      return "Выбранная роль проекта больше не найдена. Обновите страницу и попробуйте еще раз.";
+    }
+    return msg || "Не удалось сохранить роль.";
   }
 
   function initials(name, fallback) {
@@ -606,7 +668,9 @@
 
   function areStageHintsHidden() {
     try {
-      return localStorage.getItem(stageHintsStorageKey()) === "1";
+      const stored = localStorage.getItem(stageHintsStorageKey());
+      if (stored === null) return false;
+      return stored === "1";
     } catch (_) {
       return false;
     }
@@ -617,21 +681,22 @@
     if (ui.stageSpotlight) {
       ui.stageSpotlight.hidden = hidden;
     }
+    if (ui.stageHintsCollapsed) {
+      ui.stageHintsCollapsed.hidden = !hidden;
+    }
     if (ui.hideStageHintsBtn) {
       ui.hideStageHintsBtn.hidden = hidden;
+      ui.hideStageHintsBtn.setAttribute("aria-expanded", hidden ? "false" : "true");
     }
     if (ui.showStageHintsBtn) {
       ui.showStageHintsBtn.hidden = !hidden;
+      ui.showStageHintsBtn.setAttribute("aria-expanded", hidden ? "false" : "true");
     }
   }
 
   function setStageHintsHidden(hidden) {
     try {
-      if (hidden) {
-        localStorage.setItem(stageHintsStorageKey(), "1");
-      } else {
-        localStorage.removeItem(stageHintsStorageKey());
-      }
+      localStorage.setItem(stageHintsStorageKey(), hidden ? "1" : "0");
     } catch (_) {}
     applyStageHintsVisibility();
     renderTabHints();
@@ -856,9 +921,31 @@
   }
 
   function getRoleLabel(member) {
+    if (member.access_role_name) return member.access_role_name;
+    if (member.access_role_code) return member.access_role_code;
     if (member.position_name) return member.position_name;
     if (member.position_code) return member.position_code;
+    const status = String(member?.status || "").toUpperCase();
+    if (status === "ACTIVE") return "Участник";
+    if (status === "INVITED") return "Приглашён";
+    if (status === "APPLIED") return "Заявка";
     return "Без роли";
+  }
+
+  function memberLifecycleRoles(member) {
+    const roles = [];
+    const userID = String(member?.user_id || "");
+    const status = String(member?.status || "").toUpperCase();
+    if (userID && userID === String(state.project?.created_by || "")) {
+      roles.push("TEAM_LEAD");
+    } else if (status === "ACTIVE") {
+      roles.push("MEMBER");
+    } else if (status === "INVITED") {
+      roles.push("INVITED_MEMBER");
+    } else if (status === "APPLIED") {
+      roles.push("APPLIED");
+    }
+    return roles;
   }
 
   function activeMembers() {
@@ -900,6 +987,20 @@
       return teamLeadMembers();
     }
     return activeMembers().filter((m) => String(m.position_id || "") === String(positionID));
+  }
+
+  function positionOccupancy(positionID, excludeUserID = "") {
+    const excluded = String(excludeUserID || "");
+    const members = activeMembers().filter((m) => String(m.position_id || "") === String(positionID || ""));
+    return {
+      total: members.length,
+      withoutTarget: members.filter((m) => String(m.user_id || "") !== excluded).length,
+    };
+  }
+
+  function positionCapacity(position) {
+    const raw = Number(position?.capacity || 0);
+    return Number.isFinite(raw) && raw > 0 ? raw : 1;
   }
 
   function isCurrentUserLead() {
@@ -1022,14 +1123,14 @@
       if (!snapshot.hasProfessor) {
         blockers.push("назначить преподавателя");
       } else if (!snapshot.professorAccepted) {
-        blockers.push("получить подтверждение преподавателя");
+        blockers.push("дождаться подтверждения преподавателя");
       }
       if (snapshot.criteriaCount === 0) {
         blockers.push("добавить критерии");
       }
       return blockers.length > 0
         ? `До запуска осталось: ${blockers.join(", ")}.`
-        : "Команда и критерии готовы: проект можно переводить в ACTIVE.";
+        : "Команда и критерии готовы: проект можно переводить в активную фазу.";
     }
 
     if (snapshot.statusCode === "ACTIVE") {
@@ -1153,7 +1254,7 @@
         copy: "Команда видит только то, что блокирует ближайшую сдачу проекта.",
         items: [
           {
-            label: "Подтверждение преподавателя сохранено",
+            label: "Подтверждение преподавателя получено",
             hint: snapshot.hasProfessor ? `Текущий статус: ${snapshot.professorLabel}.` : "Сначала назначьте преподавателя.",
             done: snapshot.professorAccepted,
             action: canViewWorkspace() ? { name: "manage-professor", label: "Проверить преподавателя" } : null,
@@ -1242,6 +1343,30 @@
     };
   }
 
+  function stageHintCopy(guide) {
+    const items = Array.isArray(guide?.items) ? guide.items : [];
+    if (!items.length) {
+      return guide?.copy || "";
+    }
+
+    const next = guide?.nextLabel || "следующий этап";
+    const pending = items.filter((item) => item && !item.done);
+    if (!pending.length) {
+      return `Все требования для перехода на этап «${next}» выполнены. Готовые пункты ниже отмечены и вычеркнуты.`;
+    }
+
+    const pendingLabels = pending
+      .slice(0, 3)
+      .map((item) => String(item.label || "").trim().toLowerCase())
+      .filter(Boolean)
+      .join(", ");
+    if (!pendingLabels) {
+      return guide?.copy || "";
+    }
+
+    return `Чтобы перейти на этап «${next}», нужно: ${pendingLabels}. Готовые требования ниже отмечаются и вычеркиваются.`;
+  }
+
   function renderStageChecklist(items) {
     if (!ui.readinessList) return;
     const list = Array.isArray(items) ? items : [];
@@ -1250,7 +1375,8 @@
       return;
     }
 
-    ui.readinessList.innerHTML = list
+    const doneCount = list.filter((item) => item && item.done).length;
+    const listHTML = list
       .map((item, idx) => {
         const id = `stage-check-${idx}`;
         const action = item && typeof item.action === "object" ? item.action : null;
@@ -1264,17 +1390,22 @@
         return (
           `<div class="stage-checklist-item ${item.done ? "is-done" : "is-pending"}">` +
             `<input id="${id}" type="checkbox" ${item.done ? "checked" : ""} disabled tabindex="-1" aria-hidden="true" />` +
-            `<div class="stage-checklist-content">` +
-              `<label for="${id}">` +
-                `<span class="stage-checklist-title">${escapeHTML(item.label)}</span>` +
-                `<small class="stage-checklist-hint">${escapeHTML(item.hint || "")}</small>` +
-              `</label>` +
-              actionHTML +
-            `</div>` +
+            `<label class="stage-checklist-label" for="${id}">` +
+              `<span class="stage-checklist-title">${escapeHTML(item.label)}</span>` +
+              `<small class="stage-checklist-hint">${escapeHTML(item.hint || "")}</small>` +
+            `</label>` +
+            actionHTML +
           `</div>`
         );
       })
       .join("");
+
+    ui.readinessList.innerHTML =
+      `<div class="stage-checklist-head">` +
+        `<span>Требования перехода</span>` +
+        `<strong>${doneCount}/${list.length} готово</strong>` +
+      `</div>` +
+      `<div class="stage-checklist-items">${listHTML}</div>`;
   }
 
   function tabStageHints() {
@@ -1406,10 +1537,10 @@
       target.className = `tab-stage-hint tab-stage-hint--restore${isCompact ? " tab-stage-hint--compact" : ""}`;
       target.innerHTML =
         `<div class="tab-stage-hint-head">` +
-          `<strong>Подсказки скрыты</strong>` +
-          `<button class="hint-toggle-btn hint-toggle-btn--tab" type="button" data-stage-hints-visibility="show">Показать</button>` +
+          `<strong>Подсказки по этапам скрыты</strong>` +
+          `<button class="hint-toggle-btn hint-toggle-btn--tab" type="button" data-stage-hints-visibility="show">Открыть</button>` +
         `</div>` +
-        `<p>Верните подсказки, когда захотите быстро свериться со следующим этапом проекта.</p>`;
+        `<p>Откройте их в любой момент, чтобы быстро свериться со следующим этапом проекта.</p>`;
       return;
     }
     target.className = `tab-stage-hint tab-stage-hint--${data.tone || "draft"}${isCompact ? " tab-stage-hint--compact" : ""}`;
@@ -1962,7 +2093,7 @@
       ui.stageSpotlightTitle.textContent = guide.title;
     }
     if (ui.stageSpotlightCopy) {
-      ui.stageSpotlightCopy.textContent = guide.copy;
+      ui.stageSpotlightCopy.textContent = stageHintCopy(guide);
     }
     if (ui.stageCurrentBadge) {
       ui.stageCurrentBadge.textContent = `Сейчас: ${guide.currentLabel}`;
@@ -2201,7 +2332,6 @@
 
     const currentUser = String(localStorage.getItem(LS_USER) || "");
     const canManageTeam = hasProjectPermission("member.approve");
-    const hasMemberPositions = memberAssignablePositions().length > 0;
 
     filtered.forEach((m) => {
       const status = String(m.status || "").toUpperCase();
@@ -2209,17 +2339,35 @@
       const statusLabel = status === "APPLIED" ? "INVITED" : status;
       const github = `https://github.com/${slugify(getDisplayName(m.user_id))}`;
       const isLeadRow = String(m.user_id) === String(state.project?.created_by || "");
-      const roleOptions = isLeadRow ? '<option value="">Тимлид</option>' : projectPositionOptions(m.position_id || "");
-      const roleSelectDisabled = !canManageTeam || isLeadRow || status !== "ACTIVE";
+      const roleLabel = isLeadRow ? "Тимлид" : getRoleLabel(m);
+      const roleIsEmpty = !isLeadRow && !String(m.position_name || m.position_code || "").trim();
       const canApprove = canManageTeam && status === "APPLIED";
       const canRejectApplication = canManageTeam && status === "APPLIED";
-      const canSetPosition = canManageTeam && status === "ACTIVE" && !isLeadRow && hasMemberPositions;
       const canRemoveMember = canManageTeam && !isLeadRow && (status === "ACTIVE" || status === "INVITED");
       const canRespondInvite = status === "INVITED" && String(m.user_id) === currentUser;
-      const canManagePerms = status === "ACTIVE" && !isLeadRow && canManageAccess();
+      const canOpenRoleModal = status === "ACTIVE" && !isLeadRow && canManageAccess();
+      const actions = [];
+
+      if (canApprove) {
+        actions.push('<button class="ghost-btn" data-member-action="approve">Одобрить</button>');
+      }
+      if (canRejectApplication) {
+        actions.push('<button class="ghost-btn" data-member-action="reject-application">Отклонить</button>');
+      }
+      if (canRespondInvite) {
+        actions.push('<button class="ghost-btn" data-member-action="accept-invite">Принять</button>');
+        actions.push('<button class="ghost-btn" data-member-action="reject-invite">Отклонить</button>');
+      }
+      if (canOpenRoleModal) {
+        actions.push('<button class="ghost-btn" data-member-action="role">Роль</button>');
+      }
+      if (canRemoveMember) {
+        actions.push('<button class="ghost-btn danger-btn" data-member-action="remove">Удалить</button>');
+      }
 
       const row = document.createElement("tr");
       row.setAttribute("data-user-id", m.user_id || "");
+      row.setAttribute("data-member-status", status);
       row.innerHTML =
         `<td>` +
           `<div class="user-cell">` +
@@ -2228,17 +2376,11 @@
           `</div>` +
         `</td>` +
         `<td><span class="status-badge ${statusClass}">${escapeHTML(statusLabel)}</span></td>` +
-        `<td><select class="member-role-select" ${roleSelectDisabled ? "disabled" : ""}>${roleOptions}</select></td>` +
+        `<td><span class="member-role-pill${roleIsEmpty ? " muted" : ""}">${escapeHTML(roleLabel)}</span></td>` +
         `<td><a class="meta-link" href="${escapeHTML(github)}" target="_blank" rel="noreferrer">${escapeHTML(github.replace("https://", ""))}</a></td>` +
         `<td>` +
           `<div class="task-toolbar">` +
-            `<button class="ghost-btn" data-member-action="approve" ${canApprove ? "" : "disabled"}>Одобрить</button>` +
-            `<button class="ghost-btn" data-member-action="reject-application" ${canRejectApplication ? "" : "disabled"}>Отклонить</button>` +
-            `<button class="ghost-btn" data-member-action="set-position" ${canSetPosition ? "" : "disabled"}>Сменить роль</button>` +
-            `<button class="ghost-btn" data-member-action="accept-invite" ${canRespondInvite ? "" : "disabled"}>Принять</button>` +
-            `<button class="ghost-btn" data-member-action="reject-invite" ${canRespondInvite ? "" : "disabled"}>Отклонить</button>` +
-            `<button class="ghost-btn" data-member-action="permissions" ${canManagePerms ? "" : "disabled"}>Права</button>` +
-            `<button class="ghost-btn danger-btn" data-member-action="remove" ${canRemoveMember ? "" : "disabled"}>Удалить</button>` +
+            `${actions.length ? actions.join("") : '<span class="member-action-empty">—</span>'}` +
           `</div>` +
         `</td>`;
 
@@ -2751,6 +2893,9 @@
     if (ui.positionForm) {
       ui.positionForm.hidden = !workspaceMode || !isCurrentUserLead();
     }
+    if (ui.openAccessRoleModalBtn) {
+      ui.openAccessRoleModalBtn.hidden = !workspaceMode || !canManageAccess();
+    }
     if (ui.openTaskModalBtn) {
       ui.openTaskModalBtn.hidden = !workspaceMode || !hasProjectPermission("task.create");
     }
@@ -2884,6 +3029,7 @@
     return [
       ui.taskModal,
       ui.permissionsModal,
+      ui.accessRoleModal,
       ui.taskResultModal,
       ui.finalReportPreviewModal,
     ].filter(Boolean);
@@ -2919,7 +3065,7 @@
     const canUpdateTasks = canUpdateTasksInProject();
     const current = String(ui.taskModalStatusSelect.value || "OPEN").toUpperCase();
     ui.taskModalStatusSelect.innerHTML = [
-      '<option value="OPEN">Backlog</option>',
+      '<option value="OPEN">Бэклог</option>',
       canUpdateTasks ? '<option value="IN_PROGRESS">В работе</option>' : "",
     ].join("");
     ui.taskModalStatusSelect.value = current === "IN_PROGRESS" && canUpdateTasks ? "IN_PROGRESS" : "OPEN";
@@ -3113,6 +3259,9 @@
     const member = allMembers().find((m) => String(m.user_id) === String(userID));
     if (!member) return;
 
+    const status = String(member.status || "").toUpperCase();
+    const isLeadRow = String(member.user_id || "") === String(state.project?.created_by || "");
+    state.currentPermCanManageAccess = canManageAccess() && status === "ACTIVE" && !isLeadRow;
     state.currentPermUserID = userID;
     ui.permMemberName.textContent = getDisplayName(userID);
     ui.permLoading.textContent = "Загрузка данных...";
@@ -3121,22 +3270,38 @@
     ui.permSystemRoles.innerHTML = "";
     ui.permAssignableRoles.innerHTML = "";
     ui.permEffectivePermissions.innerHTML = "";
+    if (ui.permRoleDots) ui.permRoleDots.innerHTML = "";
+    if (ui.permEffectiveCount) ui.permEffectiveCount.textContent = "0";
+    if (ui.savePermissionsBtn) ui.savePermissionsBtn.disabled = !state.currentPermCanManageAccess;
     openModal(ui.permissionsModal);
 
     try {
-      const [catalogResp, accessResp] = await Promise.all([
-        request("GET", `/v2/projects/${state.projectID}/access/catalog`),
-        request("GET", `/v2/projects/${state.projectID}/members/${userID}/access`),
-      ]);
+      let accessResp = {
+        user_id: userID,
+        role_codes: memberLifecycleRoles(member),
+        managed_role_codes: [],
+        effective_permission_codes: [],
+      };
 
-      state.accessCatalog = Array.isArray(catalogResp?.items) ? catalogResp.items : [];
-      renderPermissionsModalContent(accessResp);
+      state.accessCatalog = [];
+      if (state.currentPermCanManageAccess) {
+        const [catalogResp, fetchedAccessResp] = await Promise.all([
+          request("GET", `/v2/projects/${state.projectID}/access/catalog`),
+          request("GET", `/v2/projects/${state.projectID}/members/${userID}/access`),
+        ]);
+        state.accessCatalog = Array.isArray(catalogResp?.items) ? catalogResp.items : [];
+        accessResp = fetchedAccessResp || accessResp;
+      }
+
+      renderPermissionsModalContent(accessResp, { member });
     } catch (err) {
       ui.permLoading.textContent = `Ошибка загрузки: ${err.message || String(err)}`;
     }
   }
 
-  function renderPermissionsModalContent(access) {
+  function renderPermissionsModalContent(access, options = {}) {
+    access = access || {};
+    const member = options.member || allMembers().find((m) => String(m.user_id) === String(state.currentPermUserID)) || null;
     ui.permLoading.hidden = true;
     ui.permContent.hidden = false;
 
@@ -3145,12 +3310,7 @@
       MEMBER: "Участник",
       INVITED_MEMBER: "Приглашён",
       PROJECT_PROFESSOR: "Преподаватель",
-    };
-
-    const ROLE_ICONS = {
-      CO_LEAD: "🤝",
-      RECRUITER: "🔍",
-      TASK_MANAGER: "📋",
+      APPLIED: "Заявка",
     };
 
     // System roles (read-only badges).
@@ -3159,39 +3319,85 @@
       ? systemRoles.map((c) => `<span class="perm-system-chip">${escapeHTML(SYSTEM_ROLE_NAMES[c] || c)}</span>`).join("")
       : '<span class="perm-empty">Нет базовых ролей</span>';
 
-    // Assignable role checkboxes.
-    const managedSet = new Set(access.managed_role_codes || []);
+    if (!state.currentPermCanManageAccess) {
+      ui.permAssignableRoles.innerHTML = '<div class="perm-empty-panel">Роли доступа может назначать только тимлид или участник с правом управления доступом.</div>';
+      if (ui.permRoleDots) ui.permRoleDots.innerHTML = "";
+      if (ui.permEffectiveCount) ui.permEffectiveCount.textContent = "0";
+      ui.permEffectivePermissions.innerHTML = '<span class="perm-empty">Нет данных о правах доступа</span>';
+      return;
+    }
+
+    // Access role radios. A project member can have only one delegated/custom role.
+    const selectedRoleCode = String((access.managed_role_codes || [])[0] || "");
+    const renderDots = () => {
+      if (!ui.permRoleDots) return;
+      const selected = String(ui.permAssignableRoles.querySelector("input[name='project_access_role']:checked")?.value || "");
+      ui.permRoleDots.innerHTML = state.accessCatalog.map((item) => {
+        const active = selected === item.code ? " active" : "";
+        return `<span class="perm-role-dot${active}"></span>`;
+      }).join("");
+    };
+
     ui.permAssignableRoles.innerHTML = "";
-    state.accessCatalog.forEach((item) => {
+    const renderRoleCard = (item) => {
       const label = document.createElement("label");
-      label.className = "perm-role-card" + (managedSet.has(item.code) ? " active" : "");
-      const checked = managedSet.has(item.code) ? "checked" : "";
-      const icon = ROLE_ICONS[item.code] || "⚙️";
-      const permsList = (item.permission_codes || []).map((p) => `<span class="perm-tag">${escapeHTML(p)}</span>`).join("");
+      const itemCode = String(item.code || "");
+      label.className = "perm-role-card" + (selectedRoleCode === itemCode ? " active" : "");
+      const checked = selectedRoleCode === itemCode ? "checked" : "";
+      const asset = ROLE_ASSETS[item.code] || "/dev/static/assets/role-access.svg";
+      const permissionCodes = Array.isArray(item.permission_codes) ? item.permission_codes : [];
+      const rightsList = permissionCodes.length
+        ? permissionCodes.map((p) => `<li><span>${escapeHTML(permissionLabel(p))}</span><code>${escapeHTML(p)}</code></li>`).join("")
+        : "<li><span>Нет дополнительных прав</span></li>";
       label.innerHTML =
-        `<input type="checkbox" data-role-code="${escapeHTML(item.code)}" ${checked} />` +
+        `<input class="perm-role-input" type="radio" name="project_access_role" value="${escapeHTML(itemCode)}" data-role-code="${escapeHTML(itemCode)}" ${checked} aria-label="Назначить роль ${escapeHTML(item.name)}" />` +
+        `<span class="perm-role-check" aria-hidden="true"></span>` +
         `<div class="perm-role-card-body">` +
-          `<div class="perm-role-card-top">` +
-            `<span class="perm-role-icon">${icon}</span>` +
-            `<div>` +
-              `<strong>${escapeHTML(item.name)}</strong>` +
-              `<span class="perm-role-desc">${escapeHTML(item.description)}</span>` +
-            `</div>` +
+          `<div class="perm-role-asset" aria-hidden="true">` +
+            `<img src="${asset}" alt="" width="40" height="40" />` +
           `</div>` +
-          `<div class="perm-role-perms">${permsList}</div>` +
+          `<strong>${escapeHTML(item.name)}</strong>` +
+          `<span class="perm-role-code">${escapeHTML(item.display_code || item.code || "NO_ACCESS")}</span>` +
+          `<span class="perm-role-desc">${escapeHTML(item.description)}</span>` +
+          `<div class="perm-role-rights">` +
+            `<span class="perm-role-rights-title">Права роли</span>` +
+            `<ul>${rightsList}</ul>` +
+          `</div>` +
         `</div>`;
 
       label.querySelector("input").addEventListener("change", () => {
-        label.classList.toggle("active", label.querySelector("input").checked);
+        ui.permAssignableRoles.querySelectorAll(".perm-role-card").forEach((card) => {
+          card.classList.toggle("active", Boolean(card.querySelector("input")?.checked));
+        });
+        renderDots();
       });
 
       ui.permAssignableRoles.appendChild(label);
+    };
+
+    renderRoleCard({
+      code: "",
+      display_code: "NO_ACCESS",
+      name: "Без роли доступа",
+      description: "Оставить участнику только базовый проектный доступ без дополнительных прав.",
+      permission_codes: [],
     });
+
+    if (!state.accessCatalog.length) {
+      ui.permAssignableRoles.insertAdjacentHTML("beforeend", '<div class="perm-empty-panel">Нет дополнительных ролей доступа для назначения.</div>');
+    }
+    state.accessCatalog.forEach((item) => {
+      renderRoleCard(item);
+    });
+    renderDots();
 
     // Effective permissions (read-only).
     const effectivePerms = access.effective_permission_codes || [];
+    if (ui.permEffectiveCount) {
+      ui.permEffectiveCount.textContent = String(effectivePerms.length);
+    }
     ui.permEffectivePermissions.innerHTML = effectivePerms.length
-      ? effectivePerms.map((c) => `<span class="perm-eff-chip">${escapeHTML(c)}</span>`).join("")
+      ? effectivePerms.map((c) => `<span class="perm-eff-chip" title="${escapeHTML(c)}">${escapeHTML(permissionLabel(c))}</span>`).join("")
       : '<span class="perm-empty">Нет разрешений</span>';
   }
 
@@ -3302,20 +3508,112 @@
     await refreshData();
   }
 
+  function syncAccessRolePermissionCount() {
+    if (!ui.accessRolePermissionCount || !ui.accessRolePermissionsList) return;
+    const count = ui.accessRolePermissionsList.querySelectorAll("input[type='checkbox']:checked").length;
+    ui.accessRolePermissionCount.textContent = String(count);
+  }
+
+  function renderAccessRolePermissions() {
+    if (!ui.accessRolePermissionsList) return;
+    ui.accessRolePermissionsList.innerHTML = "";
+
+    if (!Array.isArray(state.accessPermissionCatalog) || state.accessPermissionCatalog.length === 0) {
+      ui.accessRolePermissionsList.innerHTML = '<div class="empty-state">Список прав пока недоступен.</div>';
+      syncAccessRolePermissionCount();
+      return;
+    }
+
+    state.accessPermissionCatalog.forEach((item) => {
+      const label = document.createElement("label");
+      label.className = "access-role-permission-item";
+      label.innerHTML =
+        `<input type="checkbox" value="${escapeHTML(item.code)}" />` +
+        `<span class="access-role-permission-check" aria-hidden="true"></span>` +
+        `<span class="access-role-permission-copy">` +
+          `<strong>${escapeHTML(permissionLabel(item.code))}</strong>` +
+          `<small>${escapeHTML(item.description || item.code)}</small>` +
+          `<code>${escapeHTML(item.code)}</code>` +
+        `</span>`;
+      label.querySelector("input").addEventListener("change", () => {
+        label.classList.toggle("checked", Boolean(label.querySelector("input")?.checked));
+        syncAccessRolePermissionCount();
+      });
+      ui.accessRolePermissionsList.appendChild(label);
+    });
+    syncAccessRolePermissionCount();
+  }
+
+  async function loadAccessRolePermissionCatalog() {
+    const resp = await request("GET", `/v2/projects/${state.projectID}/access/permissions`);
+    state.accessPermissionCatalog = Array.isArray(resp?.items) ? resp.items : [];
+  }
+
+  async function openAccessRoleModal() {
+    if (!canManageAccess()) {
+      throw new Error("Создавать роли доступа может только участник с правом member.access.manage.");
+    }
+
+    if (ui.accessRoleNameInput) ui.accessRoleNameInput.value = "";
+    if (ui.accessRoleCodeInput) ui.accessRoleCodeInput.value = "";
+    if (ui.accessRoleDescriptionInput) ui.accessRoleDescriptionInput.value = "";
+    if (ui.accessRolePermissionsList) ui.accessRolePermissionsList.innerHTML = "";
+    if (ui.accessRoleLoading) {
+      ui.accessRoleLoading.hidden = false;
+      ui.accessRoleLoading.textContent = "Загрузка прав...";
+    }
+    if (ui.saveAccessRoleBtn) ui.saveAccessRoleBtn.disabled = true;
+    syncAccessRolePermissionCount();
+    openModal(ui.accessRoleModal);
+
+    try {
+      await loadAccessRolePermissionCatalog();
+      if (ui.accessRoleLoading) ui.accessRoleLoading.hidden = true;
+      renderAccessRolePermissions();
+      if (ui.saveAccessRoleBtn) ui.saveAccessRoleBtn.disabled = false;
+    } catch (err) {
+      if (ui.accessRoleLoading) {
+        ui.accessRoleLoading.hidden = false;
+        ui.accessRoleLoading.textContent = `Ошибка загрузки прав: ${err.message || String(err)}`;
+      }
+      if (ui.saveAccessRoleBtn) ui.saveAccessRoleBtn.disabled = true;
+    }
+  }
+
+  async function createAccessRoleFromModal() {
+    const name = String(ui.accessRoleNameInput?.value || "").trim();
+    const code = String(ui.accessRoleCodeInput?.value || "").trim();
+    const description = String(ui.accessRoleDescriptionInput?.value || "").trim();
+    const permissionCodes = Array.from(ui.accessRolePermissionsList?.querySelectorAll("input[type='checkbox']:checked") || [])
+      .map((input) => String(input.value || "").trim())
+      .filter(Boolean);
+
+    if (!name || !code) {
+      throw new Error("Заполните название и код роли.");
+    }
+
+    await request("POST", `/v2/projects/${state.projectID}/access/roles`, {
+      name,
+      code,
+      description,
+      permission_codes: permissionCodes,
+    });
+
+    closeModal(ui.accessRoleModal);
+    setNotice("Роль доступа создана. Она появится в списке ролей участника.", false);
+  }
+
   async function onMemberAction(actionBtn) {
     const row = actionBtn.closest("tr[data-user-id]");
     if (!row) return;
 
     const userID = row.getAttribute("data-user-id");
-    const roleSelect = row.querySelector("select.member-role-select");
-    const positionID = roleSelect ? roleSelect.value : "";
     const action = actionBtn.getAttribute("data-member-action");
-    const statusBadge = row.querySelector(".status-badge");
-    const status = String(statusBadge ? statusBadge.textContent : "").trim().toUpperCase();
+    const status = String(row.getAttribute("data-member-status") || "").trim().toUpperCase();
 
-    if (action === "permissions") {
+    if (action === "role" || action === "permissions") {
       if (status !== "ACTIVE") {
-        throw new Error("Права можно настраивать только для ACTIVE участников.");
+        throw new Error("Роль можно менять только для активных участников.");
       }
       openPermissionsModal(userID);
       return;
@@ -3331,8 +3629,7 @@
     }
 
     if (action === "approve") {
-      const payload = positionID ? { position_id: positionID } : {};
-      await request("POST", `/v2/projects/${state.projectID}/members/${userID}/approve`, payload);
+      await request("POST", `/v2/projects/${state.projectID}/members/${userID}/approve`, {});
       setNotice(`Участник ${shortID(userID)} принят в команду.`, false);
       await refreshData();
       return;
@@ -3361,16 +3658,6 @@
       return;
     }
 
-    if (action === "set-position") {
-      if (!positionID) {
-        throw new Error("Выберите роль участника.");
-      }
-      await request("PATCH", `/v2/projects/${state.projectID}/members/${userID}/position`, {
-        position_id: positionID,
-      });
-      setNotice(`Роль участника ${shortID(userID)} обновлена.`, false);
-      await refreshData();
-    }
   }
 
   async function onTaskAction(actionBtn) {
@@ -3505,7 +3792,7 @@
 
   async function onApproveProject() {
     await request("POST", `/v2/projects/${state.projectID}/approve`, {});
-    setNotice("Проект переведен в ACTIVE.", false);
+    setNotice("Проект переведен в активную фазу.", false);
     await refreshData();
   }
 
@@ -3546,21 +3833,25 @@
   async function savePermissions() {
     if (!state.currentPermUserID) return;
 
-    const selectedRoles = [];
-    ui.permAssignableRoles.querySelectorAll("input[data-role-code]").forEach((input) => {
-      if (input.checked) {
-        selectedRoles.push(input.getAttribute("data-role-code"));
-      }
-    });
+    if (!state.currentPermCanManageAccess) {
+      setNotice("У вас нет права менять роли доступа.", true);
+      return;
+    }
+
+    const selectedRole = String(ui.permAssignableRoles.querySelector("input[name='project_access_role']:checked")?.value || "");
+    const selectedRoles = selectedRole ? [selectedRole] : [];
 
     try {
       const access = await request("PUT", `/v2/projects/${state.projectID}/members/${state.currentPermUserID}/access`, {
         managed_role_codes: selectedRoles,
       });
-      renderPermissionsModalContent(access);
-      setNotice("Права участника обновлены.", false);
+
+      await refreshData();
+      closeModal(ui.permissionsModal);
+      setNotice("Роль доступа участника обновлена.", false);
     } catch (err) {
-      setNotice(`Ошибка сохранения прав: ${err.message || String(err)}`, true);
+      const friendly = roleSaveErrorMessage(err);
+      setNotice(`Ошибка сохранения роли: ${friendly}`, true);
     }
   }
 
@@ -3774,13 +4065,49 @@
       renderEditStackChips();
     });
 
-    ui.positionForm.addEventListener("submit", async (e) => {
-      try {
-        await onCreatePosition(e);
-      } catch (err) {
-        setNotice(err.message || String(err), true);
-      }
-    });
+    if (ui.positionForm) {
+      ui.positionForm.addEventListener("submit", async (e) => {
+        try {
+          await onCreatePosition(e);
+        } catch (err) {
+          setNotice(err.message || String(err), true);
+        }
+      });
+    }
+
+    if (ui.openAccessRoleModalBtn) {
+      ui.openAccessRoleModalBtn.addEventListener("click", async () => {
+        try {
+          await openAccessRoleModal();
+        } catch (err) {
+          setNotice(err.message || String(err), true);
+        }
+      });
+    }
+
+    if (ui.accessRoleNameInput && ui.accessRoleCodeInput) {
+      ui.accessRoleNameInput.addEventListener("input", () => {
+        if (String(ui.accessRoleCodeInput.value || "").trim()) return;
+        ui.accessRoleCodeInput.value = String(ui.accessRoleNameInput.value || "")
+          .trim()
+          .toUpperCase()
+          .replace(/[^A-Z0-9]+/g, "_")
+          .replace(/^_+|_+$/g, "");
+      });
+    }
+
+    if (ui.saveAccessRoleBtn) {
+      ui.saveAccessRoleBtn.addEventListener("click", async () => {
+        setButtonLoading(ui.saveAccessRoleBtn, true, "Создание...");
+        try {
+          await createAccessRoleFromModal();
+        } catch (err) {
+          setNotice(err.message || String(err), true);
+        } finally {
+          setButtonLoading(ui.saveAccessRoleBtn, false, "Создать роль");
+        }
+      });
+    }
 
     ui.teamTableBody.addEventListener("click", async (e) => {
       const btn = e.target.closest("button[data-member-action]");

@@ -99,6 +99,8 @@ type TasksRepository interface {
 type AccessRepository interface {
 	// ListProjectRoleCodes returns all PROJECT-scope role codes for a user in a project.
 	ListProjectRoleCodes(ctx context.Context, userID, projectID uuid.UUID) ([]string, error)
+	ListProjectAccessRoles(ctx context.Context, projectID uuid.UUID) ([]AccessCatalogItem, error)
+	CreateProjectAccessRole(ctx context.Context, projectID, createdBy uuid.UUID, roleCode, displayCode, name, description string, permissionCodes []string) (AccessCatalogItem, error)
 	// ReplaceAssignableRoles atomically removes all assignable role codes and adds the wanted ones.
 	ReplaceAssignableRoles(ctx context.Context, userID, projectID uuid.UUID, assignableCodes []string, wantCodes []string) error
 	// GetMemberStatusAndCreator returns the member status and the project creator ID.

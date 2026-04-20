@@ -28,6 +28,13 @@ type ReplaceMemberAccessRequest struct {
 	ManagedRoleCodes []string `json:"managed_role_codes"`
 }
 
+type CreateProjectAccessRoleRequest struct {
+	Code            string   `json:"code" binding:"required"`
+	Name            string   `json:"name" binding:"required"`
+	Description     string   `json:"description"`
+	PermissionCodes []string `json:"permission_codes"`
+}
+
 type UpdateProjectRequest struct {
 	Title       *string `json:"title"`
 	Description *string `json:"description"`
@@ -119,20 +126,22 @@ type ProjectFlowPositionResponse struct {
 }
 
 type ProjectFlowMemberResponse struct {
-	ID            string     `json:"id"`
-	ProjectID     string     `json:"project_id"`
-	UserID        string     `json:"user_id"`
-	FullName      string     `json:"full_name,omitempty"`
-	Email         string     `json:"email,omitempty"`
-	PositionID    *string    `json:"position_id,omitempty"`
-	PositionCode  *string    `json:"position_code,omitempty"`
-	PositionName  *string    `json:"position_name,omitempty"`
-	Status        string     `json:"status"`
-	InviteComment string     `json:"invite_comment,omitempty"`
-	InvitedBy     *string    `json:"invited_by,omitempty"`
-	RespondedAt   *time.Time `json:"responded_at,omitempty"`
-	JoinedAt      *time.Time `json:"joined_at,omitempty"`
-	CreatedAt     time.Time  `json:"created_at"`
+	ID                  string     `json:"id"`
+	ProjectID           string     `json:"project_id"`
+	UserID              string     `json:"user_id"`
+	FullName            string     `json:"full_name,omitempty"`
+	Email               string     `json:"email,omitempty"`
+	PositionID          *string    `json:"position_id,omitempty"`
+	PositionCode        *string    `json:"position_code,omitempty"`
+	PositionName        *string    `json:"position_name,omitempty"`
+	AccessRoleName      *string    `json:"access_role_name,omitempty"`
+	AccessRoleCode      *string    `json:"access_role_code,omitempty"`
+	Status              string     `json:"status"`
+	InviteComment       string     `json:"invite_comment,omitempty"`
+	InvitedBy           *string    `json:"invited_by,omitempty"`
+	RespondedAt         *time.Time `json:"responded_at,omitempty"`
+	JoinedAt            *time.Time `json:"joined_at,omitempty"`
+	CreatedAt           time.Time  `json:"created_at"`
 }
 
 type ProjectFlowTaskResponse struct {
@@ -226,13 +235,24 @@ type ListOutgoingApplicationsResponse struct {
 
 type ProjectFlowAccessCatalogItemResponse struct {
 	Code            string   `json:"code"`
+	DisplayCode     string   `json:"display_code,omitempty"`
 	Name            string   `json:"name"`
 	Description     string   `json:"description"`
 	PermissionCodes []string `json:"permission_codes"`
+	Custom          bool     `json:"custom"`
 }
 
 type ListAccessCatalogResponse struct {
 	Items []ProjectFlowAccessCatalogItemResponse `json:"items"`
+}
+
+type ProjectFlowPermissionCatalogItemResponse struct {
+	Code        string `json:"code"`
+	Description string `json:"description"`
+}
+
+type ListProjectAccessPermissionsResponse struct {
+	Items []ProjectFlowPermissionCatalogItemResponse `json:"items"`
 }
 
 type ProjectFlowMemberAccessResponse struct {
@@ -364,20 +384,22 @@ func ProjectFlowPositionResponsesFromService(items []projectflow.Position) []Pro
 
 func ProjectFlowMemberResponseFromService(item projectflow.Member) ProjectFlowMemberResponse {
 	return ProjectFlowMemberResponse{
-		ID:            item.ID,
-		ProjectID:     item.ProjectID,
-		UserID:        item.UserID,
-		FullName:      item.FullName,
-		Email:         item.Email,
-		PositionID:    item.PositionID,
-		PositionCode:  item.PositionCode,
-		PositionName:  item.PositionName,
-		Status:        item.Status,
-		InviteComment: item.InviteComment,
-		InvitedBy:     item.InvitedBy,
-		RespondedAt:   item.RespondedAt,
-		JoinedAt:      item.JoinedAt,
-		CreatedAt:     item.CreatedAt,
+		ID:             item.ID,
+		ProjectID:      item.ProjectID,
+		UserID:         item.UserID,
+		FullName:       item.FullName,
+		Email:          item.Email,
+		PositionID:     item.PositionID,
+		PositionCode:   item.PositionCode,
+		PositionName:   item.PositionName,
+		AccessRoleName: item.AccessRoleName,
+		AccessRoleCode: item.AccessRoleCode,
+		Status:         item.Status,
+		InviteComment:  item.InviteComment,
+		InvitedBy:      item.InvitedBy,
+		RespondedAt:    item.RespondedAt,
+		JoinedAt:       item.JoinedAt,
+		CreatedAt:      item.CreatedAt,
 	}
 }
 
@@ -539,9 +561,25 @@ func ProjectFlowAccessCatalogItemResponsesFromService(items []projectflow.Access
 	for _, item := range items {
 		out = append(out, ProjectFlowAccessCatalogItemResponse{
 			Code:            item.Code,
+			DisplayCode:     item.DisplayCode,
 			Name:            item.Name,
 			Description:     item.Description,
 			PermissionCodes: item.PermissionCodes,
+			Custom:          item.Custom,
+		})
+	}
+	return out
+}
+
+func ProjectFlowPermissionCatalogItemResponsesFromService(items []projectflow.ProjectPermissionItem) []ProjectFlowPermissionCatalogItemResponse {
+	if items == nil {
+		return nil
+	}
+	out := make([]ProjectFlowPermissionCatalogItemResponse, 0, len(items))
+	for _, item := range items {
+		out = append(out, ProjectFlowPermissionCatalogItemResponse{
+			Code:        item.Code,
+			Description: item.Description,
 		})
 	}
 	return out

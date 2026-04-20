@@ -19,6 +19,7 @@ var (
 	_ projectflow.CriteriaRepository   = (*ProjectFlowRepo)(nil)
 	_ projectflow.LifecycleRepository  = (*ProjectFlowRepo)(nil)
 	_ projectflow.TasksRepository      = (*ProjectFlowRepo)(nil)
+	_ projectflow.AccessRepository     = (*ProjectFlowRepo)(nil)
 )
 
 func NewProjectFlowRepo(db *pgxpool.Pool) *ProjectFlowRepo {

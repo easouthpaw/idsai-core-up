@@ -314,6 +314,21 @@ func (d *projectFlowTestDeps) GetMemberStatusAndCreator(ctx context.Context, use
 	return "ACTIVE", d.project.CreatedBy, nil
 }
 
+func (d *projectFlowTestDeps) ListProjectAccessRoles(ctx context.Context, projectID uuid.UUID) ([]projectflow.AccessCatalogItem, error) {
+	return nil, nil
+}
+
+func (d *projectFlowTestDeps) CreateProjectAccessRole(ctx context.Context, projectID, createdBy uuid.UUID, roleCode, displayCode, name, description string, permissionCodes []string) (projectflow.AccessCatalogItem, error) {
+	return projectflow.AccessCatalogItem{
+		Code:            roleCode,
+		DisplayCode:     displayCode,
+		Name:            name,
+		Description:     description,
+		PermissionCodes: permissionCodes,
+		Custom:          true,
+	}, nil
+}
+
 func newProjectFlowHandlerForTest(deps *projectFlowTestDeps) *ProjectFlowHandler {
 	svc := projectflow.NewService(deps, deps, deps, deps, deps, deps, deps, deps, deps, deps, deps)
 	return NewProjectFlowHandler(svc)

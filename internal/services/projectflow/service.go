@@ -141,10 +141,12 @@ type Member struct {
 	UserID        string
 	FullName      string
 	Email         string
-	PositionID    *string
-	PositionCode  *string
-	PositionName  *string
-	Status        string
+	PositionID          *string
+	PositionCode        *string
+	PositionName        *string
+	AccessRoleName      *string
+	AccessRoleCode      *string
+	Status              string
 	InviteComment string
 	InvitedBy     *string
 	RespondedAt   *time.Time

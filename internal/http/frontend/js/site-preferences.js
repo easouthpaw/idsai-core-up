@@ -546,8 +546,8 @@
       kk: "Құпиясөзді қайталаңыз",
     },
     "Создать аккаунт ☐": {
-      en: "Create account ☐",
-      kk: "Аккаунт ашу ☐",
+      en: "Create account",
+      kk: "Тіркелгі ашу",
     },
     "Вуз": {
       en: "University",
@@ -594,6 +594,10 @@
       ru: "дашборд",
       en: "dashboard",
       kk: "дашборд",
+    },
+    "Панель": {
+      en: "Dashboard",
+      kk: "Басқару панелі",
     },
     "projects": {
       ru: "проекты",
@@ -1361,6 +1365,18 @@
       en: "What is needed for the next stage",
       kk: "Келесі кезеңге не қажет",
     },
+    "Подсказки по этапам скрыты": {
+      en: "Stage hints are hidden",
+      kk: "Кезең бойынша кеңестер жасырылған",
+    },
+    "Подсказки по этапам скрыты. Показать": {
+      en: "Stage hints are hidden. Show",
+      kk: "Кезең бойынша кеңестер жасырылған. Көрсету",
+    },
+    "Откройте их в любой момент, чтобы быстро свериться со следующим этапом проекта.": {
+      en: "Open them any time to quickly check the next project stage.",
+      kk: "Жобаның келесі кезеңін тез қарап шығу үшін оларды кез келген сәтте ашыңыз.",
+    },
     "Покажем только ближайшие требования, чтобы команде было проще двигаться по этапам.": {
       en: "We show only the nearest requirements so the team can move through stages more easily.",
       kk: "Команда кезеңдерден оңай өтуі үшін тек жақын талаптарды көрсетеміз.",
@@ -1402,8 +1418,12 @@
       kk: "Команда тек жобаны жақын тапсыруға кедергі болып тұрған нәрселерді көреді.",
     },
     "Подтверждение преподавателя сохранено": {
-      en: "The professor confirmation is in place",
+      en: "Professor confirmation is saved",
       kk: "Оқытушының растауы сақталған",
+    },
+    "Подтверждение преподавателя получено": {
+      en: "Professor confirmation received",
+      kk: "Оқытушының растауы алынды",
     },
     "Сначала назначьте преподавателя.": {
       en: "Assign a professor first.",
@@ -1834,8 +1854,9 @@
       kk: "Тегтер",
     },
     "Design, Frontend": {
+      ru: "Дизайн, фронтенд",
       en: "Design, Frontend",
-      kk: "Design, Frontend",
+      kk: "Дизайн, фронтенд",
     },
     "Описание": {
       en: "Description",
@@ -2550,6 +2571,10 @@
       en: "The project has been moved to ACTIVE.",
       kk: "Жоба ACTIVE күйіне ауыстырылды.",
     },
+    "Проект переведен в активную фазу.": {
+      en: "The project has moved into the active phase.",
+      kk: "Жоба белсенді кезеңге ауыстырылды.",
+    },
     "После подтверждения проект перейдет в статус GRADING и будет ждать финального решения преподавателя.": {
       en: "After confirmation the project will move to GRADING and wait for the professor's final decision.",
       kk: "Расталғаннан кейін жоба GRADING күйіне өтеді және оқытушының соңғы шешімін күтеді.",
@@ -2605,6 +2630,10 @@
     "Команда и критерии готовы: проект можно переводить в ACTIVE.": {
       en: "The team and criteria are ready: the project can move to ACTIVE.",
       kk: "Команда мен критерийлер дайын: жобаны ACTIVE күйіне ауыстыруға болады.",
+    },
+    "Команда и критерии готовы: проект можно переводить в активную фазу.": {
+      en: "The team and criteria are ready: the project can move into the active phase.",
+      kk: "Команда мен критерийлер дайын: жобаны белсенді кезеңге ауыстыруға болады.",
     },
     "Проект запущен. Следующий шаг: создать и выполнить задачи перед отправкой на оценивание.": {
       en: "The project is launched. The next step is to create and complete tasks before submitting for grading.",
@@ -3265,6 +3294,11 @@
       en: "New article",
       kk: "Жаңа мақала",
     },
+    "Git Branching Basics": {
+      ru: "Основы ветвления в Git",
+      en: "Git Branching Basics",
+      kk: "Git-та тармақталу негіздері",
+    },
     "Родительская категория": {
       en: "Parent category",
       kk: "Ата-санат",
@@ -3425,6 +3459,10 @@
       en: "During ACTIVE the professor watches the project, but does not grade it prematurely.",
       kk: "ACTIVE кезінде оқытушы жобаны бақылайды, бірақ ерте бағаламайды.",
     },
+    "Во время активной фазы преподаватель следит за проектом, но не оценивает его преждевременно.": {
+      en: "During the active phase the professor follows the project but does not grade it too early.",
+      kk: "Белсенді кезеңде оқытушы жобаны бақылап отырады, бірақ оны мерзімінен бұрын бағаламайды.",
+    },
     "Все проекты": {
       en: "All projects",
       kk: "Барлық жобалар",
@@ -3433,9 +3471,17 @@
       en: "All projects in your faculty scope.",
       kk: "Сіздің faculty аймағыңыздағы барлық жобалар.",
     },
+    "Все проекты в вашем учебном контуре.": {
+      en: "All projects in your academic scope.",
+      kk: "Сіздің оқу контурыңыздағы барлық жобалар.",
+    },
     "Все проекты факультета": {
       en: "All faculty projects",
       kk: "Факультеттің барлық жобалары",
+    },
+    "Все проекты учебного контура": {
+      en: "All projects in the academic scope",
+      kk: "Оқу контурының барлық жобалары",
     },
     "До старта проекта преподаватель задает чек-лист и подтверждает, что проект можно запускать.": {
       en: "Before the project starts, the professor sets the checklist and confirms that the project can be launched.",
@@ -3452,6 +3498,10 @@
     "Здесь собраны все проекты вашего faculty-контура. Приглашения и ревью-поток подсвечиваются отдельно, но открыть и посмотреть можно любой проект.": {
       en: "All projects in your faculty scope are collected here. Invites and the review flow are highlighted separately, but any project can be opened and viewed.",
       kk: "Мұнда сіздің faculty аймағыңыздағы барлық жобалар жиналған. Шақырулар мен ревью ағыны бөлек ерекшеленеді, бірақ кез келген жобаны ашып көруге болады.",
+    },
+    "Здесь собраны все проекты вашего учебного контура. Приглашения и ревью-поток подсвечиваются отдельно, но открыть и посмотреть можно любой проект.": {
+      en: "All projects in your academic scope are collected here. Invites and the review flow are highlighted separately, but any project can be opened and viewed.",
+      kk: "Мұнда сіздің оқу контурыңыздағы барлық жобалар жиналған. Шақырулар мен ревью ағыны бөлек көрсетіледі, бірақ кез келген жобаны ашып көруге болады.",
     },
     "Как теперь работает преподаватель": {
       en: "How the professor works now",
@@ -3477,6 +3527,10 @@
       en: "At the GRADING stage the final result is assigned and comments on criteria are recorded.",
       kk: "GRADING кезеңінде қорытынды қойылып, критерийлер бойынша пікірлер бекітіледі.",
     },
+    "На этапе оценивания выставляется итог и фиксируются комментарии по критериям.": {
+      en: "At the grading stage the final result is recorded and comments on the criteria are fixed.",
+      kk: "Бағалау кезеңінде қорытынды қойылып, критерийлер бойынша пікірлер бекітіледі.",
+    },
     "Новые приглашения и запросы на ревью.": {
       en: "New invites and review requests.",
       kk: "Жаңа шақырулар мен ревью сұраулары.",
@@ -3488,6 +3542,10 @@
     "Преподаватель видит весь каталог проектов своей faculty-зоны, а write-действия остаются только там, где у него есть назначение или проектная роль.": {
       en: "The professor sees the entire project catalog of their faculty zone, while write actions remain only where they have an assignment or project role.",
       kk: "Оқытушы өз faculty аймағындағы жобалардың толық каталогын көреді, ал write әрекеттері тек тағайындауы немесе жобалық рөлі бар жерлерде ғана қалады.",
+    },
+    "Преподаватель видит весь каталог проектов своего учебного контура, а изменения доступны только там, где у него есть назначение или проектная роль.": {
+      en: "The professor sees the full catalog of projects in their academic scope, while edits are available only where they have an assignment or project role.",
+      kk: "Оқытушы өз оқу контурындағы жобалардың толық каталогын көреді, ал өзгерістер тек тағайындауы немесе жобалық рөлі бар жерде ғана қолжетімді.",
     },
     "Преподаватель принимает или отклоняет ревью, а не назначает себя вручную.": {
       en: "The professor accepts or declines the review instead of assigning themselves manually.",
@@ -3516,6 +3574,10 @@
     "Собираю полный faculty-каталог, приглашения и доступные преподавателю действия.": {
       en: "Collecting the full faculty catalog, invites, and actions available to the professor.",
       kk: "Толық faculty каталогын, шақыруларды және оқытушыға қолжетімді әрекеттерді жинап жатырмын.",
+    },
+    "Собираю полный каталог проектов, приглашения и доступные преподавателю действия.": {
+      en: "Collecting the full project catalog, invites, and actions available to the professor.",
+      kk: "Жобалардың толық каталогын, шақыруларды және оқытушыға қолжетімді әрекеттерді жинап жатырмын.",
     },
     "Четкая последовательность вместо набора несвязанных кнопок.": {
       en: "A clear sequence instead of a set of unrelated buttons.",
@@ -4657,9 +4719,17 @@
       en: "When projects appear in the faculty scope, they will show up here automatically.",
       kk: "Faculty контурында жобалар пайда болғанда, олар мұнда автоматты түрде көрінеді.",
     },
+    "Когда в учебном контуре появятся проекты, они отобразятся здесь автоматически.": {
+      en: "When projects appear in the academic scope, they will show up here automatically.",
+      kk: "Оқу контурында жобалар пайда болғанда, олар мұнда автоматты түрде көрсетіледі.",
+    },
     "Команда готова к старту. Вы можете дать разрешение на запуск и перевести проект в ACTIVE.": {
       en: "The team is ready to start. You can approve the launch and move the project to ACTIVE.",
       kk: "Команда бастауға дайын. Іске қосуға рұқсат беріп, жобаны ACTIVE күйіне ауыстыра аласыз.",
+    },
+    "Команда готова к старту. Можно разрешить запуск проекта.": {
+      en: "The team is ready to start. You can approve the project launch.",
+      kk: "Команда бастауға дайын. Жобаны іске қосуға рұқсат беруге болады.",
     },
     "Команда ждет вашего решения. После принятия вы сможете вести критерии и финальное ревью.": {
       en: "The team is waiting for your decision. After accepting, you will be able to manage criteria and the final review.",
@@ -4676,6 +4746,10 @@
     "Команда, преподавательское ревью и критерии готовы. Вы можете дать разрешение на запуск и перевести проект в ACTIVE.": {
       en: "The team, professor review, and criteria are ready. You can approve the launch and move the project to ACTIVE.",
       kk: "Команда, оқытушы ревьюі және критерийлер дайын. Іске қосуға рұқсат беріп, жобаны ACTIVE күйіне ауыстыра аласыз.",
+    },
+    "Команда, ревью преподавателя и критерии готовы. Можно разрешить запуск проекта.": {
+      en: "The team, the professor review, and the criteria are ready. You can approve the project launch.",
+      kk: "Команда, оқытушы ревьюі және критерийлер дайын. Жобаны іске қосуға рұқсат беруге болады.",
     },
     "Проект в активной фазе. Здесь полезнее открыть карточку проекта и посмотреть динамику команды.": {
       en: "The project is in the active phase. It is more useful to open the project card and view the team dynamics here.",
@@ -4700,6 +4774,10 @@
     "Разрешение на запуск выдано. Проект переведен в ACTIVE.": {
       en: "Launch approval granted. The project has been moved to ACTIVE.",
       kk: "Іске қосуға рұқсат берілді. Жоба ACTIVE күйіне ауыстырылды.",
+    },
+    "Разрешение на запуск выдано. Проект переведен в активную фазу.": {
+      en: "Launch approval granted. The project has entered the active phase.",
+      kk: "Іске қосуға рұқсат берілді. Жоба белсенді кезеңге өтті.",
     },
     "Ревью завершено. Можно открыть оценивание, чтобы посмотреть итоговую картину и комментарии.": {
       en: "The review is complete. You can open grading to see the final picture and comments.",
@@ -4962,8 +5040,12 @@
       kk: "оқытушы тағайындау",
     },
     "получить подтверждение преподавателя": {
-      en: "get professor confirmation",
+      en: "receive professor confirmation",
       kk: "оқытушының растауын алу",
+    },
+    "дождаться подтверждения преподавателя": {
+      en: "wait for professor confirmation",
+      kk: "оқытушының растауын күту",
     },
     "создать роли": {
       en: "create roles",
@@ -5028,6 +5110,196 @@
     "Email подтвержден. Войдите заново.": {
       en: "Email confirmed. Sign in again.",
       kk: "Email расталды. Қайта кіріңіз.",
+    },
+
+    // --- Access roles (RBAC) ---
+    "Проектный доступ": {
+      en: "Project Access",
+      kk: "Жобалық қол жетімділік",
+    },
+    "Выберите роль участника": {
+      en: "Choose member role",
+      kk: "Қатысушының рөлін таңдаңыз",
+    },
+    "Участник:": {
+      en: "Member:",
+      kk: "Қатысушы:",
+    },
+    "Базовые роли": {
+      en: "Base roles",
+      kk: "Негізгі рөлдер",
+    },
+    "Роль доступа": {
+      en: "Access role",
+      kk: "Қол жетімділік рөлі",
+    },
+    "Роль доступа участника": {
+      en: "Member access role",
+      kk: "Қатысушының қол жетімділік рөлі",
+    },
+    "Итоговые разрешения": {
+      en: "Effective permissions",
+      kk: "Қорытынды рұқсаттар",
+    },
+    "Сохранить роль": {
+      en: "Save role",
+      kk: "Рөлді сақтау",
+    },
+    "Без роли доступа": {
+      en: "No access role",
+      kk: "Қол жетімділік рөлісіз",
+    },
+    "Оставить участнику только базовый проектный доступ без дополнительных прав.": {
+      en: "Leave the member with basic project access only, without additional permissions.",
+      kk: "Қатысушыға тек қосымша рұқсаттарсыз базалық жобалық қол жетімділікті қалдыру.",
+    },
+    "Нет дополнительных прав": {
+      en: "No additional permissions",
+      kk: "Қосымша рұқсаттар жоқ",
+    },
+    "Права роли": {
+      en: "Role permissions",
+      kk: "Рөл рұқсаттары",
+    },
+    "Нет дополнительных ролей доступа для назначения.": {
+      en: "No additional access roles available for assignment.",
+      kk: "Тағайындауға арналған қосымша қол жетімділік рөлдері жоқ.",
+    },
+    "Роли доступа может назначать только тимлид или участник с правом управления доступом.": {
+      en: "Access roles can only be assigned by the team lead or a member with access management rights.",
+      kk: "Қол жетімділік рөлдерін тек тимлид немесе қол жетімділікті басқару құқығы бар қатысушы тағайындай алады.",
+    },
+    "Нет данных о правах доступа": {
+      en: "No access permission data",
+      kk: "Қол жетімділік туралы деректер жоқ",
+    },
+    "Роль доступа участника обновлена.": {
+      en: "Member access role updated.",
+      kk: "Қатысушының қол жетімділік рөлі жаңартылды.",
+    },
+    "У вас нет права менять роли доступа.": {
+      en: "You don't have permission to change access roles.",
+      kk: "Сізде қол жетімділік рөлдерін өзгертуге рұқсат жоқ.",
+    },
+    "Ошибка сохранения роли:": {
+      en: "Error saving role:",
+      kk: "Рөлді сақтау қатесі:",
+    },
+    "Закрыть окно прав доступа": {
+      en: "Close access rights window",
+      kk: "Қол жетімділік терезесін жабу",
+    },
+
+    // --- Create access role modal ---
+    "Создать роль доступа": {
+      en: "Create access role",
+      kk: "Қол жетімділік рөлін жасау",
+    },
+    "Проектная роль доступа": {
+      en: "Project access role",
+      kk: "Жобаның қол жетімділік рөлі",
+    },
+    "Создать роль для проекта": {
+      en: "Create role for project",
+      kk: "Жоба үшін рөл жасау",
+    },
+    "Закрыть создание роли": {
+      en: "Close role creation",
+      kk: "Рөл жасауды жабу",
+    },
+    "Например, Тестер": {
+      en: "e.g. Tester",
+      kk: "Мысалы, Тестер",
+    },
+    "Права внутри проекта": {
+      en: "Permissions within the project",
+      kk: "Жоба ішіндегі рұқсаттар",
+    },
+    "Можно оставить список пустым, если роль нужна только как метка.": {
+      en: "You can leave the list empty if the role is needed only as a label.",
+      kk: "Рөл тек белгі ретінде қажет болса, тізімді бос қалдыруға болады.",
+    },
+    "Загрузка прав…": {
+      en: "Loading permissions…",
+      kk: "Рұқсаттар жүктелуде…",
+    },
+    "Список прав пока недоступен.": {
+      en: "Permissions list is not available yet.",
+      kk: "Рұқсаттар тізімі әзірге қол жетімді емес.",
+    },
+    "Создать роль": {
+      en: "Create role",
+      kk: "Рөл жасау",
+    },
+
+    // --- Permission labels ---
+    "Редактирование проекта": {
+      en: "Edit project",
+      kk: "Жобаны өңдеу",
+    },
+    "Приглашение преподавателя": {
+      en: "Invite professor",
+      kk: "Оқытушыны шақыру",
+    },
+    "Отправка на проверку": {
+      en: "Submit for review",
+      kk: "Тексеруге жіберу",
+    },
+    "Создание проектных ролей": {
+      en: "Create team roles",
+      kk: "Команда рөлдерін жасау",
+    },
+    "Управление заявками": {
+      en: "Manage applications",
+      kk: "Өтінімдерді басқару",
+    },
+    "Управление ролями доступа": {
+      en: "Manage access roles",
+      kk: "Қол жетімділік рөлдерін басқару",
+    },
+    "Создание задач": {
+      en: "Create tasks",
+      kk: "Тапсырмалар жасау",
+    },
+    "Назначение задач": {
+      en: "Assign tasks",
+      kk: "Тапсырмалар тағайындау",
+    },
+    "Изменение задач": {
+      en: "Update tasks",
+      kk: "Тапсырмаларды өзгерту",
+    },
+    "Удаление задач": {
+      en: "Delete tasks",
+      kk: "Тапсырмаларды жою",
+    },
+    "Взять задачу в работу": {
+      en: "Claim a task",
+      kk: "Тапсырманы алу",
+    },
+    "Просмотр критериев и оценок": {
+      en: "View criteria and grades",
+      kk: "Критерийлер мен бағаларды қарау",
+    },
+
+    // --- Static assignable role descriptions ---
+    "Помощник тимлида: может редактировать проект, управлять набором, создавать задачи.": {
+      en: "Team lead assistant: can edit the project, manage recruitment, create tasks.",
+      kk: "Тимлид көмекшісі: жобаны өңдеуге, жинақты басқаруға, тапсырмалар жасауға болады.",
+    },
+    "Может одобрять и приглашать участников в проект.": {
+      en: "Can approve and invite members to the project.",
+      kk: "Жобаға қатысушыларды мақұлдауға және шақыруға болады.",
+    },
+    "Может создавать, назначать и удалять задачи в проекте.": {
+      en: "Can create, assign, and delete tasks in the project.",
+      kk: "Жобада тапсырмалар жасауға, тағайындауға және жоюға болады.",
+    },
+
+    // --- System role labels ---
+    "Заявка": {
+      en: "Applicant",
+      kk: "Өтінімші",
     },
   };
 
@@ -5252,10 +5524,45 @@
       return source;
     }
 
+    match = source.match(/^Не удалось загрузить проекты:\s*(\d+)\s+\((\d+)\s+ms\)$/);
+    if (match) {
+      if (state.lang === "en") return `Failed to load projects: ${match[1]} (${match[2]} ms)`;
+      if (state.lang === "kk") return `Жобаларды жүктеу мүмкін болмады: ${match[1]} (${match[2]} мс)`;
+      return source;
+    }
+
+    match = source.match(/^Проекты загружены:\s*(\d+)\s+\((\d+)\s+ms\)$/);
+    if (match) {
+      if (state.lang === "en") return `Projects loaded: ${match[1]} (${match[2]} ms)`;
+      if (state.lang === "kk") return `Жобалар жүктелді: ${match[1]} (${match[2]} мс)`;
+      return source;
+    }
+
+    match = source.match(/^Не удалось загрузить публичные проекты:\s*(\d+)\s+\((\d+)\s+ms\)$/);
+    if (match) {
+      if (state.lang === "en") return `Failed to load public projects: ${match[1]} (${match[2]} ms)`;
+      if (state.lang === "kk") return `Жария жобаларды жүктеу мүмкін болмады: ${match[1]} (${match[2]} мс)`;
+      return source;
+    }
+
+    match = source.match(/^Публичные проекты загружены:\s*(\d+)\s+\((\d+)\s+ms\)$/);
+    if (match) {
+      if (state.lang === "en") return `Public projects loaded: ${match[1]} (${match[2]} ms)`;
+      if (state.lang === "kk") return `Жария жобалар жүктелді: ${match[1]} (${match[2]} мс)`;
+      return source;
+    }
+
     match = source.match(/^Вижу проектов в faculty-контуре:\s*(\d+)\.$/);
     if (match) {
       if (state.lang === "en") return `Projects visible in the faculty scope: ${match[1]}.`;
       if (state.lang === "kk") return `Факультет аясында көрінетін жобалар: ${match[1]}.`;
+      return source;
+    }
+
+    match = source.match(/^Вижу проектов в учебном контуре:\s*(\d+)\.$/);
+    if (match) {
+      if (state.lang === "en") return `Projects visible in the academic scope: ${match[1]}.`;
+      if (state.lang === "kk") return `Оқу контурында көрінетін жобалар: ${match[1]}.`;
       return source;
     }
 
