@@ -26,8 +26,9 @@ type authRepoRecorder struct {
 	findDepartmentTenantID uuid.UUID
 	findDepartmentCode     string
 
-	listGroupsTenantID uuid.UUID
-	listGroupsCode     string
+	listGroupsTenantID  uuid.UUID
+	listGroupsCode      string
+	listDepartmentsType string
 
 	listOwnRequestsOut []GroupChangeRequest
 	listOwnLimit       int
@@ -49,6 +50,7 @@ type authRepoRecorder struct {
 	treeTenantID       uuid.UUID
 	treeDepartmentCode string
 	treeSearch         string
+	treeEducationType  string
 
 	updateProfileTenantID uuid.UUID
 	updateProfileUserID   uuid.UUID
@@ -90,7 +92,8 @@ func (r *authRepoRecorder) ListFaculties(ctx context.Context, tenantID uuid.UUID
 	return r.facultiesOut, nil
 }
 
-func (r *authRepoRecorder) ListDepartments(ctx context.Context, tenantID uuid.UUID) ([]Department, error) {
+func (r *authRepoRecorder) ListDepartments(ctx context.Context, tenantID uuid.UUID, educationType string) ([]Department, error) {
+	r.listDepartmentsType = educationType
 	return r.departmentsOut, nil
 }
 
@@ -154,10 +157,11 @@ func (r *authRepoRecorder) ReviewGroupChangeRequest(ctx context.Context, tenantI
 	return r.reviewOut, nil
 }
 
-func (r *authRepoRecorder) ListDepartmentGroupsTree(ctx context.Context, tenantID uuid.UUID, departmentCode, search string) ([]DepartmentGroupsTree, error) {
+func (r *authRepoRecorder) ListDepartmentGroupsTree(ctx context.Context, tenantID uuid.UUID, departmentCode, search, educationType string) ([]DepartmentGroupsTree, error) {
 	r.treeTenantID = tenantID
 	r.treeDepartmentCode = departmentCode
 	r.treeSearch = search
+	r.treeEducationType = educationType
 	return r.treeOut, nil
 }
 
@@ -361,6 +365,12 @@ func TestServiceGroupListAndReviewFlows(t *testing.T) {
 	departments, err := svc.ListDepartments(context.Background(), " core ")
 	require.NoError(t, err)
 	require.Equal(t, "CORE", repo.findTenantCode)
+	require.Equal(t, EducationTypeUniversity, repo.listDepartmentsType)
+	require.Len(t, departments, 1)
+
+	departments, err = svc.ListDepartments(context.Background(), "core", " school ")
+	require.NoError(t, err)
+	require.Equal(t, EducationTypeSchool, repo.listDepartmentsType)
 	require.Len(t, departments, 1)
 
 	groups, err := svc.ListGroupsByDepartmentCode(context.Background(), "core", " cpi ")
@@ -389,10 +399,11 @@ func TestServiceGroupListAndReviewFlows(t *testing.T) {
 	require.Equal(t, "looks good", repo.reviewComment)
 	require.False(t, repo.reviewAt.IsZero())
 
-	tree, err := svc.ListDepartmentGroupsTree(context.Background(), tenantID, " cpi ", " student ")
+	tree, err := svc.ListDepartmentGroupsTree(context.Background(), tenantID, " cpi ", " student ", " school ")
 	require.NoError(t, err)
 	require.Equal(t, "CPI", repo.treeDepartmentCode)
 	require.Equal(t, "student", repo.treeSearch)
+	require.Equal(t, EducationTypeSchool, repo.treeEducationType)
 	require.Equal(t, "https://cdn.example.com/avatars/student.jpg", tree[0].Groups[0].Students[0].AvatarURL)
 }
 

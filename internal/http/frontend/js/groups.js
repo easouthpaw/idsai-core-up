@@ -7,11 +7,14 @@
     sidebarHost: document.querySelector("[data-role-sidebar]"),
     logoutBtn: null,
 
+    departmentFilterLabel: document.getElementById("departmentFilterLabel"),
     departmentFilter: document.getElementById("departmentFilter"),
     searchInput: document.getElementById("searchInput"),
     refreshBtn: document.getElementById("refreshBtn"),
     pageStatus: document.getElementById("pageStatus"),
     treeRoot: document.getElementById("treeRoot"),
+    structureTabs: Array.from(document.querySelectorAll(".structure-tab[data-education-type]")),
+    metricDepartmentsLabel: document.getElementById("metricDepartmentsLabel"),
     metricDepartments: document.getElementById("metricDepartments"),
     metricGroups: document.getElementById("metricGroups"),
     metricStudents: document.getElementById("metricStudents"),
@@ -29,6 +32,7 @@
     tree: [],
     requests: [],
     searchTimer: null,
+    educationType: "UNIVERSITY",
     isAdmin: false,
     isProfessor: false,
   };
@@ -56,6 +60,34 @@
   function setStatus(message, isError) {
     ui.pageStatus.textContent = message || "";
     ui.pageStatus.classList.toggle("err", Boolean(isError));
+  }
+
+  function normalizeEducationType(value) {
+    return String(value || "").toUpperCase() === "SCHOOL" ? "SCHOOL" : "UNIVERSITY";
+  }
+
+  function syncStructureTabs() {
+    ui.structureTabs.forEach((button) => {
+      const active = normalizeEducationType(button.dataset.educationType) === state.educationType;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", active ? "true" : "false");
+      button.tabIndex = active ? 0 : -1;
+    });
+    document.body.dataset.structureScope = state.educationType.toLowerCase();
+    if (ui.departmentFilterLabel) {
+      ui.departmentFilterLabel.textContent = state.educationType === "SCHOOL" ? "Раздел" : "Кафедра";
+    }
+    if (ui.metricDepartmentsLabel) {
+      ui.metricDepartmentsLabel.textContent = state.educationType === "SCHOOL" ? "Разделы" : "Кафедры";
+    }
+  }
+
+  function structureLabel() {
+    return state.educationType === "SCHOOL" ? "Школа" : "Вуз";
+  }
+
+  function structureUnitLabel() {
+    return state.educationType === "SCHOOL" ? "разделов" : "кафедр";
   }
 
   async function requestJSON(url, options = {}) {
@@ -90,7 +122,7 @@
     ui.departmentFilter.innerHTML = "";
     const first = document.createElement("option");
     first.value = "";
-    first.textContent = "Все кафедры";
+    first.textContent = state.educationType === "SCHOOL" ? "Все разделы" : "Все кафедры";
     ui.departmentFilter.appendChild(first);
 
     list.forEach((item) => {
@@ -132,14 +164,14 @@
     }
 
     departments.forEach((department) => {
-      const depDetails = document.createElement("details");
-      depDetails.className = "dep-node";
-      depDetails.open = true;
+      const depNode = document.createElement("article");
+      depNode.className = "dep-node";
 
-      const depSummary = document.createElement("summary");
+      const depHeader = document.createElement("div");
+      depHeader.className = "dep-header";
       const groups = Array.isArray(department.groups) ? department.groups : [];
       const studentCount = groups.reduce((sum, group) => sum + Number(group.total_students || (Array.isArray(group.students) ? group.students.length : 0) || 0), 0);
-      depSummary.innerHTML = `
+      depHeader.innerHTML = `
         <div class="dep-summary__main">
           <small>${escapeHTML(String(department.code || "DEP").toUpperCase())}</small>
           <strong>${escapeHTML(String(department.name || department.code || "Кафедра"))}</strong>
@@ -149,7 +181,7 @@
           <span>${escapeHTML(String(studentCount))} студентов</span>
         </div>
       `;
-      depDetails.appendChild(depSummary);
+      depNode.appendChild(depHeader);
 
       const groupsList = document.createElement("div");
       groupsList.className = "groups-list";
@@ -228,8 +260,8 @@
         groupsList.appendChild(groupDetails);
       });
 
-      depDetails.appendChild(groupsList);
-      ui.treeRoot.appendChild(depDetails);
+      depNode.appendChild(groupsList);
+      ui.treeRoot.appendChild(depNode);
     });
   }
 
@@ -316,7 +348,9 @@
   }
 
   async function loadDepartments() {
-    const data = await requestJSON("/v2/auth/departments", { method: "GET" });
+    const params = new URLSearchParams();
+    params.set("education_type", state.educationType);
+    const data = await requestJSON(`/v2/auth/departments?${params.toString()}`, { method: "GET" });
     state.departments = Array.isArray(data.departments) ? data.departments : [];
     setDepartmentFilterOptions(state.departments);
   }
@@ -325,16 +359,17 @@
     const params = new URLSearchParams();
     const departmentCode = String(ui.departmentFilter.value || "").trim().toUpperCase();
     const search = String(ui.searchInput.value || "").trim();
+    params.set("education_type", state.educationType);
     if (departmentCode) params.set("department_code", departmentCode);
     if (search) params.set("q", search);
 
-    setStatus("Загрузка структуры групп...", false);
+    setStatus(`Загрузка структуры: ${structureLabel()}...`, false);
     const data = await requestJSON(`/v2/auth/groups/tree?${params.toString()}`, { method: "GET" });
     const tree = Array.isArray(data.departments) ? data.departments : [];
     state.tree = tree;
     updateMetrics(tree);
     renderTree(tree);
-    setStatus(`Кафедр: ${tree.length}`, false);
+    setStatus(`${structureLabel()}: ${structureUnitLabel()} ${tree.length}`, false);
   }
 
   async function loadAdminRequests() {
@@ -372,6 +407,17 @@
 
     ui.refreshBtn.addEventListener("click", () => {
       loadTree().catch((err) => setStatus(err.message || String(err), true));
+    });
+
+    ui.structureTabs.forEach((button) => {
+      button.addEventListener("click", () => {
+        const nextType = normalizeEducationType(button.dataset.educationType);
+        if (nextType === state.educationType) return;
+        state.educationType = nextType;
+        ui.departmentFilter.value = "";
+        syncStructureTabs();
+        Promise.all([loadDepartments(), loadTree()]).catch((err) => setStatus(err.message || String(err), true));
+      });
     });
 
     ui.departmentFilter.addEventListener("change", () => {
@@ -419,6 +465,7 @@
     }
 
     syncSidebar(profile);
+    syncStructureTabs();
 
     if (state.isAdmin) {
       ui.adminRequestsSection.hidden = false;

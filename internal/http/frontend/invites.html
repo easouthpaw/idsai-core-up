@@ -10,10 +10,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/dev/static/css/projects.css" />
   <link rel="stylesheet" href="/dev/static/css/role-sidebar.css" />
-  <link rel="stylesheet" href="/dev/static/css/invites.css" />
   <link rel="stylesheet" href="/dev/static/css/notifications-popup.css" />
   <link rel="stylesheet" href="/dev/static/css/dev-theme.css" />
   <link rel="stylesheet" href="/dev/static/css/site-preferences.css" />
+  <link rel="stylesheet" href="/dev/static/css/invites.css?v=workspace-redesign-2" />
   <script>
     (() => {
       try {
@@ -44,30 +44,45 @@
       <main class="content invites-content">
         <section class="hero invites-hero">
           <div>
-            <h1>Заявки и приглашения</h1>
-            <p>Одна страница с входящими приглашениями в проекты и вашими исходящими заявками.</p>
+            <span class="invites-kicker">Project inbox</span>
+            <h1>Заявки</h1>
+            <p>Входящие решения и ваши отправленные заявки видны рядом, без переключения контекста.</p>
           </div>
           <a class="create-btn" href="/dev/projects">Открыть проекты</a>
         </section>
 
-        <section class="invite-tabs" role="tablist" aria-label="Invites tabs">
+        <section class="invite-tabs" role="tablist" aria-label="Invites overview">
           <button id="tabIncoming" class="invite-tab active" type="button" role="tab" aria-selected="true">
-            Входящие
+            Нужно ответить
             <span id="incomingCount" class="tab-count">0</span>
           </button>
           <button id="tabOutgoing" class="invite-tab" type="button" role="tab" aria-selected="false">
-            Исходящие
+            Мои заявки
             <span id="outgoingCount" class="tab-count">0</span>
           </button>
         </section>
 
-        <section id="incomingPane" class="invite-pane active">
-          <div id="incomingList" class="invite-list"></div>
-        </section>
+        <div class="invites-board">
+          <section id="incomingPane" class="invite-pane active">
+            <div class="invite-pane__head">
+              <div>
+                <h2>Ожидают решения</h2>
+                <p>Приглашения в проекты и заявки участников.</p>
+              </div>
+            </div>
+            <div id="incomingList" class="invite-list"></div>
+          </section>
 
-        <section id="outgoingPane" class="invite-pane">
-          <div id="outgoingList" class="invite-list"></div>
-        </section>
+          <section id="outgoingPane" class="invite-pane active invite-pane--secondary">
+            <div class="invite-pane__head">
+              <div>
+                <h2>Отправлены вами</h2>
+                <p>Статусы заявок в команды проектов.</p>
+              </div>
+            </div>
+            <div id="outgoingList" class="invite-list"></div>
+          </section>
+        </div>
 
         <p id="pageStatus" class="page-status" aria-live="polite"></p>
       </main>

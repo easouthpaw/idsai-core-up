@@ -470,6 +470,12 @@
     return "—";
   }
 
+  function compactUserID(id) {
+    const value = String(id || "").replace(/-/g, "").trim();
+    if (!value) return "—";
+    return value.slice(0, 8).toUpperCase();
+  }
+
   function computeProjectStats(projects) {
     const list = Array.isArray(projects) ? projects : [];
     return {
@@ -685,17 +691,24 @@
     }
 
     for (const u of state.users) {
-      const actionStatus = u.status === "ACTIVE" ? "DISABLED" : "ACTIVE";
+      const currentStatus = String(u.status || "").toUpperCase();
+      const actionStatus = currentStatus === "ACTIVE" ? "DISABLED" : "ACTIVE";
       const actionLabel = actionStatus === "ACTIVE" ? "Активировать" : "Блокировать";
       const roleCode = String(u.role_code || "").toUpperCase();
       const canSwitchRole = roleCode === "STUDENT" || roleCode === "PROFESSOR";
       const nextRole = roleCode === "STUDENT" ? "PROFESSOR" : "STUDENT";
       const roleActionLabel = roleCode === "STUDENT" ? "Сделать преподом" : "Сделать студентом";
       const avatar = initials(u.full_name || u.email || "U");
+      const userID = String(u.id || "");
+      const safeUserID = escapeHTML(userID);
+      const safeUserName = escapeHTML(u.full_name || u.email || "Пользователь");
+      const statusIcon = actionStatus === "ACTIVE" ? "check_circle" : "block";
+      const roleIcon = nextRole === "PROFESSOR" ? "co_present" : "school";
 
       const tr = document.createElement("tr");
+      tr.className = "users-table-row";
       tr.innerHTML = `
-        <td><span class="check-cell" aria-hidden="true"></span></td>
+        <td><span class="user-id-cell" title="${safeUserID}">${escapeHTML(compactUserID(u.id))}</span></td>
         <td>
           <div class="user-cell">
             <span class="user-avatar">${escapeHTML(avatar)}</span>
@@ -710,11 +723,28 @@
         <td><span class="pill ${userStatusClass(u.status)}"><i class="dot ${userStatusDot(u.status)}"></i>${escapeHTML(userStatusLabel(u.status))}</span></td>
         <td>
           <div class="row-actions">
-            <button type="button" class="action-btn" data-act="view-profile" data-id="${u.id}">Профиль</button>
-            <button type="button" class="action-btn" data-act="set-user-status" data-id="${u.id}" data-status="${actionStatus}">${escapeHTML(actionLabel)}</button>
-            ${canSwitchRole ? `<button type="button" class="action-btn" data-act="set-user-role" data-id="${u.id}" data-role="${nextRole}">${escapeHTML(roleActionLabel)}</button>` : ""}
-            <button type="button" class="action-btn" data-act="reset-password" data-id="${u.id}" data-name="${escapeHTML(u.full_name || u.email || "Пользователь")}">Сброс пароля</button>
-            <button type="button" class="action-btn reject" data-act="delete-user" data-id="${u.id}" data-name="${escapeHTML(u.full_name || u.email || "Пользователь")}">Удалить</button>
+            <button type="button" class="action-btn action-btn--status ${actionStatus === "ACTIVE" ? "approve" : ""}" data-act="set-user-status" data-id="${safeUserID}" data-status="${actionStatus}">
+              <span class="material-symbols-outlined" aria-hidden="true">${statusIcon}</span>
+              <span>${escapeHTML(actionLabel)}</span>
+            </button>
+            <button type="button" class="action-menu-toggle" data-act="toggle-user-actions" data-id="${safeUserID}" aria-label="Еще действия" aria-expanded="false">
+              <span class="material-symbols-outlined" aria-hidden="true">more_vert</span>
+            </button>
+            <div class="action-menu" role="menu">
+              <button type="button" class="action-menu-item" data-act="view-profile" data-id="${safeUserID}" role="menuitem">
+                <span class="material-symbols-outlined" aria-hidden="true">account_circle</span>
+                <span>Профиль</span>
+              </button>
+              ${canSwitchRole ? `<button type="button" class="action-menu-item" data-act="set-user-role" data-id="${safeUserID}" data-role="${nextRole}" role="menuitem"><span class="material-symbols-outlined" aria-hidden="true">${roleIcon}</span><span>${escapeHTML(roleActionLabel)}</span></button>` : ""}
+              <button type="button" class="action-menu-item" data-act="reset-password" data-id="${safeUserID}" data-name="${safeUserName}" role="menuitem">
+                <span class="material-symbols-outlined" aria-hidden="true">key</span>
+                <span>Сброс пароля</span>
+              </button>
+              <button type="button" class="action-menu-item reject" data-act="delete-user" data-id="${safeUserID}" data-name="${safeUserName}" role="menuitem">
+                <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                <span>Удалить</span>
+              </button>
+            </div>
           </div>
         </td>
       `;
@@ -722,6 +752,14 @@
     }
 
     usersMetaEl.textContent = `Показано ${state.users.length} пользователей`;
+  }
+
+  function closeUserActionMenus() {
+    document.querySelectorAll("#usersBody .row-actions.open").forEach((el) => {
+      el.classList.remove("open");
+      const toggle = el.querySelector(".action-menu-toggle");
+      if (toggle) toggle.setAttribute("aria-expanded", "false");
+    });
   }
 
   function renderProjects(projects) {
@@ -738,32 +776,33 @@
       const status = String(p.status || "").toUpperCase();
       const avatar = initials(p.author_name || p.author_email || "PR");
       const authorName = p.author_name || "Не указан";
-      const observeBtn = `<button class="action-btn" data-project-act="observe" data-id="${p.id}">Наблюдать</button>`;
+      const projectID = String(p.id || "");
+      const safeProjectID = escapeHTML(projectID);
+      const safeProjectTitle = escapeHTML(p.title || "");
+      const projectTitleLabel = escapeHTML(p.title || "Без названия");
 
-      let actions = "";
+      let menuActions = "";
       if (status === "REVIEW") {
-        actions = `
-          ${observeBtn}
-          <button class="action-btn approve" data-project-act="set-status" data-id="${p.id}" data-next="ACTIVE">Запустить</button>
-          <button class="action-btn reject" data-project-act="delete" data-id="${p.id}" data-title="${escapeHTML(p.title || "")}">Удалить</button>
-        `;
-      } else if (status === "COMPLETED" || status === "ARCHIVE") {
-        actions = `
-          ${observeBtn}
-          <button class="action-btn reject" data-project-act="delete" data-id="${p.id}" data-title="${escapeHTML(p.title || "")}">Удалить</button>
-        `;
-      } else {
-        actions = `
-          ${observeBtn}
-          <button class="action-btn reject" data-project-act="delete" data-id="${p.id}" data-title="${escapeHTML(p.title || "")}">Удалить</button>
+        menuActions += `
+          <button class="action-menu-item" data-project-act="set-status" data-id="${safeProjectID}" data-next="ACTIVE" role="menuitem">
+            <span class="material-symbols-outlined" aria-hidden="true">rocket_launch</span>
+            <span>Запустить</span>
+          </button>
         `;
       }
+      menuActions += `
+        <button class="action-menu-item reject" data-project-act="delete" data-id="${safeProjectID}" data-title="${safeProjectTitle}" role="menuitem">
+          <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+          <span>Удалить</span>
+        </button>
+      `;
 
       const tr = document.createElement("tr");
+      tr.className = "projects-table-row";
       tr.innerHTML = `
-        <td><span class="project-id">${escapeHTML(String(p.id || "").slice(0, 8).toUpperCase())}</span></td>
+        <td><span class="project-id" title="${safeProjectID}">${escapeHTML(String(projectID || "").slice(0, 8).toUpperCase())}</span></td>
         <td>
-          <span class="project-title">${escapeHTML(p.title || "Без названия")}</span>
+          <span class="project-title">${projectTitleLabel}</span>
           <span class="project-desc">${escapeHTML((p.description || "").slice(0, 96) || "Описание отсутствует")}</span>
         </td>
         <td>
@@ -777,12 +816,33 @@
         </td>
         <td><span class="date-cell">${escapeHTML(formatDate(p.updated_at || p.created_at))}</span></td>
         <td><span class="status-badge ${projectStatusClass(status)}"><i class="dot ${projectStatusDot(status)}"></i>${escapeHTML(projectStatusLabel(status))}</span></td>
-        <td><div class="row-actions">${actions}</div></td>
+        <td>
+          <div class="row-actions project-row-actions">
+            <button class="action-btn action-btn--observe" data-project-act="observe" data-id="${safeProjectID}">
+              <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
+              <span>Наблюдать</span>
+            </button>
+            <button type="button" class="action-menu-toggle project-action-toggle" data-project-act="toggle-project-actions" data-id="${safeProjectID}" aria-label="Еще действия" aria-expanded="false">
+              <span class="material-symbols-outlined" aria-hidden="true">more_vert</span>
+            </button>
+            <div class="action-menu project-action-menu" role="menu">
+              ${menuActions}
+            </div>
+          </div>
+        </td>
       `;
       projectsBodyEl.appendChild(tr);
     }
 
     projectsMetaEl.textContent = `Показано ${state.projects.length} проектов`;
+  }
+
+  function closeProjectActionMenus() {
+    document.querySelectorAll("#projectsBody .row-actions.open").forEach((el) => {
+      el.classList.remove("open");
+      const toggle = el.querySelector(".action-menu-toggle");
+      if (toggle) toggle.setAttribute("aria-expanded", "false");
+    });
   }
 
   function syncTopbarByView() {
@@ -1402,6 +1462,8 @@
 
     window.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
+        closeUserActionMenus();
+        closeProjectActionMenus();
         if (!projectObserveModalEl.hidden) {
           closeProjectObserveModal();
           return;
@@ -1416,12 +1478,38 @@
       }
     });
 
+    document.addEventListener("click", (e) => {
+      const target = e.target;
+      if (!(target instanceof Element)) return;
+      if (!target.closest("#usersBody .row-actions")) {
+        closeUserActionMenus();
+      }
+      if (!target.closest("#projectsBody .row-actions")) {
+        closeProjectActionMenus();
+      }
+    });
+
     usersBodyEl.addEventListener("click", async (e) => {
       const target = e.target;
       if (!(target instanceof HTMLElement)) return;
-      const action = target.dataset.act || "";
-      const userID = target.dataset.id || "";
+      const button = target.closest("button[data-act]");
+      if (!(button instanceof HTMLElement)) return;
+      const action = button.dataset.act || "";
+      const userID = button.dataset.id || "";
+
+      if (action === "toggle-user-actions") {
+        const actions = button.closest(".row-actions");
+        const isOpen = actions ? actions.classList.contains("open") : false;
+        closeUserActionMenus();
+        if (actions && !isOpen) {
+          actions.classList.add("open");
+          button.setAttribute("aria-expanded", "true");
+        }
+        return;
+      }
+
       if (!userID) return;
+      closeUserActionMenus();
 
       if (action === "view-profile") {
         window.location.href = `/dev/profile?user_id=${encodeURIComponent(userID)}`;
@@ -1429,14 +1517,14 @@
       }
 
       if (action === "set-user-status") {
-        const status = target.dataset.status || "";
+        const status = button.dataset.status || "";
         if (!status) return;
         await setUserStatus(userID, status);
         return;
       }
 
       if (action === "set-user-role") {
-        const role = target.dataset.role || "";
+        const role = button.dataset.role || "";
         if (!role) return;
         const ok = await setUserRole(userID, role);
         if (!ok) return;
@@ -1445,7 +1533,7 @@
       }
 
       if (action === "reset-password") {
-        const name = target.dataset.name || "пользователь";
+        const name = button.dataset.name || "пользователь";
         const values = await promptForm({
           title: "Сброс пароля",
           message: `Введите новый пароль для пользователя "${name}".`,
@@ -1479,7 +1567,7 @@
       }
 
       if (action === "delete-user") {
-        const name = target.dataset.name || "пользователь";
+        const name = button.dataset.name || "пользователь";
         if (!await confirmAction({
           title: "Удалить пользователя",
           message: `Пользователь "${name}" будет удален без возможности восстановления.`,
@@ -1495,10 +1583,25 @@
     projectsBodyEl.addEventListener("click", async (e) => {
       const target = e.target;
       if (!(target instanceof HTMLElement)) return;
-      const action = target.dataset.projectAct || "";
-      const projectID = target.dataset.id || "";
-      const projectTitle = target.dataset.title || "";
+      const button = target.closest("button[data-project-act]");
+      if (!(button instanceof HTMLElement)) return;
+      const action = button.dataset.projectAct || "";
+      const projectID = button.dataset.id || "";
+      const projectTitle = button.dataset.title || "";
+
+      if (action === "toggle-project-actions") {
+        const actions = button.closest(".row-actions");
+        const isOpen = actions ? actions.classList.contains("open") : false;
+        closeProjectActionMenus();
+        if (actions && !isOpen) {
+          actions.classList.add("open");
+          button.setAttribute("aria-expanded", "true");
+        }
+        return;
+      }
+
       if (!projectID || !action) return;
+      closeProjectActionMenus();
 
       if (action === "observe") {
         try {
@@ -1525,7 +1628,7 @@
       }
 
       if (action !== "set-status") return;
-      const nextStatus = String(target.dataset.next || "").toUpperCase();
+      const nextStatus = String(button.dataset.next || "").toUpperCase();
       if (!nextStatus) return;
 
       const ok = await setProjectStatus(projectID, nextStatus);

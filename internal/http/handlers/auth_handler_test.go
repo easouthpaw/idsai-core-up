@@ -22,12 +22,14 @@ type authHandlerRepo struct {
 	user                 auth.User
 	faculties            []auth.Faculty
 	departments          []auth.Department
+	listDepartmentsType  string
 	groups               []auth.StudentGroup
 	insertedGroupRequest auth.GroupChangeRequest
 	ownGroupRequests     []auth.GroupChangeRequest
 	allGroupRequests     []auth.GroupChangeRequest
 	reviewedGroupRequest auth.GroupChangeRequest
 	departmentGroupsTree []auth.DepartmentGroupsTree
+	treeEducationType    string
 }
 
 func (f *authHandlerRepo) FindTenantByCode(ctx context.Context, tenantCode string) (uuid.UUID, error) {
@@ -132,7 +134,8 @@ func (f *authHandlerRepo) CreateGroupInDepartment(ctx context.Context, tenantID,
 	return uuid.New(), nil
 }
 
-func (f *authHandlerRepo) ListDepartments(ctx context.Context, tenantID uuid.UUID) ([]auth.Department, error) {
+func (f *authHandlerRepo) ListDepartments(ctx context.Context, tenantID uuid.UUID, educationType string) ([]auth.Department, error) {
+	f.listDepartmentsType = educationType
 	return f.departments, nil
 }
 
@@ -156,7 +159,8 @@ func (f *authHandlerRepo) ReviewGroupChangeRequest(ctx context.Context, tenantID
 	return f.reviewedGroupRequest, nil
 }
 
-func (f *authHandlerRepo) ListDepartmentGroupsTree(ctx context.Context, tenantID uuid.UUID, departmentCode, search string) ([]auth.DepartmentGroupsTree, error) {
+func (f *authHandlerRepo) ListDepartmentGroupsTree(ctx context.Context, tenantID uuid.UUID, departmentCode, search, educationType string) ([]auth.DepartmentGroupsTree, error) {
+	f.treeEducationType = educationType
 	return f.departmentGroupsTree, nil
 }
 

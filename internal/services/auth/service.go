@@ -236,13 +236,13 @@ type Repository interface {
 	FindSchoolRegistrationScope(ctx context.Context, tenantID uuid.UUID) (facultyID uuid.UUID, departmentID uuid.UUID, err error)
 	FindGroupByCodeInDepartment(ctx context.Context, tenantID, departmentID uuid.UUID, groupCode string) (groupID uuid.UUID, err error)
 	CreateGroupInDepartment(ctx context.Context, tenantID, facultyID, departmentID uuid.UUID, groupCode string, groupNumber int) (groupID uuid.UUID, err error)
-	ListDepartments(ctx context.Context, tenantID uuid.UUID) ([]Department, error)
+	ListDepartments(ctx context.Context, tenantID uuid.UUID, educationType string) ([]Department, error)
 	ListGroupsByDepartmentCode(ctx context.Context, tenantID uuid.UUID, departmentCode string) ([]StudentGroup, error)
 	InsertGroupChangeRequest(ctx context.Context, tenantID, studentID, currentGroupID, requestedGroupID uuid.UUID, createdAt time.Time) (GroupChangeRequest, error)
 	ListOwnGroupChangeRequests(ctx context.Context, tenantID, studentID uuid.UUID, limit int) ([]GroupChangeRequest, error)
 	ListGroupChangeRequests(ctx context.Context, tenantID uuid.UUID, status, search string, limit int) ([]GroupChangeRequest, error)
 	ReviewGroupChangeRequest(ctx context.Context, tenantID, requestID, reviewerID uuid.UUID, decision, comment string, reviewedAt time.Time) (GroupChangeRequest, error)
-	ListDepartmentGroupsTree(ctx context.Context, tenantID uuid.UUID, departmentCode, search string) ([]DepartmentGroupsTree, error)
+	ListDepartmentGroupsTree(ctx context.Context, tenantID uuid.UUID, departmentCode, search, educationType string) ([]DepartmentGroupsTree, error)
 	InsertAuthToken(ctx context.Context, tenantID, userID uuid.UUID, purpose, tokenHash string, expiresAt time.Time) error
 	FindAuthToken(ctx context.Context, purpose, tokenHash string) (AuthTokenRecord, error)
 	ConsumeAuthToken(ctx context.Context, tokenID uuid.UUID, consumedAt time.Time) error
@@ -396,6 +396,18 @@ func normalizeEducationType(value string) string {
 	default:
 		return ""
 	}
+}
+
+func normalizeEducationTypeArgument(values []string) (string, error) {
+	raw := ""
+	if len(values) > 0 {
+		raw = values[0]
+	}
+	educationType := normalizeEducationType(raw)
+	if educationType == "" {
+		return "", ErrInvalidInput
+	}
+	return educationType, nil
 }
 
 func normalizeDepartmentGroupCode(departmentCode, rawGroup string) string {
@@ -813,12 +825,16 @@ func (s *Service) ListFaculties(ctx context.Context, tenantCode string) ([]Facul
 	return s.repo.ListFaculties(ctx, tenantID)
 }
 
-func (s *Service) ListDepartments(ctx context.Context, tenantCode string) ([]Department, error) {
+func (s *Service) ListDepartments(ctx context.Context, tenantCode string, educationTypes ...string) ([]Department, error) {
+	educationType, err := normalizeEducationTypeArgument(educationTypes)
+	if err != nil {
+		return nil, err
+	}
 	tenantID, err := s.repo.FindTenantByCode(ctx, normalizeTenantCode(tenantCode))
 	if err != nil {
 		return nil, err
 	}
-	return s.repo.ListDepartments(ctx, tenantID)
+	return s.repo.ListDepartments(ctx, tenantID, educationType)
 }
 
 func (s *Service) ListGroupsByDepartmentCode(ctx context.Context, tenantCode, departmentCode string) ([]StudentGroup, error) {
@@ -935,11 +951,16 @@ func (s *Service) ListDepartmentGroupsTree(
 	ctx context.Context,
 	tenantID uuid.UUID,
 	departmentCode, search string,
+	educationTypes ...string,
 ) ([]DepartmentGroupsTree, error) {
 	if tenantID == uuid.Nil {
 		return nil, ErrInvalidInput
 	}
-	tree, err := s.repo.ListDepartmentGroupsTree(ctx, tenantID, strings.ToUpper(strings.TrimSpace(departmentCode)), strings.TrimSpace(search))
+	educationType, err := normalizeEducationTypeArgument(educationTypes)
+	if err != nil {
+		return nil, err
+	}
+	tree, err := s.repo.ListDepartmentGroupsTree(ctx, tenantID, strings.ToUpper(strings.TrimSpace(departmentCode)), strings.TrimSpace(search), educationType)
 	if err != nil {
 		return nil, err
 	}

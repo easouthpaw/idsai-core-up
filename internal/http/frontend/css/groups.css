@@ -270,6 +270,14 @@ body.groups-body.role-teacher .groups-layout {
   min-width: 0;
 }
 
+.tree-card {
+  height: clamp(420px, calc(100vh - 350px), 680px);
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
 .filters-card {
   display: grid;
   grid-template-columns: minmax(200px, 280px) minmax(220px, 1fr) auto;
@@ -351,6 +359,14 @@ body.groups-body.role-teacher .groups-layout {
   align-items: start;
 }
 
+body.groups-body.role-teacher .groups-content-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+body.groups-body.role-teacher .tree-card {
+  height: clamp(560px, calc(100vh - 300px), 860px);
+}
+
 .section-title {
   display: flex;
   align-items: baseline;
@@ -380,29 +396,97 @@ body.groups-body.role-teacher .groups-layout {
   letter-spacing: 0.06em;
 }
 
+.structure-tabs {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(86px, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--grp-border);
+  border-radius: 14px;
+  background: rgba(246, 252, 248, 0.82);
+  flex-shrink: 0;
+}
+
+.structure-tab {
+  min-height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--grp-muted);
+  cursor: pointer;
+  font: 800 12px/1 "Inter", sans-serif;
+  transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.structure-tab:hover {
+  color: var(--grp-accent);
+  background: rgba(13, 107, 80, 0.06);
+}
+
+.structure-tab.active,
+.structure-tab[aria-selected="true"] {
+  background: #ffffff;
+  color: var(--grp-accent);
+  box-shadow: 0 8px 16px rgba(10, 32, 24, 0.08);
+}
+
+.structure-tab:focus-visible {
+  outline: 3px solid rgba(13, 107, 80, 0.2);
+  outline-offset: 2px;
+}
+
 /* ── Tree ────────────────────────────────────────────────── */
 .tree-root {
   display: grid;
   gap: 12px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+}
+
+.tree-root::-webkit-scrollbar {
+  width: 10px;
+}
+
+.tree-root::-webkit-scrollbar-track {
+  background: rgba(13, 107, 80, 0.06);
+  border-radius: 999px;
+}
+
+.tree-root::-webkit-scrollbar-thumb {
+  background: rgba(13, 107, 80, 0.22);
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.86);
+}
+
+.tree-root::-webkit-scrollbar-thumb:hover {
+  background: rgba(13, 107, 80, 0.34);
 }
 
 .dep-node {
   border: 1px solid var(--grp-border);
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.92);
-  overflow: hidden;
+  height: auto;
+  max-height: none;
+  overflow: visible;
   box-shadow: var(--grp-shadow-soft);
 }
 
+.dep-header,
 .dep-node > summary {
-  list-style: none;
-  cursor: pointer;
   padding: 18px 20px;
   border-bottom: 1px solid rgba(184, 203, 188, 0.5);
   background:
     radial-gradient(300px 120px at 100% 0%, rgba(13, 107, 80, 0.08), transparent 72%),
     linear-gradient(180deg, rgba(246, 252, 248, 0.98) 0%, rgba(240, 248, 243, 0.98) 100%);
   transition: background 0.16s ease;
+}
+
+.dep-node > summary {
+  list-style: none;
+  cursor: pointer;
 }
 
 .dep-node > summary:hover {
@@ -459,8 +543,12 @@ body.groups-body.role-teacher .groups-layout {
 
 /* ── Groups List ─────────────────────────────────────────── */
 .groups-list {
-  display: grid;
+  display: grid !important;
+  position: static;
   gap: 12px;
+  height: auto;
+  max-height: none;
+  overflow: visible;
   padding: 14px;
 }
 
@@ -757,12 +845,27 @@ body.groups-body.role-teacher .groups-layout {
     position: static;
     top: auto;
   }
+
+  .tree-card {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .tree-root {
+    overflow: visible;
+    padding-right: 0;
+  }
 }
 
 @media (max-width: 760px) {
   .section-title {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .structure-tabs {
+    width: 100%;
   }
 
   .groups-hero__stats {
@@ -778,6 +881,7 @@ body.groups-body.role-teacher .groups-layout {
     font-size: 24px;
   }
 
+  .dep-header,
   .dep-node > summary {
     padding: 14px 16px;
   }

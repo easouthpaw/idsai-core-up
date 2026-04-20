@@ -322,8 +322,10 @@
     ui.tabIncoming.setAttribute("aria-selected", incomingActive ? "true" : "false");
     ui.tabOutgoing.setAttribute("aria-selected", incomingActive ? "false" : "true");
 
-    ui.incomingPane.classList.toggle("active", incomingActive);
-    ui.outgoingPane.classList.toggle("active", !incomingActive);
+    ui.incomingPane.classList.add("active");
+    ui.outgoingPane.classList.add("active");
+    ui.incomingPane.classList.toggle("invite-pane--focus", incomingActive);
+    ui.outgoingPane.classList.toggle("invite-pane--focus", !incomingActive);
   }
 
   async function loadInvites() {
@@ -426,8 +428,14 @@
   }
 
   function wireEvents() {
-    ui.tabIncoming.addEventListener("click", () => setTab("incoming"));
-    ui.tabOutgoing.addEventListener("click", () => setTab("outgoing"));
+    ui.tabIncoming.addEventListener("click", () => {
+      setTab("incoming");
+      ui.incomingPane.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
+    ui.tabOutgoing.addEventListener("click", () => {
+      setTab("outgoing");
+      ui.outgoingPane.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
 
     ui.incomingList.addEventListener("click", async (event) => {
       const button = event.target.closest("button[data-action]");

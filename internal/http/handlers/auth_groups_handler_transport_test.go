@@ -53,11 +53,12 @@ func TestAuthHandlerListDepartments_UsesTransportDTO(t *testing.T) {
 	router := gin.New()
 	router.GET("/v2/auth/departments", handler.ListDepartments)
 
-	req := httptest.NewRequest(http.MethodGet, "/v2/auth/departments", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v2/auth/departments?education_type=SCHOOL", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, auth.EducationTypeSchool, repo.listDepartmentsType)
 	require.JSONEq(t, mustJSON(t, dto.ListDepartmentsResponse{Departments: dto.DepartmentResponsesFromService(repo.departments)}), rec.Body.String())
 }
 
@@ -224,10 +225,11 @@ func TestAuthHandlerListDepartmentGroupsTree_UsesTransportDTO(t *testing.T) {
 	})
 	router.GET("/v2/auth/groups/tree", handler.ListDepartmentGroupsTree)
 
-	req := httptest.NewRequest(http.MethodGet, "/v2/auth/groups/tree", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v2/auth/groups/tree?education_type=SCHOOL", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, auth.EducationTypeSchool, repo.treeEducationType)
 	require.JSONEq(t, mustJSON(t, dto.ListDepartmentGroupsTreeResponse{Departments: dto.DepartmentGroupsTreeResponsesFromService(repo.departmentGroupsTree)}), rec.Body.String())
 }

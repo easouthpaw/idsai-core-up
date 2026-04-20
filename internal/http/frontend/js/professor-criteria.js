@@ -461,14 +461,12 @@
 
     if (!state.projectID) {
       ui.criteriaList.innerHTML =
-        `<article class="criterion-row draft">` +
-          `<div class="criterion-grip" aria-hidden="true">⋮⋮</div>` +
-          `<div class="criterion-idx">0</div>` +
-          `<div class="criterion-main">` +
-            `<strong>Проект пока не выбран</strong>` +
-            `<p>Выберите проект сверху, и после этого здесь появится текущий чек-лист критериев.</p>` +
+        `<article class="criteria-empty-state">` +
+          `<span class="material-symbols-outlined" aria-hidden="true">rule_folder</span>` +
+          `<div>` +
+            `<strong>Выберите проект</strong>` +
+            `<p>После выбора здесь появится чек-лист оценки.</p>` +
           `</div>` +
-          `<div class="criterion-weight">Ожидание</div>` +
         `</article>`;
       renderGuide();
       return;
@@ -476,14 +474,12 @@
 
     if (!state.criteria.length) {
       ui.criteriaList.innerHTML =
-        `<article class="criterion-row draft">` +
-          `<div class="criterion-grip" aria-hidden="true">⋮⋮</div>` +
-          `<div class="criterion-idx">1</div>` +
-          `<div class="criterion-main">` +
-            `<strong>Начните вводить новый критерий...</strong>` +
-            `<p>Добавьте первый пункт проверки, чтобы сформировать чек-лист проекта.</p>` +
+        `<article class="criteria-empty-state">` +
+          `<span class="material-symbols-outlined" aria-hidden="true">add_task</span>` +
+          `<div>` +
+            `<strong>Критериев пока нет</strong>` +
+            `<p>${state.canEditCurrent ? "Добавьте первый пункт проверки." : "Редактирование станет доступно после принятия приглашения на ревью."}</p>` +
           `</div>` +
-          `<div class="criterion-weight">Черновик</div>` +
       `</article>`;
       renderGuide();
       return;
@@ -494,29 +490,18 @@
         const weight = Number(item.weight || 1);
         return `
           <article class="criterion-row">
-            <div class="criterion-grip" aria-hidden="true">⋮⋮</div>
-            <div class="criterion-idx">${idx + 1}</div>
+            <div class="criterion-idx">${String(idx + 1).padStart(2, "0")}</div>
             <div class="criterion-main">
               <strong>${escapeHTML(item.title || "Без названия")}</strong>
               <p>${escapeHTML(item.description || "Описание отсутствует")}</p>
             </div>
-            <div class="criterion-weight">Вес ${escapeHTML(weight)}</div>
+            <div class="criterion-weight"><small>Вес</small><strong>${escapeHTML(weight)}</strong></div>
           </article>
         `;
       })
       .join("");
 
-    ui.criteriaList.innerHTML =
-      rows +
-      `<article class="criterion-row draft">` +
-        `<div class="criterion-grip" aria-hidden="true">⋮⋮</div>` +
-        `<div class="criterion-idx">${state.criteria.length + 1}</div>` +
-        `<div class="criterion-main">` +
-          `<strong>Добавьте следующий критерий</strong>` +
-          `<p>${state.canEditCurrent ? "Нажмите кнопку ниже, чтобы открыть форму добавления." : "Редактирование станет доступно после принятия приглашения на ревью."}</p>` +
-        `</div>` +
-        `<div class="criterion-weight">Черновик</div>` +
-      `</article>`;
+    ui.criteriaList.innerHTML = rows;
     renderGuide();
   }
 

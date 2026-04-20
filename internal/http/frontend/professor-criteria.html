@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Material+Symbols+Outlined:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/dev/static/css/role-sidebar.css" />
-  <link rel="stylesheet" href="/dev/static/css/professor.css" />
+  <link rel="stylesheet" href="/dev/static/css/professor.css?v=criteria-workspace-2" />
   <link rel="stylesheet" href="/dev/static/css/notifications-popup.css" />
   <link rel="stylesheet" href="/dev/static/css/dev-theme.css" />
   <link rel="stylesheet" href="/dev/static/css/site-preferences.css" />
@@ -21,7 +21,7 @@
     })();
   </script>
 </head>
-<body class="professor-body app-loading">
+<body class="professor-body professor-criteria-body app-loading">
   <aside
     data-role-sidebar
     data-sidebar-role="teacher"
@@ -32,59 +32,63 @@
   <main class="prof-main criteria-main">
     <section class="criteria-shell">
       <header class="criteria-page-head">
-        <p class="crumb">Критерии оценки</p>
-        <h1>Настройка критериев оценки</h1>
-        <p class="head-sub">Управление чек-листами для проверки студенческих проектов и лабораторных работ.</p>
+        <div>
+          <p class="crumb">Преподаватель</p>
+          <h1>Конструктор критериев</h1>
+          <p class="head-sub">Выберите проект, соберите чек-лист оценки и держите сумму весов в пределах 100.</p>
+        </div>
+        <button id="loadTemplateBtn" class="ghost-btn criteria-template-btn" type="button">Загрузить шаблон</button>
       </header>
 
-      <section class="table-card criteria-context-card">
-        <div class="criteria-context-grid two">
-          <div class="criteria-context-field">
-            <label for="projectSelect">Проект</label>
-            <select id="projectSelect" name="project_id" autocomplete="off"></select>
+      <div class="criteria-workbench">
+        <aside class="criteria-side">
+          <section class="criteria-context-card">
+            <div class="criteria-context-field">
+              <label for="projectSelect">Проект</label>
+              <select id="projectSelect" name="project_id" autocomplete="off"></select>
+            </div>
+            <div class="criteria-context-field">
+              <label for="projectStatusView">Доступ</label>
+              <input id="projectStatusView" type="text" name="project_status" autocomplete="off" readonly value="—" />
+            </div>
+          </section>
+
+          <section class="criteria-progress-card">
+            <small>Суммарный вес</small>
+            <strong id="criteriaWeightMeta" class="criteria-editor-meta criteria-weight-meta">Вес 0 / 100</strong>
+            <p>Лимит помогает сохранить честную шкалу оценки.</p>
+          </section>
+
+          <section id="profGuidePanel" class="prof-guide-panel criteria-guide">
+            <div class="prof-guide-panel__head">
+              <div>
+                <strong>Порядок</strong>
+                <p>Контекст проекта, доступ к редактированию и полнота чек-листа.</p>
+              </div>
+              <button id="profGuideToggleBtn" class="ghost-btn" type="button">Скрыть</button>
+            </div>
+            <div id="profGuideSteps" class="prof-guide-steps"></div>
+          </section>
+          <button id="profGuideRestoreBtn" class="ghost-btn prof-guide-restore" type="button" hidden>Показать порядок</button>
+        </aside>
+
+        <section class="criteria-editor-card criteria-board">
+          <div class="criteria-board-toolbar">
+            <div>
+              <h2>Чек-лист оценки</h2>
+              <p>Каждый пункт должен быть проверяемым и иметь вес.</p>
+            </div>
+            <button id="openComposerBtn" class="primary-btn criteria-add-trigger" type="button">Добавить критерий</button>
           </div>
-          <div class="criteria-context-field">
-            <label for="projectStatusView">Статус</label>
-            <input id="projectStatusView" type="text" name="project_status" autocomplete="off" readonly value="—" />
-          </div>
-        </div>
-      </section>
 
-      <section id="profGuidePanel" class="prof-guide-panel">
-        <div class="prof-guide-panel__head">
-          <div>
-            <strong>Подсказки по критериям</strong>
-            <p>Сначала выберите проект, затем соберите чек-лист и доведите суммарный вес критериев до 100, если хотите получить полный шаблон оценки.</p>
-          </div>
-          <button id="profGuideToggleBtn" class="ghost-btn" type="button">Скрыть подсказки</button>
-        </div>
-        <div id="profGuideSteps" class="prof-guide-steps"></div>
-      </section>
-      <button id="profGuideRestoreBtn" class="ghost-btn prof-guide-restore" type="button" hidden>Показать подсказки по шагам</button>
-
-      <section class="table-card criteria-editor-card">
-        <div class="table-head criteria-editor-head">
-          <div class="criteria-editor-title">
-            <h2>CRITERIA_LIST.md</h2>
-            <span class="criteria-editor-meta">read-write</span>
-            <span id="criteriaWeightMeta" class="criteria-editor-meta criteria-weight-meta">Вес 0 / 100</span>
-          </div>
-          <button id="loadTemplateBtn" class="ghost-btn criteria-template-btn" type="button">Загрузить шаблон</button>
-        </div>
-
-        <div id="criteriaList" class="criteria-list"></div>
-
-        <div class="criteria-add-wrap">
-          <button id="openComposerBtn" class="ghost-btn criteria-add-trigger" type="button">Добавить критерий</button>
-
-          <form id="criterionForm" class="criterion-form-grid" hidden>
+          <form id="criterionForm" class="criterion-form-grid criteria-composer" hidden>
             <div class="field-grid two">
               <div>
                 <label for="criterionTitleInput">Название</label>
                 <input id="criterionTitleInput" type="text" name="criterion_title" autocomplete="off" placeholder="Например: Покрытие тестами > 80%" required />
               </div>
               <div>
-                <label for="criterionWeightInput">Вес (1-100)</label>
+                <label for="criterionWeightInput">Вес</label>
                 <input id="criterionWeightInput" type="number" name="criterion_weight" autocomplete="off" min="1" max="100" value="10" required />
               </div>
             </div>
@@ -97,14 +101,16 @@
               <button id="criterionSubmitBtn" class="primary-btn" type="submit">Добавить критерий</button>
             </div>
           </form>
-        </div>
 
-        <div class="criteria-footer-actions">
-          <button id="cancelBottomBtn" class="ghost-btn" type="button">Отмена</button>
-          <button id="saveTemplateBtn" class="ghost-btn" type="button">Сохранить как шаблон</button>
-          <button id="saveBottomBtn" class="primary-btn" type="button">Готово</button>
-        </div>
-      </section>
+          <div id="criteriaList" class="criteria-list"></div>
+
+          <div class="criteria-footer-actions">
+            <button id="cancelBottomBtn" class="ghost-btn" type="button">Сбросить форму</button>
+            <button id="saveTemplateBtn" class="ghost-btn" type="button">Сохранить как шаблон</button>
+            <button id="saveBottomBtn" class="primary-btn" type="button">Готово</button>
+          </div>
+        </section>
+      </div>
 
       <p id="pageStatus" class="page-status" aria-live="polite"></p>
     </section>

@@ -15,7 +15,8 @@ import (
 func (h *AuthHandler) ListDepartments(c *gin.Context) {
 	authResponseNoStore(c)
 
-	items, err := h.svc.ListDepartments(c.Request.Context(), tenantCodeFromHeader(c))
+	educationType := strings.ToUpper(strings.TrimSpace(c.Query("education_type")))
+	items, err := h.svc.ListDepartments(c.Request.Context(), tenantCodeFromHeader(c), educationType)
 	if err != nil {
 		writeAuthError(c, err)
 		return
@@ -132,7 +133,8 @@ func (h *AuthHandler) ListDepartmentGroupsTree(c *gin.Context) {
 
 	departmentCode := strings.ToUpper(strings.TrimSpace(c.Query("department_code")))
 	search := strings.TrimSpace(c.Query("q"))
-	items, err := h.svc.ListDepartmentGroupsTree(c.Request.Context(), tenantID, departmentCode, search)
+	educationType := strings.ToUpper(strings.TrimSpace(c.Query("education_type")))
+	items, err := h.svc.ListDepartmentGroupsTree(c.Request.Context(), tenantID, departmentCode, search, educationType)
 	if err != nil {
 		writeAuthError(c, err)
 		return

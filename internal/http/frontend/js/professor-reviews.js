@@ -141,39 +141,45 @@
   function renderTable() {
     if (!ui.reviewsBody) return;
     if (state.loading) {
-      ui.reviewsBody.innerHTML = '<tr><td colspan="4">Загрузка заявок...</td></tr>';
+      ui.reviewsBody.innerHTML =
+        `<article class="review-empty">` +
+          `<span class="material-symbols-outlined" aria-hidden="true">progress_activity</span>` +
+          `<div><strong>Загрузка заявок...</strong><p>Проверяем новые приглашения на ревью.</p></div>` +
+        `</article>`;
       return;
     }
     if (!state.invites.length) {
-      ui.reviewsBody.innerHTML = '<tr><td colspan="4">Новых заявок на ревью пока нет.</td></tr>';
+      ui.reviewsBody.innerHTML =
+        `<article class="review-empty">` +
+          `<span class="material-symbols-outlined" aria-hidden="true">task_alt</span>` +
+          `<div><strong>Очередь пустая</strong><p>Новых заявок на ревью пока нет.</p></div>` +
+        `</article>`;
       return;
     }
 
-    ui.reviewsBody.innerHTML = state.invites.map((project) => {
+    ui.reviewsBody.innerHTML = state.invites.map((project, idx) => {
       const status = statusMeta(project.status);
       const owner = project.created_by_name || project.created_by_email || "Команда";
       return (
-        `<tr>` +
-          `<td>` +
-            `<strong>${escapeHTML(project.title || "Без названия")}</strong>` +
-            `<div class="muted">Обновлен: ${escapeHTML(formatDate(project.updated_at || project.created_at))}</div>` +
-          `</td>` +
-          `<td>` +
-            `${escapeHTML(owner)}` +
-            `<div class="muted">${escapeHTML(project.description || "Описание пока не заполнено.")}</div>` +
-          `</td>` +
-          `<td>` +
-            `<span class="status-pill ${escapeHTML(status.tone)}">${escapeHTML(status.label)}</span>` +
-            `<div class="muted">Ждет вашего ответа</div>` +
-          `</td>` +
-          `<td>` +
-            `<div class="actions">` +
-              `<button class="action-btn" type="button" data-row-act="open" data-project-id="${escapeHTML(project.id)}">Открыть</button>` +
-              `<button class="action-btn primary" type="button" data-row-act="accept" data-project-id="${escapeHTML(project.id)}">Принять</button>` +
-              `<button class="action-btn" type="button" data-row-act="reject" data-project-id="${escapeHTML(project.id)}">Отклонить</button>` +
+        `<article class="review-decision-card">` +
+          `<div class="review-project-main">` +
+            `<span class="review-project-index">${escapeHTML(String(idx + 1).padStart(2, "0"))}</span>` +
+            `<div>` +
+              `<strong>${escapeHTML(project.title || "Без названия")}</strong>` +
+              `<p>${escapeHTML(project.description || "Описание пока не заполнено.")}</p>` +
             `</div>` +
-          `</td>` +
-        `</tr>`
+          `</div>` +
+          `<div class="review-meta-grid">` +
+            `<div><small>Команда</small><strong>${escapeHTML(owner)}</strong></div>` +
+            `<div><small>Обновлен</small><strong>${escapeHTML(formatDate(project.updated_at || project.created_at))}</strong></div>` +
+            `<div><small>Состояние</small><span class="status-pill ${escapeHTML(status.tone)}">${escapeHTML(status.label)}</span></div>` +
+          `</div>` +
+          `<div class="review-card-actions">` +
+            `<button class="action-btn" type="button" data-row-act="open" data-project-id="${escapeHTML(project.id)}">Открыть</button>` +
+            `<button class="action-btn primary" type="button" data-row-act="accept" data-project-id="${escapeHTML(project.id)}">Принять</button>` +
+            `<button class="action-btn danger" type="button" data-row-act="reject" data-project-id="${escapeHTML(project.id)}">Отклонить</button>` +
+          `</div>` +
+        `</article>`
       );
     }).join("");
   }

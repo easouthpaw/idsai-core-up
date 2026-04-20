@@ -186,7 +186,7 @@ func (f *fakeRepo) CreateGroupInDepartment(ctx context.Context, tenantID, facult
 	return f.createdGroupID, nil
 }
 
-func (f *fakeRepo) ListDepartments(ctx context.Context, tenantID uuid.UUID) ([]Department, error) {
+func (f *fakeRepo) ListDepartments(ctx context.Context, tenantID uuid.UUID, educationType string) ([]Department, error) {
 	return []Department{}, nil
 }
 
@@ -210,7 +210,7 @@ func (f *fakeRepo) ReviewGroupChangeRequest(ctx context.Context, tenantID, reque
 	return GroupChangeRequest{}, nil
 }
 
-func (f *fakeRepo) ListDepartmentGroupsTree(ctx context.Context, tenantID uuid.UUID, departmentCode, search string) ([]DepartmentGroupsTree, error) {
+func (f *fakeRepo) ListDepartmentGroupsTree(ctx context.Context, tenantID uuid.UUID, departmentCode, search, educationType string) ([]DepartmentGroupsTree, error) {
 	return []DepartmentGroupsTree{}, nil
 }
 

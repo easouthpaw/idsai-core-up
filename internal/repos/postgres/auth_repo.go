@@ -235,17 +235,20 @@ RETURNING id;
 	return groupID, err
 }
 
-func (r *AuthRepo) ListDepartments(ctx context.Context, tenantID uuid.UUID) ([]svc.Department, error) {
+func (r *AuthRepo) ListDepartments(ctx context.Context, tenantID uuid.UUID, educationType string) ([]svc.Department, error) {
 	const q = `
 SELECT d.id, d.faculty_id, d.code, d.name, d.created_at
 FROM departments d
 JOIN faculties f ON f.id = d.faculty_id AND f.tenant_id = d.tenant_id
 JOIN tenants t ON t.id = d.tenant_id
 WHERE d.tenant_id = $1
-  AND f.code <> t.code || '_SCHOOL'
+  AND (
+    ($2 = 'SCHOOL' AND f.code = t.code || '_SCHOOL')
+    OR ($2 <> 'SCHOOL' AND f.code <> t.code || '_SCHOOL')
+  )
 ORDER BY d.name ASC;
 `
-	rows, err := r.db.Query(ctx, q, tenantID)
+	rows, err := r.db.Query(ctx, q, tenantID, educationType)
 	if err != nil {
 		return nil, err
 	}
@@ -1011,7 +1014,7 @@ WHERE tenant_id = $1
 func (r *AuthRepo) ListDepartmentGroupsTree(
 	ctx context.Context,
 	tenantID uuid.UUID,
-	departmentCode, search string,
+	departmentCode, search, educationType string,
 ) ([]svc.DepartmentGroupsTree, error) {
 	const q = `
 SELECT
@@ -1028,6 +1031,11 @@ SELECT
   COALESCE(u.status, '') AS student_status,
   COALESCE(primary_role.role_code, '') AS role_code
 FROM departments d
+JOIN faculties f
+  ON f.id = d.faculty_id
+ AND f.tenant_id = d.tenant_id
+JOIN tenants t
+  ON t.id = d.tenant_id
 LEFT JOIN student_groups sg
   ON sg.department_id = d.id
  AND sg.tenant_id = d.tenant_id
@@ -1062,9 +1070,13 @@ WHERE d.tenant_id = $1
     OR COALESCE(up.full_name, '') ILIKE '%' || $3::text || '%'
     OR COALESCE(u.email, '') ILIKE '%' || $3::text || '%'
   )
+  AND (
+    ($4 = 'SCHOOL' AND f.code = t.code || '_SCHOOL')
+    OR ($4 <> 'SCHOOL' AND f.code <> t.code || '_SCHOOL')
+  )
 ORDER BY d.name ASC, sg.group_number ASC, sg.group_code ASC, up.full_name ASC, u.email ASC;
 `
-	rows, err := r.db.Query(ctx, q, tenantID, departmentCode, search)
+	rows, err := r.db.Query(ctx, q, tenantID, departmentCode, search, educationType)
 	if err != nil {
 		return nil, err
 	}
