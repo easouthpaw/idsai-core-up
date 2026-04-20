@@ -32,6 +32,7 @@
   const paneCommunityEl = document.getElementById("paneCommunity");
   const toolbarMineEl = document.getElementById("toolbarMine");
   const toolbarCommunityEl = document.getElementById("toolbarCommunity");
+  const studentDashboardSections = Array.from(document.querySelectorAll(".student-dashboard-only"));
   const heroGreetingEl = document.getElementById("heroGreeting");
   const tabTitleEl = document.getElementById("tabTitle");
   const tabSubtitleEl = document.getElementById("tabSubtitle");
@@ -730,6 +731,9 @@
     paneCommunityEl.classList.toggle("active", !isMine);
     toolbarMineEl.hidden = !isMine;
     toolbarCommunityEl.hidden = isMine;
+    studentDashboardSections.forEach((section) => {
+      section.hidden = !isMine;
+    });
 
     if (isMine) {
       tabTitleEl.textContent = "Мои проекты";

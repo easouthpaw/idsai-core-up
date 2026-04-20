@@ -1172,6 +1172,10 @@ body.projects-body .student-dashboard-grid {
   align-items: stretch;
 }
 
+body.projects-body .student-dashboard-only[hidden] {
+  display: none !important;
+}
+
 body.projects-body .student-hero-card {
   position: relative;
   overflow: hidden;
