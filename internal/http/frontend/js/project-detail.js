@@ -152,6 +152,8 @@
     countTodo: document.getElementById("countTodo"),
     countDoing: document.getElementById("countDoing"),
     countDone: document.getElementById("countDone"),
+    taskListBody: document.getElementById("taskListBody"),
+    taskListTabs: document.querySelectorAll(".task-list-tab"),
     tasksTeamList: document.getElementById("tasksTeamList"),
     criteriaListView: document.getElementById("criteriaListView"),
     criteriaCountMeta: document.getElementById("criteriaCountMeta"),
@@ -257,6 +259,7 @@
     projectMeta: {},
     taskMeta: {},
     myPermissions: [],
+    taskListTab: "all",
     currentPermUserID: "",
     currentPermCanManageAccess: false,
     accessCatalog: [],
@@ -2679,6 +2682,57 @@
     renderProgress();
     renderTasksTeam();
     renderStackInfoConsole();
+    renderTaskList();
+  }
+
+  function renderTaskList() {
+    if (!ui.taskListBody) return;
+    const query = state.searchQuery;
+    const filtered = state.tasks.filter((t) => {
+      if (!query) return true;
+      const hay = `${t.title || ""} ${t.description || ""} ${t.position_name || ""}`.toLowerCase();
+      return hay.includes(query);
+    });
+
+    const todo  = filtered.filter((t) => taskColumn(t.status) === "todo");
+    const doing = filtered.filter((t) => taskColumn(t.status) === "doing");
+    const done  = filtered.filter((t) => taskColumn(t.status) === "done");
+
+    const counts = { all: filtered.length, todo: todo.length, doing: doing.length, done: done.length };
+    const labels = { all: "Все задачи", todo: "Очередь", doing: "В работе", done: "Завершённые" };
+
+    ui.taskListTabs.forEach((btn) => {
+      const tab = btn.dataset.taskTab;
+      btn.setAttribute("aria-selected", tab === state.taskListTab ? "true" : "false");
+      btn.classList.toggle("active", tab === state.taskListTab);
+      btn.innerHTML =
+        `${labels[tab]}<span class="tlt-count">${counts[tab]}</span>`;
+    });
+
+    const map = { all: filtered, todo, doing, done };
+    const rows = map[state.taskListTab] || filtered;
+
+    if (rows.length === 0) {
+      ui.taskListBody.innerHTML = '<div class="empty-state">Нет задач в этой категории</div>';
+      return;
+    }
+
+    ui.taskListBody.innerHTML = rows.map((task) => {
+      const col = taskColumn(task.status);
+      const statusLabel = col === "todo" ? "Очередь" : col === "doing" ? "В работе" : "Завершено";
+      const assignee = task.assignee_user_id ? getDisplayName(task.assignee_user_id) : "не назначен";
+      const due = task.due_at ? formatDate(task.due_at) : "";
+      const overdue = task.due_at && col !== "done" && new Date(task.due_at) < new Date();
+      return (
+        `<div class="task-list-row" data-status="${col}">` +
+          `<span class="task-list-status-dot task-list-status-dot--${col}"></span>` +
+          `<span class="task-list-title">${escapeHTML(task.title || "Без названия")}</span>` +
+          `<span class="task-list-assignee">${escapeHTML(assignee)}</span>` +
+          (due ? `<span class="task-list-due${overdue ? " is-overdue" : ""}">${escapeHTML(due)}</span>` : `<span></span>`) +
+          `<span class="task-list-pill task-list-pill--${col}">${statusLabel}</span>` +
+        `</div>`
+      );
+    }).join("");
   }
 
   function renderCriteriaView() {
@@ -4301,6 +4355,13 @@
       state.searchQuery = String(ui.globalSearchInput.value || "").trim().toLowerCase();
       renderTeamTable();
       renderTasks();
+    });
+
+    ui.taskListTabs.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.taskListTab = btn.dataset.taskTab || "all";
+        renderTaskList();
+      });
     });
 
     if (ui.savePermissionsBtn) {

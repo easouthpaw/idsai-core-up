@@ -290,6 +290,16 @@
                   <div id="doneTasks" class="kanban-list"></div>
                 </section>
               </div>
+
+              <div class="task-list-panel">
+                <div class="task-list-tabs" role="tablist" aria-label="Фильтр задач">
+                  <button class="task-list-tab active" type="button" data-task-tab="all" role="tab" aria-selected="true">Все задачи</button>
+                  <button class="task-list-tab" type="button" data-task-tab="todo" role="tab" aria-selected="false">Очередь</button>
+                  <button class="task-list-tab" type="button" data-task-tab="doing" role="tab" aria-selected="false">В работе</button>
+                  <button class="task-list-tab" type="button" data-task-tab="done" role="tab" aria-selected="false">Завершённые</button>
+                </div>
+                <div id="taskListBody" class="task-list-body" aria-live="polite"></div>
+              </div>
             </article>
 
             <div class="tasks-side">
