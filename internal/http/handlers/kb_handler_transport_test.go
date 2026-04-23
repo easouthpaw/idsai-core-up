@@ -17,18 +17,44 @@ import (
 )
 
 type kbHandlerRepo struct {
-	categories []domain.KBCategory
-	articles   []domain.KBArticleListItem
-	total      int
-	article    domain.KBArticle
+	categories     []domain.KBCategory
+	articles       []domain.KBArticleListItem
+	total          int
+	article        domain.KBArticle
+	tags           []domain.KBTag
+	lastListStatus string
 }
 
 func (f *kbHandlerRepo) CreateCategory(ctx context.Context, tenantID uuid.UUID, parentID *uuid.UUID, title, slug string, sortOrder int) (domain.KBCategory, error) {
-	return domain.KBCategory{}, nil
+	cat := domain.KBCategory{
+		ID:        uuid.New(),
+		TenantID:  tenantID,
+		ParentID:  parentID,
+		Title:     title,
+		Slug:      slug,
+		SortOrder: sortOrder,
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+	}
+	if len(f.categories) > 0 && f.categories[0].ID != uuid.Nil {
+		cat.ID = f.categories[0].ID
+	}
+	f.categories = []domain.KBCategory{cat}
+	return cat, nil
 }
 
 func (f *kbHandlerRepo) UpdateCategory(ctx context.Context, tenantID, categoryID uuid.UUID, title, slug string, sortOrder int) (domain.KBCategory, error) {
-	return domain.KBCategory{}, nil
+	cat := domain.KBCategory{
+		ID:        categoryID,
+		TenantID:  tenantID,
+		Title:     title,
+		Slug:      slug,
+		SortOrder: sortOrder,
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+	}
+	f.categories = []domain.KBCategory{cat}
+	return cat, nil
 }
 
 func (f *kbHandlerRepo) DeleteCategory(ctx context.Context, tenantID, categoryID uuid.UUID) error {
@@ -44,10 +70,28 @@ func (f *kbHandlerRepo) ListCategoryTree(ctx context.Context, tenantID uuid.UUID
 }
 
 func (f *kbHandlerRepo) CreateArticle(ctx context.Context, tenantID, categoryID, authorID uuid.UUID, title, slug, content, status string, publishedAt *time.Time) (uuid.UUID, error) {
-	return uuid.Nil, nil
+	if f.article.ID == uuid.Nil {
+		f.article.ID = uuid.New()
+	}
+	f.article.TenantID = tenantID
+	f.article.CategoryID = categoryID
+	f.article.AuthorID = authorID
+	f.article.Title = title
+	f.article.Slug = slug
+	f.article.Content = content
+	f.article.Status = status
+	f.article.PublishedAt = publishedAt
+	return f.article.ID, nil
 }
 
 func (f *kbHandlerRepo) UpdateArticle(ctx context.Context, tenantID, articleID uuid.UUID, title, slug, content, status string, publishedAt *time.Time) error {
+	f.article.ID = articleID
+	f.article.TenantID = tenantID
+	f.article.Title = title
+	f.article.Slug = slug
+	f.article.Content = content
+	f.article.Status = status
+	f.article.PublishedAt = publishedAt
 	return nil
 }
 
@@ -60,15 +104,17 @@ func (f *kbHandlerRepo) GetArticleByID(ctx context.Context, tenantID, articleID 
 }
 
 func (f *kbHandlerRepo) ListArticles(ctx context.Context, tenantID uuid.UUID, categoryID *uuid.UUID, status, search, tag string, limit, offset int) ([]domain.KBArticleListItem, int, error) {
+	f.lastListStatus = status
 	return f.articles, f.total, nil
 }
 
 func (f *kbHandlerRepo) SyncArticleTags(ctx context.Context, tenantID, articleID uuid.UUID, tagNames []string) error {
+	f.article.Tags = tagNames
 	return nil
 }
 
 func (f *kbHandlerRepo) ListPopularTags(ctx context.Context, tenantID uuid.UUID, limit int) ([]domain.KBTag, error) {
-	return nil, nil
+	return f.tags, nil
 }
 
 func TestKBHandlerListCategories_UsesTransportDTO(t *testing.T) {

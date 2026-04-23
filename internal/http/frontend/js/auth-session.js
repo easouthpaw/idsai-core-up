@@ -815,6 +815,12 @@
 
   async function rawFetch(url, options = {}) {
     const opts = { credentials: "same-origin", ...options };
+    const method = String(opts.method || "GET").toUpperCase();
+    if (!["GET", "HEAD", "OPTIONS", "TRACE"].includes(method)) {
+      const headers = new Headers(opts.headers || {});
+      headers.set("X-CSRF-Check", "1");
+      opts.headers = headers;
+    }
     return fetch(url, opts);
   }
 

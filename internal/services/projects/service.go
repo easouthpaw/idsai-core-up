@@ -50,6 +50,12 @@ func (s *Service) SetReportSource(source FinalReportSource) {
 }
 
 func (s *Service) CreateProject(ctx context.Context, title, description string, facultyID uuid.UUID, visibility string, groupID *uuid.UUID, createdBy uuid.UUID) (uuid.UUID, error) {
+	if repo, ok := s.repo.(interface {
+		CreateWithLeadRole(ctx context.Context, title, description string, facultyID uuid.UUID, visibility string, groupID *uuid.UUID, createdBy uuid.UUID) (uuid.UUID, error)
+	}); ok {
+		return repo.CreateWithLeadRole(ctx, title, description, facultyID, visibility, groupID, createdBy)
+	}
+
 	projectID, err := s.repo.Create(ctx, title, description, facultyID, visibility, groupID, createdBy)
 	if err != nil {
 		return uuid.Nil, err

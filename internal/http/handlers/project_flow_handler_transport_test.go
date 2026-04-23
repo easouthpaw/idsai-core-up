@@ -22,8 +22,22 @@ type projectFlowTestDeps struct {
 	permissions       []string
 	project           domain.Project
 	assignedProfessor projectflow.ProfessorCandidate
+	professors        []projectflow.ProfessorCandidate
 	incomingInvites   []projectflow.IncomingInvite
+	outgoingApps      []projectflow.OutgoingApplication
 	member            projectflow.Member
+	members           []projectflow.Member
+	position          projectflow.Position
+	positions         []projectflow.Position
+	studentCandidates []projectflow.StudentCandidate
+	stackCodes        []string
+	taskID            uuid.UUID
+	task              projectflow.Task
+	tasks             []projectflow.Task
+	activities        []projectflow.TaskActivity
+	criterion         projectflow.Criterion
+	criteria          []projectflow.Criterion
+	grades            []projectflow.CriterionGrade
 }
 
 func (d *projectFlowTestDeps) Can(ctx context.Context, userID uuid.UUID, permissionCode string, scope rbac.Scope) (bool, error) {
@@ -47,15 +61,18 @@ func (d *projectFlowTestDeps) GrantRoleByCode(ctx context.Context, userID uuid.U
 }
 
 func (d *projectFlowTestDeps) GetProjectByID(ctx context.Context, projectID uuid.UUID) (domain.Project, error) {
+	if d.project.ID == uuid.Nil {
+		d.project.ID = projectID
+	}
 	return d.project, nil
 }
 
 func (d *projectFlowTestDeps) IsActiveProjectMember(ctx context.Context, userID, projectID uuid.UUID) (bool, error) {
-	return false, nil
+	return true, nil
 }
 
 func (d *projectFlowTestDeps) HasProjectRole(ctx context.Context, userID, projectID uuid.UUID, roleCode string) (bool, error) {
-	return false, nil
+	return true, nil
 }
 
 func (d *projectFlowTestDeps) RevokeProjectRole(ctx context.Context, userID, projectID uuid.UUID, roleCode string) error {
@@ -71,7 +88,7 @@ func (d *projectFlowTestDeps) OpenProjectRecruitment(ctx context.Context, projec
 }
 
 func (d *projectFlowTestDeps) ListStudentCandidates(ctx context.Context, facultyID, projectID, requesterUserID, projectOwnerID uuid.UUID, term string, limit int) ([]projectflow.StudentCandidate, error) {
-	return nil, nil
+	return d.studentCandidates, nil
 }
 
 func (d *projectFlowTestDeps) ReplaceProjectStacks(ctx context.Context, projectID uuid.UUID, stackCodes []string) error {
@@ -79,27 +96,45 @@ func (d *projectFlowTestDeps) ReplaceProjectStacks(ctx context.Context, projectI
 }
 
 func (d *projectFlowTestDeps) ListProjectStackCodes(ctx context.Context, projectID uuid.UUID) ([]string, error) {
-	return nil, nil
+	return d.stackCodes, nil
 }
 
 func (d *projectFlowTestDeps) CreateProjectPosition(ctx context.Context, projectID uuid.UUID, code, name string, capacity int) (projectflow.Position, error) {
-	return projectflow.Position{}, nil
+	if d.position.ID != "" {
+		return d.position, nil
+	}
+	return projectflow.Position{ID: uuid.NewString(), ProjectID: projectID.String(), Code: code, Name: name, Capacity: capacity}, nil
 }
 
 func (d *projectFlowTestDeps) EnsureProjectPosition(ctx context.Context, projectID uuid.UUID, code, name string, capacity int) (projectflow.Position, error) {
-	return projectflow.Position{}, nil
+	if d.position.ID != "" {
+		return d.position, nil
+	}
+	return projectflow.Position{ID: uuid.NewString(), ProjectID: projectID.String(), Code: code, Name: name, Capacity: capacity}, nil
 }
 
 func (d *projectFlowTestDeps) ListProjectPositions(ctx context.Context, projectID uuid.UUID) ([]projectflow.Position, error) {
+	if d.positions != nil {
+		return d.positions, nil
+	}
+	if d.position.ID != "" {
+		return []projectflow.Position{d.position}, nil
+	}
 	return nil, nil
 }
 
 func (d *projectFlowTestDeps) GetProjectPosition(ctx context.Context, projectID, positionID uuid.UUID) (projectflow.Position, error) {
-	return projectflow.Position{}, nil
+	if d.position.ID != "" {
+		return d.position, nil
+	}
+	return projectflow.Position{ID: positionID.String(), ProjectID: projectID.String(), Code: "BACKEND", Name: "Backend", Capacity: 2}, nil
 }
 
 func (d *projectFlowTestDeps) GetProjectPositionCapacity(ctx context.Context, projectID, positionID uuid.UUID) (int, error) {
-	return 0, nil
+	if d.position.Capacity > 0 {
+		return d.position.Capacity, nil
+	}
+	return 2, nil
 }
 
 func (d *projectFlowTestDeps) SumProjectPositionCapacities(ctx context.Context, projectID uuid.UUID) (int, error) {
@@ -107,19 +142,22 @@ func (d *projectFlowTestDeps) SumProjectPositionCapacities(ctx context.Context, 
 }
 
 func (d *projectFlowTestDeps) IsActiveStudentInFaculty(ctx context.Context, studentID, facultyID uuid.UUID) (bool, error) {
-	return false, nil
+	return true, nil
 }
 
 func (d *projectFlowTestDeps) UpsertInvitedMember(ctx context.Context, projectID, studentID, invitedBy uuid.UUID, comment string) (projectflow.Member, error) {
-	return projectflow.Member{}, nil
+	return d.member, nil
 }
 
 func (d *projectFlowTestDeps) UpsertAppliedMember(ctx context.Context, projectID, userID uuid.UUID, comment string) (projectflow.Member, error) {
-	return projectflow.Member{}, nil
+	return d.member, nil
 }
 
 func (d *projectFlowTestDeps) ListProjectMembers(ctx context.Context, projectID uuid.UUID) ([]projectflow.Member, error) {
-	return nil, nil
+	if d.members != nil {
+		return d.members, nil
+	}
+	return []projectflow.Member{d.member}, nil
 }
 
 func (d *projectFlowTestDeps) CountActiveMembersByPosition(ctx context.Context, projectID, positionID uuid.UUID, excludeUserID *uuid.UUID) (int, error) {
@@ -127,11 +165,15 @@ func (d *projectFlowTestDeps) CountActiveMembersByPosition(ctx context.Context, 
 }
 
 func (d *projectFlowTestDeps) GetProjectMemberStatusAndPosition(ctx context.Context, projectID, userID uuid.UUID) (string, *uuid.UUID, error) {
-	return "", nil, nil
+	if d.position.ID != "" {
+		id := uuid.MustParse(d.position.ID)
+		return "ACTIVE", &id, nil
+	}
+	return "ACTIVE", nil, nil
 }
 
 func (d *projectFlowTestDeps) CountActiveMembersWithPosition(ctx context.Context, projectID uuid.UUID) (int, error) {
-	return 0, nil
+	return 1, nil
 }
 
 func (d *projectFlowTestDeps) ApproveProjectMember(ctx context.Context, projectID, memberUserID uuid.UUID, positionID *uuid.UUID) (projectflow.Member, error) {
@@ -163,15 +205,18 @@ func (d *projectFlowTestDeps) ListIncomingInvites(ctx context.Context, userID uu
 }
 
 func (d *projectFlowTestDeps) ListOutgoingApplications(ctx context.Context, userID uuid.UUID, limit int) ([]projectflow.OutgoingApplication, error) {
-	return nil, nil
+	return d.outgoingApps, nil
 }
 
 func (d *projectFlowTestDeps) ListProfessorCandidates(ctx context.Context, facultyID uuid.UUID, term string, limit int, requesterUserID, projectOwnerID uuid.UUID) ([]projectflow.ProfessorCandidate, error) {
-	return nil, nil
+	if d.professors != nil {
+		return d.professors, nil
+	}
+	return []projectflow.ProfessorCandidate{d.assignedProfessor}, nil
 }
 
 func (d *projectFlowTestDeps) IsActiveProfessorInFaculty(ctx context.Context, professorID, facultyID uuid.UUID) (bool, error) {
-	return false, nil
+	return true, nil
 }
 
 func (d *projectFlowTestDeps) AssignProjectProfessor(ctx context.Context, projectID, professorID uuid.UUID) error {
@@ -187,7 +232,7 @@ func (d *projectFlowTestDeps) RespondProfessorInvite(ctx context.Context, projec
 }
 
 func (d *projectFlowTestDeps) ListProfessorReviewInvites(ctx context.Context, professorID uuid.UUID, term string, limit int) ([]domain.Project, error) {
-	return nil, nil
+	return []domain.Project{d.project}, nil
 }
 
 func (d *projectFlowTestDeps) GetProjectCriteriaWeightSum(ctx context.Context, projectID uuid.UUID) (int, error) {
@@ -195,15 +240,21 @@ func (d *projectFlowTestDeps) GetProjectCriteriaWeightSum(ctx context.Context, p
 }
 
 func (d *projectFlowTestDeps) CreateProjectCriterion(ctx context.Context, projectID, userID uuid.UUID, title, description string, weight int) (projectflow.Criterion, error) {
-	return projectflow.Criterion{}, nil
+	if d.criterion.ID != "" {
+		return d.criterion, nil
+	}
+	return projectflow.Criterion{ID: uuid.NewString(), ProjectID: projectID.String(), Title: title, Description: description, Weight: weight, CreatedBy: userID.String(), CreatedAt: time.Now()}, nil
 }
 
 func (d *projectFlowTestDeps) ListProjectCriteria(ctx context.Context, projectID uuid.UUID) ([]projectflow.Criterion, error) {
-	return nil, nil
+	if d.criteria != nil {
+		return d.criteria, nil
+	}
+	return []projectflow.Criterion{d.criterion}, nil
 }
 
 func (d *projectFlowTestDeps) ListProjectCriterionGrades(ctx context.Context, projectID, professorID uuid.UUID) ([]projectflow.CriterionGrade, error) {
-	return nil, nil
+	return d.grades, nil
 }
 
 func (d *projectFlowTestDeps) UpsertProjectCriterionGrades(ctx context.Context, projectID, professorID uuid.UUID, items []projectflow.CriterionGradeUpsert) error {
@@ -211,11 +262,20 @@ func (d *projectFlowTestDeps) UpsertProjectCriterionGrades(ctx context.Context, 
 }
 
 func (d *projectFlowTestDeps) CountProjectCriteria(ctx context.Context, projectID uuid.UUID) (int, error) {
-	return 0, nil
+	if d.criteria != nil {
+		return len(d.criteria), nil
+	}
+	if d.criterion.ID != "" {
+		return 1, nil
+	}
+	return 1, nil
 }
 
 func (d *projectFlowTestDeps) CountProjectGradedCriteria(ctx context.Context, projectID, professorID uuid.UUID) (int, error) {
-	return 0, nil
+	if d.grades != nil {
+		return len(d.grades), nil
+	}
+	return 1, nil
 }
 
 func (d *projectFlowTestDeps) ActivateProject(ctx context.Context, projectID uuid.UUID) error {
@@ -223,7 +283,7 @@ func (d *projectFlowTestDeps) ActivateProject(ctx context.Context, projectID uui
 }
 
 func (d *projectFlowTestDeps) CountProjectTasksSummary(ctx context.Context, projectID uuid.UUID) (int, int, error) {
-	return 0, 0, nil
+	return 1, 1, nil
 }
 
 func (d *projectFlowTestDeps) MoveProjectToGrading(ctx context.Context, projectID uuid.UUID) error {
@@ -243,15 +303,28 @@ func (d *projectFlowTestDeps) DeleteOwnedProject(ctx context.Context, projectID,
 }
 
 func (d *projectFlowTestDeps) CreateTask(ctx context.Context, projectID uuid.UUID, title, description string, positionID uuid.UUID, assigneeUserID *uuid.UUID, status string, createdBy uuid.UUID, dueAt *time.Time) (uuid.UUID, error) {
-	return uuid.Nil, nil
+	if d.taskID != uuid.Nil {
+		return d.taskID, nil
+	}
+	if d.task.ID != "" {
+		return uuid.MustParse(d.task.ID), nil
+	}
+	d.taskID = uuid.New()
+	return d.taskID, nil
 }
 
 func (d *projectFlowTestDeps) GetTaskByID(ctx context.Context, projectID, taskID uuid.UUID) (projectflow.Task, error) {
-	return projectflow.Task{}, nil
+	if d.task.ID != "" {
+		return d.task, nil
+	}
+	return projectflow.Task{ID: taskID.String(), ProjectID: projectID.String(), Title: "Task", Status: "OPEN", PositionID: uuid.NewString(), CreatedBy: uuid.NewString()}, nil
 }
 
 func (d *projectFlowTestDeps) ListProjectTasks(ctx context.Context, projectID uuid.UUID) ([]projectflow.Task, error) {
-	return nil, nil
+	if d.tasks != nil {
+		return d.tasks, nil
+	}
+	return []projectflow.Task{d.task}, nil
 }
 
 func (d *projectFlowTestDeps) EnsureTaskActivityLogAvailable(ctx context.Context) error {
@@ -259,27 +332,33 @@ func (d *projectFlowTestDeps) EnsureTaskActivityLogAvailable(ctx context.Context
 }
 
 func (d *projectFlowTestDeps) GetTaskStatusAndTitle(ctx context.Context, projectID, taskID uuid.UUID) (string, string, error) {
-	return "", "", nil
+	if d.task.Title != "" {
+		return d.task.Status, d.task.Title, nil
+	}
+	return "OPEN", "Task", nil
 }
 
 func (d *projectFlowTestDeps) UpdateTaskStatus(ctx context.Context, projectID, taskID uuid.UUID, status string) (uuid.UUID, error) {
-	return uuid.Nil, nil
+	return taskID, nil
 }
 
 func (d *projectFlowTestDeps) GetTaskAssignContext(ctx context.Context, projectID, taskID uuid.UUID) (uuid.UUID, string, string, *uuid.UUID, error) {
-	return uuid.Nil, "", "", nil, nil
+	if d.position.ID != "" {
+		return uuid.MustParse(d.position.ID), "OPEN", d.task.Title, nil, nil
+	}
+	return uuid.New(), "OPEN", "Task", nil, nil
 }
 
 func (d *projectFlowTestDeps) AssignTaskToUser(ctx context.Context, projectID, taskID, assigneeUserID uuid.UUID) (uuid.UUID, error) {
-	return uuid.Nil, nil
+	return taskID, nil
 }
 
 func (d *projectFlowTestDeps) ListProjectTaskActivities(ctx context.Context, projectID uuid.UUID, taskID *uuid.UUID) ([]projectflow.TaskActivity, error) {
-	return nil, nil
+	return d.activities, nil
 }
 
 func (d *projectFlowTestDeps) GetTaskCompleteContext(ctx context.Context, projectID, taskID uuid.UUID) (*uuid.UUID, string, string, error) {
-	return nil, "", "", nil
+	return &d.project.CreatedBy, "IN_PROGRESS", d.task.Title, nil
 }
 
 func (d *projectFlowTestDeps) UpsertTaskSubmission(ctx context.Context, projectID, taskID, userID uuid.UUID, comment string, attachments []string) error {
@@ -287,7 +366,7 @@ func (d *projectFlowTestDeps) UpsertTaskSubmission(ctx context.Context, projectI
 }
 
 func (d *projectFlowTestDeps) MarkTaskDone(ctx context.Context, projectID, taskID uuid.UUID) (uuid.UUID, error) {
-	return uuid.Nil, nil
+	return taskID, nil
 }
 
 func (d *projectFlowTestDeps) ClaimTask(ctx context.Context, projectID, taskID, userID uuid.UUID) error {

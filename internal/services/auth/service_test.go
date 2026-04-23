@@ -30,6 +30,11 @@ type fakeRepo struct {
 	resetToken            AuthTokenRecord
 	insertAuthTokenCount  int
 	invalidateTokenCount  int
+	refreshTenantID       uuid.UUID
+	refreshUserID         uuid.UUID
+	refreshExpiresAt      time.Time
+	refreshRevokedAt      *time.Time
+	revokeRefreshCount    int
 	createdGroupID        uuid.UUID
 	createdGroupCode      string
 	createdGroupNumber    int
@@ -104,6 +109,11 @@ func (f *fakeRepo) FindUserByID(ctx context.Context, tenantID, userID uuid.UUID)
 }
 
 func (f *fakeRepo) UpdateUserProfile(ctx context.Context, tenantID, userID uuid.UUID, in ProfileUpdate, updatedAt time.Time) error {
+	f.user.FullName = in.FullName
+	f.user.Headline = in.Headline
+	f.user.Stacks = append([]string(nil), in.Stacks...)
+	f.user.Interests = append([]string(nil), in.Interests...)
+	f.user.ProfileUpdatedAt = updatedAt
 	return nil
 }
 
@@ -114,6 +124,8 @@ func (f *fakeRepo) UpdateUserPasswordHash(ctx context.Context, tenantID, userID 
 }
 
 func (f *fakeRepo) MarkUserEmailVerified(ctx context.Context, tenantID, userID uuid.UUID, verifiedAt time.Time) error {
+	f.user.EmailVerifiedAt = &verifiedAt
+	f.user.Status = StatusActive
 	return nil
 }
 
@@ -122,14 +134,27 @@ func (f *fakeRepo) IsEmailInUse(ctx context.Context, tenantID, excludeUserID uui
 }
 
 func (f *fakeRepo) SetPendingEmail(ctx context.Context, tenantID, userID uuid.UUID, pendingEmail string, requestedAt time.Time) error {
+	f.user.PendingEmail = pendingEmail
+	f.user.PendingEmailAt = &requestedAt
 	return nil
 }
 
 func (f *fakeRepo) ActivatePendingEmail(ctx context.Context, tenantID, userID uuid.UUID, activatedAt time.Time) (string, error) {
+	if f.user.PendingEmail != "" {
+		f.user.Email = f.user.PendingEmail
+		f.user.PendingEmail = ""
+		f.user.PendingEmailAt = nil
+	}
 	return f.user.Email, nil
 }
 
 func (f *fakeRepo) UpdateUserAvatarKey(ctx context.Context, tenantID, userID uuid.UUID, avatarKey *string, updatedAt time.Time) error {
+	if avatarKey == nil {
+		f.user.AvatarKey = ""
+	} else {
+		f.user.AvatarKey = *avatarKey
+	}
+	f.user.AvatarUpdatedAt = &updatedAt
 	return nil
 }
 
@@ -139,14 +164,23 @@ func (f *fakeRepo) InsertRefreshToken(ctx context.Context, tenantID, userID uuid
 }
 
 func (f *fakeRepo) FindRefreshToken(ctx context.Context, tokenHash string) (uuid.UUID, uuid.UUID, time.Time, *time.Time, error) {
+	if f.refreshTenantID != uuid.Nil {
+		return f.refreshTenantID, f.refreshUserID, f.refreshExpiresAt, f.refreshRevokedAt, nil
+	}
 	return uuid.Nil, uuid.Nil, time.Time{}, nil, ErrNotFound
 }
 
 func (f *fakeRepo) RevokeRefreshToken(ctx context.Context, tokenHash string) error {
+	f.revokeRefreshCount++
 	return nil
 }
 
 func (f *fakeRepo) RevokeAndReturnRefreshToken(ctx context.Context, tokenHash string) (uuid.UUID, uuid.UUID, time.Time, error) {
+	if f.refreshTenantID != uuid.Nil && f.refreshRevokedAt == nil {
+		now := time.Now().UTC()
+		f.refreshRevokedAt = &now
+		return f.refreshTenantID, f.refreshUserID, f.refreshExpiresAt, nil
+	}
 	return uuid.Nil, uuid.Nil, time.Time{}, ErrNotFound
 }
 

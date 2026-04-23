@@ -336,26 +336,39 @@
       .replaceAll("'", "&#039;");
   }
 
+  const TYPE_REASONS = {
+    "project.member.application.rejected": "Тимлид не принял заявку в команду",
+    "project.member.removed": "Тимлид отозвал доступ к проекту",
+    "project.submission.rejected": "Работа не прошла проверку",
+    "project.grade.failed": "Оценка не зачтена",
+    "project.submission.retake": "Требуется исправить и пересдать работу",
+  };
+
+  function notificationReason(item) {
+    if (!item?.type) return "";
+    return TYPE_REASONS[String(item.type).toLowerCase()] || "";
+  }
+
   function notificationTone(item) {
-    const text = `${item?.type || ""} ${item?.title || ""} ${item?.body || ""}`.toLowerCase();
-    if (text.includes("retake") || text.includes("пересдач")) return "warning";
-    if (text.includes("rejected") || text.includes("отклон") || text.includes("removed") || text.includes("убрали")) return "error";
+    const type = String(item?.type || "").toLowerCase();
+
+    if (/\.(rejected|removed|denied|failed|error)(\.|$)/.test(type)) return "error";
+    if (/\.(retake|warning)(\.|$)/.test(type) || type.includes("retake")) return "warning";
+    if (/\.(accepted|approved|created|updated|activated|published|finished|sent_to_grading)(\.|$)/.test(type)) return "success";
+
+    // fallback: check only type + title, never body (avoid false positives like "отклонить")
+    const safeText = `${type} ${String(item?.title || "").toLowerCase()}`;
+    if (safeText.includes("retake") || safeText.includes("пересдач")) return "warning";
+    if (safeText.includes("rejected") || safeText.includes("removed")) return "error";
     if (
-      text.includes("accepted") ||
-      text.includes("approved") ||
-      text.includes("created") ||
-      text.includes("updated") ||
-      text.includes("activated") ||
-      text.includes("published") ||
-      text.includes("finished") ||
-      text.includes("sent_to_grading") ||
-      text.includes("принят") ||
-      text.includes("создан") ||
-      text.includes("заверш") ||
-      text.includes("опублик")
-    ) {
-      return "success";
-    }
+      safeText.includes("accepted") || safeText.includes("approved") ||
+      safeText.includes("created") || safeText.includes("updated") ||
+      safeText.includes("activated") || safeText.includes("published") ||
+      safeText.includes("finished") || safeText.includes("принят") ||
+      safeText.includes("создан") || safeText.includes("заверш") ||
+      safeText.includes("опублик")
+    ) return "success";
+
     return "info";
   }
 
@@ -380,6 +393,10 @@
     const tone = notificationTone(item);
     const icon = notificationIcon(tone);
     const toneLabel = notificationToneLabel(tone);
+    const reason = notificationReason(item);
+    const reasonHTML = reason
+      ? `<span class="idsai-notify-reason">${escapeHTML(reason)}</span>`
+      : "";
     const itemCls = item.is_read
       ? `idsai-notify-item idsai-notify-item--${tone} is-read`
       : `idsai-notify-item idsai-notify-item--${tone}`;
@@ -392,6 +409,7 @@
             <span class="idsai-notify-pill">${toneLabel}</span>
             <h4>${title}</h4>
             <p>${body}</p>
+            ${reasonHTML}
             <time>${createdAt}</time>
           </span>
         </button>

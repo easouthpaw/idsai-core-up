@@ -112,6 +112,9 @@
       headers["Content-Type"] = "application/json";
       nextOpts.body = JSON.stringify(nextOpts.body);
     }
+    if (nextOpts.method && !["GET", "HEAD", "OPTIONS", "TRACE"].includes(String(nextOpts.method).toUpperCase())) {
+      headers["X-CSRF-Check"] = "1";
+    }
     const res = await fetch(API + path, { ...nextOpts, headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -124,7 +127,7 @@
   // ── Markdown Rendering ────────────────────────────────────
 
   function renderMarkdown(md) {
-    if (!window.marked) return escapeHTML(md);
+    if (!window.marked || !window.DOMPurify) return escapeHTML(md);
 
     marked.setOptions({
       gfm: true,
@@ -167,7 +170,9 @@
       return `</div></div>`;
     });
 
-    return html;
+    return DOMPurify.sanitize(html, {
+      USE_PROFILES: { html: true },
+    });
   }
 
   // ── TOC Generation ────────────────────────────────────────

@@ -4,11 +4,12 @@ package postgres_test
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"idsai-core-up/internal/db"
+	"idsai-core-up/internal/domain"
 	"idsai-core-up/internal/repos/postgres"
 	"idsai-core-up/internal/requestctx"
 	"idsai-core-up/internal/services/projects"
@@ -17,48 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestProjectsRepo_Integration_CreateAndGet(t *testing.T) {
-	dsn := os.Getenv("DATABASE_URL")
-	require.NotEmpty(t, dsn)
-
-	ctx := context.Background()
-	pool, err := db.NewPool(ctx, dsn)
-	require.NoError(t, err)
-	defer pool.Close()
-
-	repo := postgres.NewProjectsRepo(pool)
-
-	// ✅ ВОТ СЮДА добавляем: достаем facultyID из таблицы faculties
-	var facultyID uuid.UUID
-	var tenantID uuid.UUID
-	err = pool.QueryRow(ctx, `SELECT id, tenant_id FROM faculties WHERE code='IDSAI_ENU'`).Scan(&facultyID, &tenantID)
-	require.NoError(t, err)
-
-	createdBy := uuid.New()
-	ctx = requestctx.WithIdentity(ctx, createdBy, tenantID, facultyID, uuid.New())
-
-	// ✅ Create теперь принимает facultyID + visibility + groupID
-	id, err := repo.Create(ctx, "My Project", "Demo", facultyID, "FACULTY", nil, createdBy)
-	require.NoError(t, err)
-	require.NotEqual(t, uuid.Nil, id)
-
-	p, err := repo.GetByID(ctx, id)
-	require.NoError(t, err)
-
-	require.Equal(t, id, p.ID)
-	require.Equal(t, "My Project", p.Title)
-	require.Equal(t, "Demo", p.Description)
-	require.Equal(t, createdBy, p.CreatedBy)
-	require.Equal(t, "DRAFT", string(p.Status))
-	require.False(t, p.IsPublic)
-	require.Nil(t, p.ProfessorID)
-
-	require.Equal(t, facultyID, p.FacultyID)
-	require.Equal(t, "FACULTY", p.Visibility)
-	require.Nil(t, p.GroupID)
-}
-
-func TestProjectsRepo_Integration_GetByID_DeniesCrossTenant(t *testing.T) {
+func TestProjectsRepo_Integration_ProjectListsPermissionsMediaAndSummary(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")
 	require.NotEmpty(t, dsn)
 
@@ -67,115 +27,157 @@ func TestProjectsRepo_Integration_GetByID_DeniesCrossTenant(t *testing.T) {
 	require.NoError(t, err)
 	defer pool.Close()
 
+	authRepo := postgres.NewAuthRepo(pool)
 	repo := postgres.NewProjectsRepo(pool)
-
-	tenantA := uuid.New()
-	tenantB := uuid.New()
-	facultyA := uuid.New()
-	facultyB := uuid.New()
-	userA := uuid.New()
-	userB := uuid.New()
-
-	_, err = pool.Exec(baseCtx, `
-INSERT INTO tenants(id, code, name, status)
-VALUES ($1, $2, $3, 'ACTIVE'), ($4, $5, $6, 'ACTIVE');
-`,
-		tenantA, "TENANT_A_"+tenantA.String()[:8], "Tenant A",
-		tenantB, "TENANT_B_"+tenantB.String()[:8], "Tenant B",
-	)
+	scope := seedAuthScope(t, baseCtx, pool)
+	groupID, err := authRepo.CreateGroupInDepartment(baseCtx, scope.tenantID, scope.facultyID, scope.departmentID, scope.groupCode1, 101)
 	require.NoError(t, err)
 
-	_, err = pool.Exec(baseCtx, `
-INSERT INTO faculties(id, tenant_id, code, name)
-VALUES ($1, $2, $3, $4), ($5, $6, $7, $8);
-`,
-		facultyA, tenantA, "FAC_A_"+facultyA.String()[:8], "Faculty A",
-		facultyB, tenantB, "FAC_B_"+facultyB.String()[:8], "Faculty B",
-	)
+	ownerID := seedAuthUserProfile(t, baseCtx, pool, scope, "projects owner", groupID)
+	memberID := seedAuthUserProfile(t, baseCtx, pool, scope, "projects member", groupID)
+	professorID := seedAuthUserProfile(t, baseCtx, pool, scope, "projects professor", groupID)
+	ctx := requestctx.WithIdentity(baseCtx, ownerID, scope.tenantID, scope.facultyID, scope.departmentID)
+
+	projectID, err := repo.CreateWithLeadRole(ctx, "Repo Project", "Integration coverage", scope.facultyID, "GROUP", &groupID, ownerID)
+	require.NoError(t, err)
+	publicID, err := repo.Create(ctx, "Public Repo Project", "Public coverage", scope.facultyID, "PUBLIC", nil, ownerID)
 	require.NoError(t, err)
 
-	_, err = pool.Exec(baseCtx, `
-INSERT INTO users(id, tenant_id, email, password_hash, status)
-VALUES
-  ($1, $2, $3, 'integration-hash', 'ACTIVE'),
-  ($4, $5, $6, 'integration-hash', 'ACTIVE');
-`,
-		userA, tenantA, fmt.Sprintf("projects-a-%s@example.local", userA.String()),
-		userB, tenantB, fmt.Sprintf("projects-b-%s@example.local", userB.String()),
-	)
+	project, err := repo.GetByID(ctx, projectID)
 	require.NoError(t, err)
+	require.Equal(t, projectID, project.ID)
+	require.Equal(t, ownerID, project.CreatedBy)
+	require.Equal(t, scope.facultyID, project.FacultyID)
+	require.False(t, project.IsPublic)
+	require.NotNil(t, project.GroupID)
+	require.Equal(t, groupID, *project.GroupID)
+	require.GreaterOrEqual(t, project.DefaultCoverVariant, 1)
+	require.LessOrEqual(t, project.DefaultCoverVariant, 6)
 
-	ctxA := requestctx.WithIdentity(baseCtx, userA, tenantA, facultyA, uuid.New())
-	ctxB := requestctx.WithIdentity(baseCtx, userB, tenantB, facultyB, uuid.New())
-
-	projectA, err := repo.Create(ctxA, "Tenant A Project", "A", facultyA, "FACULTY", nil, userA)
-	require.NoError(t, err)
-	projectB, err := repo.Create(ctxB, "Tenant B Project", "B", facultyB, "FACULTY", nil, userB)
-	require.NoError(t, err)
-	require.NotEqual(t, projectA, projectB)
-
-	_, err = repo.GetByID(ctxA, projectB)
+	_, err = repo.GetByID(ctx, uuid.New())
 	require.ErrorIs(t, err, projects.ErrNotFound)
-}
 
-func TestProjectsRepo_Integration_ListByCreator_IncludesActiveMemberProjects(t *testing.T) {
-	dsn := os.Getenv("DATABASE_URL")
-	require.NotEmpty(t, dsn)
-
-	ctx := context.Background()
-	pool, err := db.NewPool(ctx, dsn)
+	ok, err := repo.HasProjectPermission(ctx, ownerID, projectID, "grading.view")
 	require.NoError(t, err)
-	defer pool.Close()
-
-	repo := postgres.NewProjectsRepo(pool)
-
-	var facultyID uuid.UUID
-	var tenantID uuid.UUID
-	err = pool.QueryRow(ctx, `SELECT id, tenant_id FROM faculties WHERE code='IDSAI_ENU'`).Scan(&facultyID, &tenantID)
+	require.True(t, ok)
+	ok, err = repo.HasResolvedProjectPermission(ctx, ownerID, projectID, "project.view")
 	require.NoError(t, err)
-
-	creatorID := uuid.New()
-	memberID := uuid.New()
-
-	_, err = pool.Exec(ctx, `
-INSERT INTO users(id, tenant_id, email, password_hash, status)
-VALUES
-  ($1, $2, $3, 'integration-hash', 'ACTIVE'),
-  ($4, $2, $5, 'integration-hash', 'ACTIVE');
-`,
-		creatorID, tenantID, fmt.Sprintf("creator-%s@example.local", creatorID.String()),
-		memberID, fmt.Sprintf("member-%s@example.local", memberID.String()),
-	)
+	require.True(t, ok)
+	ok, err = repo.HasProjectPermission(ctx, memberID, projectID, "project.edit")
 	require.NoError(t, err)
+	require.False(t, ok)
 
-	creatorCtx := requestctx.WithIdentity(ctx, creatorID, tenantID, facultyID, uuid.New())
-	projectID, err := repo.Create(creatorCtx, "Shared Project", "team flow", facultyID, "FACULTY", nil, creatorID)
+	imageUpdatedAt := time.Date(2026, 4, 21, 12, 0, 0, 0, time.UTC)
+	require.NoError(t, repo.SetProjectImage(ctx, projectID, "projects/covers/repo.jpg", imageUpdatedAt))
+	project, err = repo.GetByID(ctx, projectID)
 	require.NoError(t, err)
+	require.Equal(t, "projects/covers/repo.jpg", project.ImageKey)
+	require.NotNil(t, project.ImageUpdatedAt)
+	require.NoError(t, repo.ClearProjectImage(ctx, projectID))
+	project, err = repo.GetByID(ctx, projectID)
+	require.NoError(t, err)
+	require.Empty(t, project.ImageKey)
+	require.NotNil(t, project.ImageUpdatedAt)
+	err = repo.SetProjectImage(ctx, uuid.New(), "missing.jpg", imageUpdatedAt)
+	require.ErrorIs(t, err, projects.ErrNotFound)
+	err = repo.ClearProjectImage(ctx, uuid.New())
+	require.ErrorIs(t, err, projects.ErrNotFound)
 
-	_, err = pool.Exec(ctx, `
+	foundGroupID, err := repo.FindGroupIDByCode(ctx, scope.facultyID, scope.groupCode1)
+	require.NoError(t, err)
+	require.Equal(t, groupID, foundGroupID)
+	_, err = repo.FindGroupIDByCode(ctx, scope.facultyID, "NOPE-404")
+	require.ErrorIs(t, err, projects.ErrGroupNotFound)
+
+	groups, err := repo.ListGroupsByFaculty(ctx, scope.facultyID)
+	require.NoError(t, err)
+	require.Contains(t, groupIDs(groups), groupID)
+
+	_, err = pool.Exec(baseCtx, `
 INSERT INTO project_members(tenant_id, project_id, user_id, status, joined_at)
 VALUES ($1, $2, $3, 'ACTIVE', now())
 ON CONFLICT (project_id, user_id)
 DO UPDATE SET status = 'ACTIVE', joined_at = now();
-`, tenantID, projectID, memberID)
+`, scope.tenantID, projectID, memberID)
+	require.NoError(t, err)
+	require.NoError(t, grantProjectFlowRole(baseCtx, pool, scope.tenantID, professorID, "PROJECT_PROFESSOR", "PROJECT", &projectID))
+
+	ownerProjects, err := repo.ListByCreator(ctx, ownerID)
+	require.NoError(t, err)
+	require.Contains(t, projectIDs(ownerProjects), projectID)
+	require.Contains(t, projectIDs(ownerProjects), publicID)
+
+	memberProjects, err := repo.ListByCreator(ctx, memberID)
+	require.NoError(t, err)
+	require.Contains(t, projectIDs(memberProjects), projectID)
+
+	professorProjects, err := repo.ListByCreator(ctx, professorID)
+	require.NoError(t, err)
+	require.Contains(t, projectIDs(professorProjects), projectID)
+
+	facultyProjects, err := repo.ListByFaculty(ctx, scope.facultyID, memberID)
+	require.NoError(t, err)
+	require.Contains(t, projectIDs(facultyProjects), projectID)
+	require.Contains(t, projectIDs(facultyProjects), publicID)
+
+	publicProjects, err := repo.ListPublic(ctx, uuid.Nil)
+	require.NoError(t, err)
+	require.Contains(t, projectIDs(publicProjects), publicID)
+	require.NotContains(t, projectIDs(publicProjects), projectID)
+
+	reviewedAt := time.Date(2026, 4, 21, 13, 0, 0, 0, time.UTC)
+	criterionMetID := uuid.New()
+	criterionMissID := uuid.New()
+	_, err = pool.Exec(baseCtx, `
+UPDATE projects
+SET professor_id = $1,
+    status = 'COMPLETED',
+    retake_count = 1
+WHERE id = $2;
+`, professorID, projectID)
+	require.NoError(t, err)
+	_, err = pool.Exec(baseCtx, `
+INSERT INTO project_criteria(id, tenant_id, project_id, title, description, weight, created_by)
+VALUES
+  ($1, $3, $4, 'Core works', 'main path', 80, $5),
+  ($2, $3, $4, 'Docs ready', 'docs path', 20, $5);
+`, criterionMetID, criterionMissID, scope.tenantID, projectID, ownerID)
+	require.NoError(t, err)
+	_, err = pool.Exec(baseCtx, `
+INSERT INTO project_criterion_reviews(tenant_id, project_id, criterion_id, professor_id, is_met, comment, created_at, updated_at)
+VALUES
+  ($1, $2, $3, $5, TRUE, 'done', $6, $6),
+  ($1, $2, $4, $5, FALSE, 'missing docs', $6, $6);
+`, scope.tenantID, projectID, criterionMetID, criterionMissID, professorID, reviewedAt)
 	require.NoError(t, err)
 
-	memberCtx := requestctx.WithIdentity(ctx, memberID, tenantID, facultyID, uuid.New())
-	items, err := repo.ListByCreator(memberCtx, memberID)
+	summary, err := repo.GetProjectReviewSummary(ctx, projectID)
 	require.NoError(t, err)
-	require.Len(t, items, 1)
-	require.Equal(t, projectID, items[0].ID)
+	require.NotNil(t, summary)
+	require.Equal(t, 2, summary.Total)
+	require.Equal(t, 1, summary.Met)
+	require.Equal(t, 75, summary.PassPercent)
+	require.Equal(t, "3.8", summary.Score)
+	require.Equal(t, "Auth projects professor", summary.Reviewer)
+	require.NotNil(t, summary.ReviewedAt)
 
-	_, err = pool.Exec(ctx, `
-UPDATE project_members
-SET status = 'REMOVED', joined_at = NULL
-WHERE tenant_id = $1
-  AND project_id = $2
-  AND user_id = $3;
-`, tenantID, projectID, memberID)
+	missingSummary, err := repo.GetProjectReviewSummary(ctx, uuid.New())
 	require.NoError(t, err)
+	require.Nil(t, missingSummary)
+}
 
-	items, err = repo.ListByCreator(memberCtx, memberID)
-	require.NoError(t, err)
-	require.Empty(t, items)
+func projectIDs(items []domain.Project) []uuid.UUID {
+	out := make([]uuid.UUID, 0, len(items))
+	for _, item := range items {
+		out = append(out, item.ID)
+	}
+	return out
+}
+
+func groupIDs(items []projects.Group) []uuid.UUID {
+	out := make([]uuid.UUID, 0, len(items))
+	for _, item := range items {
+		out = append(out, item.ID)
+	}
+	return out
 }

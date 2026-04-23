@@ -109,6 +109,16 @@ type fakeGrantor struct {
 	err      error
 }
 
+type fakeAtomicProjectsRepo struct {
+	fakeProjectsRepo
+	atomicCalled bool
+}
+
+func (f *fakeAtomicProjectsRepo) CreateWithLeadRole(ctx context.Context, title, description string, facultyID uuid.UUID, visibility string, groupID *uuid.UUID, createdBy uuid.UUID) (uuid.UUID, error) {
+	f.atomicCalled = true
+	return f.id, f.err
+}
+
 func TestService_GetProject_ReturnsProject(t *testing.T) {
 	pid := uuid.New()
 	fid := uuid.New()
@@ -413,6 +423,21 @@ func TestService_CreateProject_GrantsTeamLead(t *testing.T) {
 	require.Equal(t, rbac.ScopeProject, grantor.scope.Type)
 	require.NotNil(t, grantor.scope.ID)
 	require.Equal(t, projectID, *grantor.scope.ID)
+}
+
+func TestService_CreateProject_UsesAtomicCreatorWhenAvailable(t *testing.T) {
+	projectID := uuid.New()
+	createdBy := uuid.New()
+	repo := &fakeAtomicProjectsRepo{fakeProjectsRepo: fakeProjectsRepo{id: projectID}}
+	grantor := &fakeGrantor{}
+	svc := projects.NewService(repo, grantor)
+
+	gotID, err := svc.CreateProject(context.Background(), "X", "Y", uuid.New(), "FACULTY", nil, createdBy)
+
+	require.NoError(t, err)
+	require.Equal(t, projectID, gotID)
+	require.True(t, repo.atomicCalled)
+	require.False(t, grantor.called)
 }
 
 func TestService_ListPublicProjects_ReturnsItems(t *testing.T) {

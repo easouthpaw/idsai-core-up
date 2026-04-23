@@ -28,6 +28,7 @@ func NewRouter(
 ) *gin.Engine {
 	r := gin.New()
 	r.Use(middleware.RequestLogger(), gin.Recovery())
+	r.Use(middleware.CSRFProtection())
 	r.Use(func(c *gin.Context) {
 		if strings.HasPrefix(c.Request.URL.Path, "/dev") {
 			c.Header("Cache-Control", "no-store, max-age=0")

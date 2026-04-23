@@ -56,8 +56,7 @@ func projectsReviewSummaryRetakeExpr(includeRetake bool) string {
 	return "0 AS retake_count"
 }
 
-func (r *ProjectsRepo) Create(ctx context.Context, title, description string, facultyID uuid.UUID, visibility string, groupID *uuid.UUID, createdBy uuid.UUID) (uuid.UUID, error) {
-	const qCreateProject = `
+const qCreateProject = `
 INSERT INTO projects(tenant_id, title, description, status, is_public, created_by, faculty_id, visibility, group_id, default_cover_variant)
 VALUES (
   (SELECT tenant_id FROM faculties WHERE id = $3),
@@ -73,12 +72,26 @@ VALUES (
 )
 RETURNING id;
 `
-	const qCreateLeadMember = `
+
+const qCreateLeadMember = `
 INSERT INTO project_members(tenant_id, project_id, user_id, status, joined_at)
 VALUES ((SELECT tenant_id FROM projects WHERE id = $1), $1, $2, 'ACTIVE', now())
 ON CONFLICT (project_id, user_id)
 DO UPDATE SET status='ACTIVE', joined_at=COALESCE(project_members.joined_at, now());
 `
+
+const qGrantProjectTeamLead = `
+INSERT INTO role_assignments(tenant_id, user_id, role_id, scope_type, scope_id, expires_at)
+SELECT p.tenant_id, $2, r.id, 'PROJECT', $1, NULL
+FROM projects p
+JOIN users u ON u.id = $2 AND u.tenant_id = p.tenant_id
+JOIN roles r ON r.code = 'TEAM_LEAD'
+WHERE p.id = $1
+ON CONFLICT (tenant_id, user_id, role_id, scope_type, scope_id) WHERE scope_id IS NOT NULL
+DO UPDATE SET expires_at = EXCLUDED.expires_at;
+`
+
+func (r *ProjectsRepo) Create(ctx context.Context, title, description string, facultyID uuid.UUID, visibility string, groupID *uuid.UUID, createdBy uuid.UUID) (uuid.UUID, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return uuid.Nil, err
@@ -92,6 +105,33 @@ DO UPDATE SET status='ACTIVE', joined_at=COALESCE(project_members.joined_at, now
 	}
 	if _, err := tx.Exec(ctx, qCreateLeadMember, id, createdBy); err != nil {
 		return uuid.Nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return uuid.Nil, err
+	}
+	return id, nil
+}
+
+func (r *ProjectsRepo) CreateWithLeadRole(ctx context.Context, title, description string, facultyID uuid.UUID, visibility string, groupID *uuid.UUID, createdBy uuid.UUID) (uuid.UUID, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	var id uuid.UUID
+	if err := tx.QueryRow(ctx, qCreateProject, title, description, facultyID, visibility, createdBy, groupID).Scan(&id); err != nil {
+		return uuid.Nil, err
+	}
+	if _, err := tx.Exec(ctx, qCreateLeadMember, id, createdBy); err != nil {
+		return uuid.Nil, err
+	}
+	tag, err := tx.Exec(ctx, qGrantProjectTeamLead, id, createdBy)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if tag.RowsAffected() == 0 {
+		return uuid.Nil, errors.New("grant project team lead role: role, user, or project not found")
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return uuid.Nil, err
@@ -338,8 +378,8 @@ func (r *ProjectsRepo) SetProjectImage(ctx context.Context, projectID uuid.UUID,
 
 	tag, err := r.db.Exec(ctx, `
 UPDATE projects
-SET image_key = $2,
-    image_updated_at = $3
+SET image_key = $3,
+    image_updated_at = $4
 WHERE tenant_id = $1
   AND id = $2;
 `, tenantID, projectID, imageKey, updatedAt)

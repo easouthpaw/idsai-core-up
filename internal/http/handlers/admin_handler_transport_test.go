@@ -18,7 +18,9 @@ import (
 
 type adminHandlerRepo struct {
 	users       []admin.User
+	projects    []admin.Project
 	createdUser admin.User
+	project     admin.Project
 	observation admin.ProjectObservation
 }
 
@@ -27,7 +29,7 @@ func (f *adminHandlerRepo) ListUsers(ctx context.Context, roleCode, search strin
 }
 
 func (f *adminHandlerRepo) ListProjects(ctx context.Context, status, search string) ([]admin.Project, error) {
-	return nil, nil
+	return f.projects, nil
 }
 
 func (f *adminHandlerRepo) GetProjectObservation(ctx context.Context, projectID uuid.UUID) (admin.ProjectObservation, error) {
@@ -39,6 +41,10 @@ func (f *adminHandlerRepo) CreateUser(ctx context.Context, in admin.CreateUserPa
 }
 
 func (f *adminHandlerRepo) GetUserByID(ctx context.Context, userID uuid.UUID) (admin.User, error) {
+	if f.createdUser.ID != uuid.Nil {
+		f.createdUser.ID = userID
+		return f.createdUser, nil
+	}
 	return admin.User{}, admin.ErrUserNotFound
 }
 
@@ -71,6 +77,10 @@ func (f *adminHandlerRepo) DeleteProject(ctx context.Context, projectID uuid.UUI
 }
 
 func (f *adminHandlerRepo) GetProjectByID(ctx context.Context, projectID uuid.UUID) (admin.Project, error) {
+	if f.project.ID != uuid.Nil {
+		f.project.ID = projectID
+		return f.project, nil
+	}
 	return admin.Project{}, admin.ErrProjectNotFound
 }
 
@@ -212,4 +222,83 @@ func TestAdminHandlerObserveProject_UsesTransportDTO(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.JSONEq(t, mustJSON(t, dto.AdminProjectObservationResponseFromService(repo.observation)), rec.Body.String())
+}
+
+func TestAdminHandlerUserMutationRoutes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	userID := uuid.New()
+	adminID := uuid.New()
+	repo := &adminHandlerRepo{
+		createdUser: admin.User{
+			ID:             userID,
+			FullName:       "Managed User",
+			Email:          "managed@example.edu",
+			RoleCode:       admin.RoleProfessor,
+			Status:         admin.StatusActive,
+			FacultyCode:    "IDSAI",
+			DepartmentCode: "CS",
+		},
+	}
+	handler := NewAdminHandler(admin.NewService(repo))
+	router := gin.New()
+	router.Use(withProjectFlowUser(adminID))
+	router.POST("/v2/admin/users/professors", handler.CreateProfessor)
+	router.PUT("/v2/admin/users/:user_id/status", handler.SetStatus)
+	router.PUT("/v2/admin/users/:user_id/role", handler.SetRole)
+	router.PUT("/v2/admin/users/:user_id/password", handler.ResetPassword)
+	router.DELETE("/v2/admin/users/:user_id", handler.DeleteUser)
+
+	requireStatus(t, router, http.MethodPost, "/v2/admin/users/professors", `{"email":"managed@example.edu","password":"Password123","full_name":"Managed User","department_code":"CS"}`, http.StatusCreated)
+	requireStatus(t, router, http.MethodPut, "/v2/admin/users/"+userID.String()+"/status", `{"status":"disabled"}`, http.StatusNoContent)
+	requireStatus(t, router, http.MethodPut, "/v2/admin/users/"+userID.String()+"/role", `{"role":"student"}`, http.StatusOK)
+	requireStatus(t, router, http.MethodPut, "/v2/admin/users/"+userID.String()+"/password", `{"password":"Password123"}`, http.StatusNoContent)
+	requireStatus(t, router, http.MethodDelete, "/v2/admin/users/"+userID.String(), "", http.StatusNoContent)
+	requireStatus(t, router, http.MethodDelete, "/v2/admin/users/"+adminID.String(), "", http.StatusBadRequest)
+}
+
+func TestAdminHandlerProjectMutationRoutes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	now := time.Date(2026, 4, 10, 12, 0, 0, 0, time.UTC)
+	projectID := uuid.New()
+	adminID := uuid.New()
+	repo := &adminHandlerRepo{
+		project: admin.Project{
+			ID:             projectID,
+			Title:          "Admin Project",
+			Description:    "demo",
+			Status:         "COMPLETED",
+			Visibility:     "FACULTY",
+			CreatedBy:      uuid.New(),
+			AuthorName:     "Lead",
+			AuthorEmail:    "lead@example.edu",
+			FacultyCode:    "IDSAI",
+			DepartmentCode: "CS",
+			CreatedAt:      now,
+			UpdatedAt:      now,
+		},
+		projects: []admin.Project{
+			{
+				ID:          projectID,
+				Title:       "Admin Project",
+				Description: "demo",
+				Status:      "COMPLETED",
+				Visibility:  "FACULTY",
+				CreatedBy:   uuid.New(),
+				CreatedAt:   now,
+				UpdatedAt:   now,
+			},
+		},
+	}
+	handler := NewAdminHandler(admin.NewService(repo))
+	router := gin.New()
+	router.Use(withFlowContext(adminID, uuid.New(), uuid.New()))
+	router.GET("/v2/admin/projects", handler.ListProjects)
+	router.PUT("/v2/admin/projects/:project_id/status", handler.SetProjectStatus)
+	router.DELETE("/v2/admin/projects/:project_id", handler.DeleteProject)
+
+	requireStatus(t, router, http.MethodGet, "/v2/admin/projects?status=completed&q=admin", "", http.StatusOK)
+	requireStatus(t, router, http.MethodPut, "/v2/admin/projects/"+projectID.String()+"/status", `{"status":"archive"}`, http.StatusNoContent)
+	requireStatus(t, router, http.MethodDelete, "/v2/admin/projects/"+projectID.String(), "", http.StatusNoContent)
 }

@@ -45,6 +45,7 @@
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-CSRF-Check": "1",
         },
         body: JSON.stringify(payload),
       });

@@ -72,6 +72,15 @@
       .replaceAll('"', "&quot;");
   }
 
+  function renderSafeMarkdown(md) {
+    if (!window.marked || !window.DOMPurify) {
+      return escapeHTML(md);
+    }
+    return DOMPurify.sanitize(marked.parse(md || ""), {
+      USE_PROFILES: { html: true },
+    });
+  }
+
   function relativeTime(dateStr) {
     if (!dateStr) return "";
     if (i18n) return i18n.relativeTime(dateStr);
@@ -99,6 +108,9 @@
     if (nextOpts.body && typeof nextOpts.body === "object" && !(nextOpts.body instanceof FormData)) {
       headers["Content-Type"] = "application/json";
       nextOpts.body = JSON.stringify(nextOpts.body);
+    }
+    if (nextOpts.method && !["GET", "HEAD", "OPTIONS", "TRACE"].includes(String(nextOpts.method).toUpperCase())) {
+      headers["X-CSRF-Check"] = "1";
     }
     const res = await fetch(API + path, { ...nextOpts, headers });
     if (!res.ok) {
@@ -495,8 +507,8 @@
         tab.closest(".kb-editor-tabs").querySelectorAll(".kb-editor-tab").forEach((t) => t.classList.toggle("is-active", t === tab));
         ui.artContentInput.style.display = isWrite ? "" : "none";
         ui.artPreview.style.display = isWrite ? "none" : "";
-        if (!isWrite && window.marked) {
-          ui.artPreview.innerHTML = marked.parse(ui.artContentInput.value || "");
+        if (!isWrite) {
+          ui.artPreview.innerHTML = renderSafeMarkdown(ui.artContentInput.value || "");
         }
       });
     });

@@ -351,6 +351,22 @@
   font: 600 11px/1 "JetBrains Mono", ui-monospace, monospace;
 }
 
+.idsai-notify-reason {
+  display: block;
+  font: 600 11px/1.3 "Inter", "Segoe UI", sans-serif;
+  color: #b91c1c;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
+.idsai-notify-item--warning .idsai-notify-reason {
+  color: #92400e;
+}
+
+.idsai-notify-item--error .idsai-notify-reason {
+  color: #b91c1c;
+}
+
 .idsai-notify-item--info {
   border-left-color: #2563eb;
   border-color: rgba(37, 99, 235, 0.14);
