@@ -12,10 +12,6 @@ type StatusResponse struct {
 	Status string `json:"status"`
 }
 
-type TaskDemoListResponse struct {
-	Items []string `json:"items"`
-}
-
 type HealthStatusResponse struct {
 	Status string `json:"status"`
 	Error  string `json:"error,omitempty"`

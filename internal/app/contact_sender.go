@@ -69,7 +69,7 @@ func newContactEmailSender(cfg config.Config) contactSender {
 	}
 
 	return contactEmailSender{
-		sender:  email.NewSMTPSenderWithTimeout(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom, time.Duration(cfg.SMTPSendTimeoutS)*time.Second),
+		sender:  email.NewSMTPSenderWithOptions(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom, time.Duration(cfg.SMTPSendTimeoutS)*time.Second, cfg.SMTPUseSSL),
 		to:      to,
 		subject: "IDSAI: новое сообщение с landing page",
 	}

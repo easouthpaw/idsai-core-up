@@ -260,7 +260,6 @@ Scope resolvers:
 | `TENANT_ADMIN` | `TENANT` | Администратор tenant |
 | `STUDENT` | `FACULTY` | Студент, может создавать проекты и подавать заявки в рамках faculty |
 | `PROFESSOR` | `FACULTY` | Преподаватель, может видеть проекты faculty и отвечать на invite |
-| `MODERATOR` | `FACULTY` | Модерация free projects |
 | `TEAM_LEAD` | `PROJECT` | Автор/лидер проекта |
 | `MEMBER` | `PROJECT` | Активный участник проекта |
 | `INVITED_MEMBER` | `PROJECT` | Приглашенный участник до принятия |
@@ -270,6 +269,7 @@ Scope resolvers:
 | `TASK_MANAGER` | `PROJECT` | Делегированная роль для управления задачами |
 
 Важно: `APPLIED` встречается в lifecycle участников как `project_members.status`, но не является записью в `roles`.
+Историческая роль `MODERATOR` удалена миграцией `00044_remove_legacy_project_files_and_moderator.sql` и больше не участвует в runtime-контуре.
 
 ### 2.6 Как реализованы права доступа
 
@@ -442,6 +442,7 @@ tenants 1--N role_assignments
 - `migrations/00037_rbac_professor_faculty_project_read.sql` - faculty-level read для `PROFESSOR`;
 - `migrations/00038_rbac_delegated_project_roles.sql` - `CO_LEAD`, `RECRUITER`, `TASK_MANAGER`, `member.access.manage`;
 - `migrations/00040_task_delete_permission.sql` - `task.delete`.
+- `migrations/00044_remove_legacy_project_files_and_moderator.sql` - удаление legacy-role `MODERATOR` и unused table `project_files`.
 
 ### 3.5 Содержимое RBAC migration-файлов
 
@@ -494,7 +495,6 @@ INSERT INTO roles(code, name) VALUES
   ('SUPER_ADMIN', 'Super Admin'),
   ('STUDENT', 'Student'),
   ('PROFESSOR', 'Professor'),
-  ('MODERATOR', 'Moderator'),
   ('TEAM_LEAD', 'Team Lead'),
   ('MEMBER', 'Project Member'),
   ('PROJECT_PROFESSOR', 'Project Professor')
@@ -1462,4 +1462,3 @@ GET /v2/auth/capabilities?scope_type=PROJECT&scope_id=<project_id>
   ]
 }
 ```
-

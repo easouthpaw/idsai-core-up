@@ -3,6 +3,7 @@ package email
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"net"
@@ -19,14 +20,21 @@ type SMTPSender struct {
 	pass         string
 	fromHeader   string
 	fromEnvelope string
+	implicitTLS  bool
 	timeout      time.Duration
 }
 
+var systemCertPool = x509.SystemCertPool
+
 func NewSMTPSender(host, port, user, pass, from string) *SMTPSender {
-	return NewSMTPSenderWithTimeout(host, port, user, pass, from, 15*time.Second)
+	return NewSMTPSenderWithOptions(host, port, user, pass, from, 15*time.Second, false)
 }
 
 func NewSMTPSenderWithTimeout(host, port, user, pass, from string, timeout time.Duration) *SMTPSender {
+	return NewSMTPSenderWithOptions(host, port, user, pass, from, timeout, false)
+}
+
+func NewSMTPSenderWithOptions(host, port, user, pass, from string, timeout time.Duration, implicitTLS bool) *SMTPSender {
 	return &SMTPSender{
 		host:         strings.TrimSpace(host),
 		port:         strings.TrimSpace(port),
@@ -34,6 +42,7 @@ func NewSMTPSenderWithTimeout(host, port, user, pass, from string, timeout time.
 		pass:         pass,
 		fromHeader:   normalizeFromHeader(from),
 		fromEnvelope: normalizeFromEnvelope(from),
+		implicitTLS:  implicitTLS,
 		timeout:      timeout,
 	}
 }
@@ -71,15 +80,25 @@ func (s *SMTPSender) Send(ctx context.Context, to, subject, body string) error {
 	}
 	defer conn.Close()
 
+	if s.implicitTLS {
+		tlsConn := tls.Client(conn, s.tlsConfig())
+		if err := tlsConn.HandshakeContext(ctx); err != nil {
+			return err
+		}
+		conn = tlsConn
+	}
+
 	client, err := smtp.NewClient(conn, s.host)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	if ok, _ := client.Extension("STARTTLS"); ok {
-		if err := client.StartTLS(&tls.Config{ServerName: s.host}); err != nil {
-			return err
+	if !s.implicitTLS {
+		if ok, _ := client.Extension("STARTTLS"); ok {
+			if err := client.StartTLS(s.tlsConfig()); err != nil {
+				return err
+			}
 		}
 	}
 	if auth != nil {
@@ -108,6 +127,15 @@ func (s *SMTPSender) Send(ctx context.Context, to, subject, body string) error {
 		return err
 	}
 	return client.Quit()
+}
+
+func (s *SMTPSender) tlsConfig() *tls.Config {
+	cfg := &tls.Config{ServerName: s.host}
+	pool, err := systemCertPool()
+	if err == nil && pool != nil {
+		cfg.RootCAs = pool
+	}
+	return cfg
 }
 
 func buildMessage(from, to, subject, body string) string {

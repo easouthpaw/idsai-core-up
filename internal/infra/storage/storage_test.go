@@ -36,3 +36,21 @@ func TestNewFromConfigFallsBackToLocalStorage(t *testing.T) {
 	require.Error(t, err)
 	require.True(t, os.IsNotExist(err))
 }
+
+func TestNewFromConfigPrefersMinIOWhenConfigured(t *testing.T) {
+	store := NewFromConfig(config.Config{
+		PublicBaseURL:        "https://demo.example.com",
+		LocalStorageDir:      t.TempDir(),
+		StorageEndpoint:      "minio.example.com",
+		StorageAccessKey:     "access-key",
+		StorageSecretKey:     "secret-key",
+		StorageBucket:        "idsai-media",
+		StorageUseSSL:        true,
+		StoragePublicBaseURL: "https://cdn.example.com",
+	})
+
+	minioStore, ok := store.(*minioStorage)
+	require.True(t, ok, "expected MinIO storage to win over local fallback")
+	require.True(t, minioStore.Available())
+	require.Equal(t, "https://cdn.example.com/idsai-media/avatars/test/user.jpg", minioStore.PublicURL("avatars/test/user.jpg"))
+}

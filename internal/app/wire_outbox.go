@@ -33,7 +33,7 @@ func startEmailOutboxDispatcher(ctx context.Context, cfg config.Config, repo not
 	}
 
 	sendTimeout := time.Duration(cfg.SMTPSendTimeoutS) * time.Second
-	emailSender := email.NewSMTPSenderWithTimeout(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom, sendTimeout)
+	emailSender := email.NewSMTPSenderWithOptions(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom, sendTimeout, cfg.SMTPUseSSL)
 	dispatcher := notifications.NewOutboxDispatcher(repo, emailSender)
 	dispatcher.SetSendTimeout(sendTimeout)
 	pollEvery := time.Duration(cfg.OutboxPollS) * time.Second

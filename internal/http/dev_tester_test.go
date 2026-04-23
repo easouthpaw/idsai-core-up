@@ -22,6 +22,16 @@ func TestDevTesterRoute_Available(t *testing.T) {
 	require.Contains(t, w.Body.String(), "IDSAI Corp. Login")
 }
 
+func TestLegacyDevTesterRoute_NotAvailable(t *testing.T) {
+	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/dev/tester", nil)
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
 func TestDevProjectsRoute_Available(t *testing.T) {
 	r := httpx.NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "test-secret")
 

@@ -394,14 +394,6 @@ WHERE professor_id = $1;
 		return err
 	}
 
-	// project_files has uploaded_by FK ON DELETE RESTRICT.
-	if _, err := tx.Exec(ctx, `
-DELETE FROM project_files
-WHERE uploaded_by = $1;
-`, userID); err != nil {
-		return err
-	}
-
 	tag, err := tx.Exec(ctx, `
 DELETE FROM users
 WHERE id = $1;

@@ -136,7 +136,6 @@ idsai-core-up
 |   |   |   |-- projects_handler_read.go
 |   |   |   |-- public_contact_handler.go
 |   |   |   |-- public_contact_handler_test.go
-|   |   |   `-- task_demo_handler.go
 |   |   |-- middleware
 |   |   |   |-- auth.go
 |   |   |   |-- auth_cookie_test.go

@@ -2,6 +2,13 @@
 
 IDSAI Core - backend и встроенный web-интерфейс для управления учебными проектами. Приложение объединяет REST API `/v2`, страницы `/dev/*`, RBAC, проектный lifecycle, кабинет преподавателя, уведомления и knowledge base.
 
+## Актуальное состояние
+
+- Миграция `00044_remove_legacy_project_files_and_moderator.sql` удаляет legacy-роль `MODERATOR` и неиспользуемую таблицу `project_files`.
+- Административный контур поддерживает смену базовой faculty-роли только между `STUDENT` и `PROFESSOR`.
+- Удалены мёртвые заглушки: legacy route `/dev/tester` и неиспользуемый `TaskDemoHandler`.
+- Встроенный frontend по умолчанию открывается на казахском языке; пользователь может переключиться на русский или английский, и выбор сохраняется в `localStorage`.
+
 ## Что есть в проекте
 
 - JWT-аутентификация, профиль пользователя и настройки аккаунта.
@@ -94,7 +101,7 @@ go test ./...
 
 Опциональные:
 
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `EMAIL_ENABLED`
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `SMTP_USE_SSL`, `EMAIL_ENABLED`
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_SUPERADMIN_CHAT_ID`
 - `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET`, `MINIO_USE_SSL`, `MINIO_PUBLIC_BASE_URL`
 - `PHOTON_BASE_URL`, `PHOTON_LANG`, `PHOTON_COUNTRY_CODE`, `PHOTON_DEFAULT_LON`, `PHOTON_DEFAULT_LAT`, `PHOTON_REQUEST_TIMEOUT_SECONDS` (`Photon` работает без API key)
@@ -119,4 +126,5 @@ go test ./...
 - `docs/PROFESSOR_GUIDE.md` - подробная инструкция для преподавателей.
 - `docs/ADMIN_GUIDE.md` - подробная инструкция для администратора.
 - `docs/architecture/ARCHITECTURE.md` - принятая архитектура и правила зависимостей.
+- `docs/code-review/README.md` - индекс code review заметок по текущему состоянию репозитория.
 - `docs/TESTING_REPORT.md` - результаты тестирования, coverage и benchmark-метрики.

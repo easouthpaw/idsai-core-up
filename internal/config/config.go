@@ -26,6 +26,7 @@ type Config struct {
 	SMTPUser                  string
 	SMTPPass                  string
 	SMTPFrom                  string
+	SMTPUseSSL                bool
 	SMTPSendTimeoutS          int
 	ContactEmailTo            string
 	EmailEnable               bool
@@ -82,6 +83,7 @@ func Load() Config {
 		SMTPUser:                  getenv("SMTP_USER", ""),
 		SMTPPass:                  getenv("SMTP_PASS", ""),
 		SMTPFrom:                  getenv("SMTP_FROM", "noreply@idsai.local"),
+		SMTPUseSSL:                getenvBool("SMTP_USE_SSL", false),
 		SMTPSendTimeoutS:          getenvInt("SMTP_SEND_TIMEOUT_SECONDS", 15),
 		ContactEmailTo:            getenv("CONTACT_EMAIL_TO", ""),
 		EmailEnable:               getenvBool("EMAIL_ENABLED", true),

@@ -69,33 +69,28 @@ func publicReadPolicy(bucket string) string {
 }
 
 func NewFromConfig(cfg config.Config) ObjectStorage {
-	if strings.TrimSpace(cfg.LocalStorageDir) != "" {
-		return newLocalStorage(cfg.LocalStorageDir, cfg.PublicBaseURL)
-	}
-
 	endpoint := strings.TrimSpace(cfg.StorageEndpoint)
 	accessKey := strings.TrimSpace(cfg.StorageAccessKey)
 	secretKey := strings.TrimSpace(cfg.StorageSecretKey)
 	bucket := strings.TrimSpace(cfg.StorageBucket)
-	if endpoint == "" || accessKey == "" || secretKey == "" || bucket == "" {
-		return newLocalStorage(cfg.LocalStorageDir, cfg.PublicBaseURL)
+
+	if endpoint != "" && accessKey != "" && secretKey != "" && bucket != "" {
+		client, err := minio.New(endpoint, &minio.Options{
+			Creds:  credentials.NewStaticV4(accessKey, secretKey, ""),
+			Secure: cfg.StorageUseSSL,
+		})
+		if err == nil {
+			return &minioStorage{
+				client:        client,
+				bucket:        bucket,
+				publicBaseURL: strings.TrimRight(strings.TrimSpace(cfg.StoragePublicBaseURL), "/"),
+				endpoint:      endpoint,
+				useSSL:        cfg.StorageUseSSL,
+			}
+		}
 	}
 
-	client, err := minio.New(endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(accessKey, secretKey, ""),
-		Secure: cfg.StorageUseSSL,
-	})
-	if err != nil {
-		return newLocalStorage(cfg.LocalStorageDir, cfg.PublicBaseURL)
-	}
-
-	return &minioStorage{
-		client:        client,
-		bucket:        bucket,
-		publicBaseURL: strings.TrimRight(strings.TrimSpace(cfg.StoragePublicBaseURL), "/"),
-		endpoint:      endpoint,
-		useSSL:        cfg.StorageUseSSL,
-	}
+	return newLocalStorage(cfg.LocalStorageDir, cfg.PublicBaseURL)
 }
 
 func (s *minioStorage) ensureBucket(ctx context.Context) error {

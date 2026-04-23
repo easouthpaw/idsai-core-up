@@ -1,6 +1,7 @@
 (() => {
   const STORAGE_LANG = "idsai_site_lang";
-  const LANGUAGES = ["ru", "en", "kk"];
+  const DEFAULT_LANGUAGE = "kk";
+  const LANGUAGES = ["kk", "ru", "en"];
   const LOCALES = {
     ru: "ru-RU",
     en: "en-US",
@@ -5338,7 +5339,7 @@
   const TRANSLATION_INDEX = buildTranslationIndex();
 
   const state = {
-    lang: normalizeLanguage(readStorage(STORAGE_LANG)) || "kk",
+    lang: normalizeLanguage(readStorage(STORAGE_LANG)) || DEFAULT_LANGUAGE,
   };
 
   let observer = null;
@@ -5365,7 +5366,7 @@
   }
 
   function locale() {
-    return LOCALES[state.lang] || LOCALES.ru;
+    return LOCALES[state.lang] || LOCALES[DEFAULT_LANGUAGE];
   }
 
   function key(name, params) {
@@ -6847,6 +6848,9 @@
   }
 
   function init() {
+    if (!normalizeLanguage(readStorage(STORAGE_LANG))) {
+      writeStorage(STORAGE_LANG, state.lang);
+    }
     document.documentElement.lang = state.lang;
     buildDock();
     ensureObserver();

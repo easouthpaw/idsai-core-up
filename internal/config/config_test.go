@@ -16,6 +16,7 @@ func TestLoad_ReadsEnvAndAppliesDefaults(t *testing.T) {
 	t.Setenv("RENDER_EXTERNAL_URL", "https://render.example")
 	t.Setenv("AUTH_AUTO_VERIFY_REGISTRATIONS", "yes")
 	t.Setenv("SMTP_SEND_TIMEOUT_SECONDS", "25")
+	t.Setenv("SMTP_USE_SSL", "yes")
 	t.Setenv("EMAIL_ENABLED", "off")
 	t.Setenv("MINIO_USE_SSL", "true")
 	t.Setenv("REDIS_DB", "7")
@@ -38,6 +39,9 @@ func TestLoad_ReadsEnvAndAppliesDefaults(t *testing.T) {
 	}
 	if cfg.SMTPSendTimeoutS != 25 {
 		t.Fatalf("unexpected smtp timeout: %d", cfg.SMTPSendTimeoutS)
+	}
+	if !cfg.SMTPUseSSL {
+		t.Fatalf("expected smtp SSL to be enabled")
 	}
 	if cfg.EmailEnable {
 		t.Fatalf("expected email to be disabled")
