@@ -16,7 +16,10 @@
 
   const LS_PROJECT_META_PREFIX = "idsai_project_meta:";
   const LS_TASK_META_PREFIX = "idsai_task_meta:";
+  const LS_TASK_DISPLAY_LIMIT_PREFIX = "idsai_task_display_limit:";
   const LS_STAGE_HINTS_HIDDEN_PREFIX = "idsai_stage_hints_hidden:";
+  const TASK_DISPLAY_LIMITS = [5, 10, 25, 50];
+  const DEFAULT_TASK_DISPLAY_LIMIT = 5;
 
   const SYSTEM_LIFECYCLE_ROLES = new Set(["TEAM_LEAD", "MEMBER", "INVITED_MEMBER", "PROJECT_PROFESSOR"]);
   const ROLE_ASSETS = {
@@ -145,6 +148,8 @@
     inviteCandidatesList: document.getElementById("inviteCandidatesList"),
 
     progressBadge: document.getElementById("progressBadge"),
+    taskDisplayLimitSwitch: document.getElementById("taskDisplayLimitSwitch"),
+    taskDisplayLimitButtons: Array.from(document.querySelectorAll("[data-task-limit]")),
     openTaskModalBtn: document.getElementById("openTaskModalBtn"),
     todoTasks: document.getElementById("todoTasks"),
     doingTasks: document.getElementById("doingTasks"),
@@ -260,6 +265,7 @@
     taskMeta: {},
     myPermissions: [],
     taskListTab: "all",
+    taskDisplayLimit: DEFAULT_TASK_DISPLAY_LIMIT,
     currentPermUserID: "",
     currentPermCanManageAccess: false,
     accessCatalog: [],
@@ -456,6 +462,33 @@
 
   function taskMetaKey() {
     return `${LS_TASK_META_PREFIX}${state.projectID}`;
+  }
+
+  function taskDisplayLimitKey() {
+    return `${LS_TASK_DISPLAY_LIMIT_PREFIX}${state.projectID}`;
+  }
+
+  function normalizeTaskDisplayLimit(value) {
+    const parsed = Number.parseInt(String(value || ""), 10);
+    return TASK_DISPLAY_LIMITS.includes(parsed) ? parsed : DEFAULT_TASK_DISPLAY_LIMIT;
+  }
+
+  function loadTaskDisplayLimit() {
+    if (!state.projectID) return DEFAULT_TASK_DISPLAY_LIMIT;
+    try {
+      return normalizeTaskDisplayLimit(localStorage.getItem(taskDisplayLimitKey()));
+    } catch (_) {
+      return DEFAULT_TASK_DISPLAY_LIMIT;
+    }
+  }
+
+  function setTaskDisplayLimit(limit) {
+    const next = normalizeTaskDisplayLimit(limit);
+    state.taskDisplayLimit = next;
+    if (!state.projectID) return;
+    try {
+      localStorage.setItem(taskDisplayLimitKey(), String(next));
+    } catch (_) {}
   }
 
   function hasProjectPermission(code) {
@@ -803,10 +836,57 @@
   function finalReportURL(disposition) {
     if (!state.projectID) return "";
     const url = new URL(`/v2/projects/${encodeURIComponent(state.projectID)}/final-report.pdf`, window.location.origin);
+    const lang = i18n && typeof i18n.getLanguage === "function"
+      ? String(i18n.getLanguage() || "").trim().toLowerCase()
+      : "";
+    if (lang) {
+      url.searchParams.set("lang", lang);
+    }
     if (String(disposition || "").trim().toLowerCase() === "inline") {
       url.searchParams.set("disposition", "inline");
     }
     return url.toString();
+  }
+
+  function taskLimitI18n() {
+    const lang = i18n && typeof i18n.getLanguage === "function"
+      ? String(i18n.getLanguage() || "").trim().toLowerCase()
+      : "kk";
+    switch (lang) {
+      case "en":
+        return {
+          switchLabel: "Task card limit",
+          buttonLabel: (value) => `Show up to ${value} tasks per column`,
+          summary: (shown, total) => `Showing ${shown} of ${total} tasks in this column. You can raise the limit above.`,
+        };
+      case "ru":
+        return {
+          switchLabel: "Лимит карточек задач",
+          buttonLabel: (value) => `Показывать до ${value} задач в колонке`,
+          summary: (shown, total) => `Показано ${shown} из ${total} задач в этой колонке. Лимит можно увеличить выше.`,
+        };
+      default:
+        return {
+          switchLabel: "Тапсырма карточкаларының лимиті",
+          buttonLabel: (value) => `Бағанда ${value} тапсырмаға дейін көрсету`,
+          summary: (shown, total) => `Бұл бағанда ${total}-тың ${shown}-ы ғана көрсетілді. Қажет болса, жоғарыдағы лимитті үлкейтіңіз.`,
+        };
+    }
+  }
+
+  function renderTaskDisplayLimitControl() {
+    if (!ui.taskDisplayLimitSwitch || !ui.taskDisplayLimitButtons.length) return;
+    const copy = taskLimitI18n();
+    ui.taskDisplayLimitSwitch.setAttribute("aria-label", copy.switchLabel);
+    ui.taskDisplayLimitSwitch.title = copy.switchLabel;
+    ui.taskDisplayLimitButtons.forEach((btn) => {
+      const limit = normalizeTaskDisplayLimit(btn.dataset.taskLimit);
+      const active = limit === state.taskDisplayLimit;
+      btn.classList.toggle("active", active);
+      btn.setAttribute("aria-pressed", active ? "true" : "false");
+      btn.setAttribute("aria-label", copy.buttonLabel(limit));
+      btn.title = copy.buttonLabel(limit);
+    });
   }
 
   function allowedViews() {
@@ -2667,12 +2747,21 @@
     ui.doingTasks.innerHTML = "";
     ui.doneTasks.innerHTML = "";
 
+    renderTaskDisplayLimitControl();
     const renderList = (container, items) => {
       if (items.length === 0) {
         container.innerHTML = '<div class="empty-state">Пока пусто</div>';
         return;
       }
-      items.forEach((task) => container.appendChild(createTaskCard(task)));
+      const visible = items.slice(0, state.taskDisplayLimit);
+      visible.forEach((task) => container.appendChild(createTaskCard(task)));
+      if (items.length > visible.length) {
+        const copy = taskLimitI18n();
+        const note = document.createElement("div");
+        note.className = "kanban-limit-note";
+        note.textContent = copy.summary(visible.length, items.length);
+        container.appendChild(note);
+      }
     };
 
     renderList(ui.todoTasks, todo);
@@ -4367,6 +4456,21 @@
     if (ui.savePermissionsBtn) {
       ui.savePermissionsBtn.addEventListener("click", savePermissions);
     }
+
+    ui.taskDisplayLimitButtons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const limit = normalizeTaskDisplayLimit(btn.dataset.taskLimit);
+        if (limit === state.taskDisplayLimit) return;
+        setTaskDisplayLimit(limit);
+        renderTasks();
+      });
+    });
+
+    window.addEventListener("idsai:languagechange", () => {
+      renderTaskDisplayLimitControl();
+      renderTasks();
+      renderReviewView();
+    });
   }
 
   async function bootstrap() {
@@ -4387,6 +4491,7 @@
 
     state.projectMeta = loadJSON(projectMetaKey(), {});
     state.taskMeta = loadJSON(taskMetaKey(), {});
+    state.taskDisplayLimit = loadTaskDisplayLimit();
     state.favorite = Boolean(state.projectMeta.favorite);
 
     wireTabSwitching();

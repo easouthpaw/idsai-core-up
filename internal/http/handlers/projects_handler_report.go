@@ -31,7 +31,7 @@ func (h *ProjectsHandler) DownloadFinalReport(c *gin.Context) {
 		return
 	}
 
-	file, err := h.svc.GetProjectFinalReportPDF(c.Request.Context(), projectID, userID, facultyID)
+	file, err := h.svc.GetProjectFinalReportPDF(c.Request.Context(), projectID, userID, facultyID, c.Query("lang"))
 	if err != nil {
 		switch {
 		case errors.Is(err, projects.ErrNotFound):

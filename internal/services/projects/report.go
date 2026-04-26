@@ -35,7 +35,7 @@ var jetBrainsMonoRegularTTF []byte
 var jetBrainsMonoBoldTTF []byte
 
 const (
-	reportStorageSchemaVersion = 1
+	reportStorageSchemaVersion = 2
 	reportMaxCriteria          = 50
 	reportMaxTasks             = 100
 	reportMaxTitleRunes        = 120
@@ -47,6 +47,10 @@ const (
 	reportPageMargin           = 15.0
 	reportPageWidth            = 180.0
 	reportPageBottom           = 282.0
+	reportDefaultLang          = "kk"
+	reportCriterionPendingCode = "PENDING"
+	reportCriterionMetCode     = "MET"
+	reportCriterionIssuesCode  = "ISSUES"
 )
 
 type reportColor struct {
@@ -111,6 +115,7 @@ type finalReportArtifacts struct {
 }
 
 type finalReportData struct {
+	Language           string
 	ProjectTitle       string
 	ProjectDescription string
 	ProjectID          string
@@ -137,14 +142,16 @@ type finalReportData struct {
 }
 
 type finalReportMember struct {
-	Name   string
-	Role   string
-	Status string
+	Name       string
+	Role       string
+	Status     string
+	StatusCode string
 }
 
 type finalReportTask struct {
 	Title       string
 	Status      string
+	StatusCode  string
 	Role        string
 	Assignee    string
 	Description string
@@ -154,6 +161,7 @@ type finalReportCriterion struct {
 	Title       string
 	Weight      string
 	Result      string
+	ResultCode  string
 	Description string
 	Comment     string
 }
@@ -170,30 +178,294 @@ type finalReportKV struct {
 	Value string
 }
 
-func (s *Service) GetProjectFinalReportPDF(ctx context.Context, projectID, viewerID, viewerFacultyID uuid.UUID) (FinalReportFile, error) {
+type reportLexicon struct {
+	Lang                  string
+	Subject               string
+	HeroEyebrow           string
+	HeroSubtitle          string
+	ScoreBadge            string
+	SectionProjectLabel   string
+	SectionProjectTitle   string
+	SectionOverviewLabel  string
+	SectionOverviewTitle  string
+	SectionReviewLabel    string
+	SectionReviewTitle    string
+	SectionTeamLabel      string
+	SectionTeamTitle      string
+	SectionTasksLabel     string
+	SectionTasksTitle     string
+	SectionCriteriaLabel  string
+	SectionCriteriaTitle  string
+	CriteriaStatLabel     string
+	RetakeStatLabel       string
+	TasksDoneStatLabel    string
+	ReviewerStatLabel     string
+	ProjectLeaderLabel    string
+	ReviewerLabel         string
+	ReviewedAtLabel       string
+	CreatedLabel          string
+	UpdatedLabel          string
+	StacksLabel           string
+	RoleMetaLabel         string
+	AssigneeMetaLabel     string
+	WeightLabel           string
+	CommentLabel          string
+	FooterProjectLabel    string
+	FooterPageLabel       string
+	NotPublished          string
+	NotSpecified          string
+	LeaderRole            string
+	MemberRole            string
+	CriterionPending      string
+	CriterionMet          string
+	CriterionIssues       string
+	OverallCommentPending string
+	OverallCommentAllMet  string
+	NoTasksText           string
+	NoCriteriaText        string
+}
+
+func normalizeReportLanguage(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "ru":
+		return "ru"
+	case "en":
+		return "en"
+	case "kk":
+		return "kk"
+	default:
+		return reportDefaultLang
+	}
+}
+
+func reportLexiconFor(lang string) reportLexicon {
+	switch normalizeReportLanguage(lang) {
+	case "ru":
+		return reportLexicon{
+			Lang:                  "ru",
+			Subject:               "Итоговый отчет по проекту",
+			HeroEyebrow:           "IDSAI FINAL REPORT",
+			HeroSubtitle:          "Финальный срез проекта после публикации преподавательской оценки.",
+			ScoreBadge:            "ИТОГ",
+			SectionProjectLabel:   "ПРОЕКТ",
+			SectionProjectTitle:   "Паспорт проекта",
+			SectionOverviewLabel:  "ОПИСАНИЕ",
+			SectionOverviewTitle:  "Описание",
+			SectionReviewLabel:    "РЕВЬЮ",
+			SectionReviewTitle:    "Комментарий преподавателя",
+			SectionTeamLabel:      "КОМАНДА",
+			SectionTeamTitle:      "Команда",
+			SectionTasksLabel:     "ЗАДАЧИ",
+			SectionTasksTitle:     "Задачи и вклад",
+			SectionCriteriaLabel:  "КРИТЕРИИ",
+			SectionCriteriaTitle:  "Критерии и результат",
+			CriteriaStatLabel:     "Критерии",
+			RetakeStatLabel:       "Пересдачи",
+			TasksDoneStatLabel:    "Завершено задач",
+			ReviewerStatLabel:     "Проверяющий",
+			ProjectLeaderLabel:    "Лидер проекта",
+			ReviewerLabel:         "Проверяющий",
+			ReviewedAtLabel:       "Дата проверки",
+			CreatedLabel:          "Создан",
+			UpdatedLabel:          "Обновлен",
+			StacksLabel:           "Технологический стек",
+			RoleMetaLabel:         "Роль",
+			AssigneeMetaLabel:     "Исполнитель",
+			WeightLabel:           "Вес",
+			CommentLabel:          "Комментарий",
+			FooterProjectLabel:    "project",
+			FooterPageLabel:       "page",
+			NotPublished:          "не опубликована",
+			NotSpecified:          "Не указан",
+			LeaderRole:            "Лидер проекта",
+			MemberRole:            "Участник",
+			CriterionPending:      "Не проверено",
+			CriterionMet:          "Выполнено",
+			CriterionIssues:       "Есть замечания",
+			OverallCommentPending: "Комментарий преподавателя пока не добавлен.",
+			OverallCommentAllMet:  "Все критерии отмечены как выполненные.",
+			NoTasksText:           "Задачи в проекте не найдены.",
+			NoCriteriaText:        "Критерии для этого проекта не найдены.",
+		}
+	case "en":
+		return reportLexicon{
+			Lang:                  "en",
+			Subject:               "Final project report",
+			HeroEyebrow:           "IDSAI FINAL REPORT",
+			HeroSubtitle:          "Final project snapshot after the instructor published the grade.",
+			ScoreBadge:            "RESULT",
+			SectionProjectLabel:   "PROJECT",
+			SectionProjectTitle:   "Project profile",
+			SectionOverviewLabel:  "OVERVIEW",
+			SectionOverviewTitle:  "Overview",
+			SectionReviewLabel:    "REVIEW",
+			SectionReviewTitle:    "Instructor comment",
+			SectionTeamLabel:      "TEAM",
+			SectionTeamTitle:      "Team",
+			SectionTasksLabel:     "TASKS",
+			SectionTasksTitle:     "Tasks and contribution",
+			SectionCriteriaLabel:  "CRITERIA",
+			SectionCriteriaTitle:  "Criteria and result",
+			CriteriaStatLabel:     "Criteria",
+			RetakeStatLabel:       "Retakes",
+			TasksDoneStatLabel:    "Completed tasks",
+			ReviewerStatLabel:     "Reviewer",
+			ProjectLeaderLabel:    "Project lead",
+			ReviewerLabel:         "Reviewer",
+			ReviewedAtLabel:       "Reviewed at",
+			CreatedLabel:          "Created",
+			UpdatedLabel:          "Updated",
+			StacksLabel:           "Tech stack",
+			RoleMetaLabel:         "Role",
+			AssigneeMetaLabel:     "Assignee",
+			WeightLabel:           "Weight",
+			CommentLabel:          "Comment",
+			FooterProjectLabel:    "project",
+			FooterPageLabel:       "page",
+			NotPublished:          "not published",
+			NotSpecified:          "Not specified",
+			LeaderRole:            "Project lead",
+			MemberRole:            "Member",
+			CriterionPending:      "Not reviewed",
+			CriterionMet:          "Met",
+			CriterionIssues:       "Needs work",
+			OverallCommentPending: "The instructor has not added a comment yet.",
+			OverallCommentAllMet:  "All criteria are marked as met.",
+			NoTasksText:           "No project tasks were found.",
+			NoCriteriaText:        "No review criteria were found for this project.",
+		}
+	default:
+		return reportLexicon{
+			Lang:                  "kk",
+			Subject:               "Жоба бойынша қорытынды есеп",
+			HeroEyebrow:           "IDSAI FINAL REPORT",
+			HeroSubtitle:          "Оқытушы бағасы жарияланғаннан кейінгі жобаның қорытынды көрінісі.",
+			ScoreBadge:            "ҚОРЫТЫНДЫ",
+			SectionProjectLabel:   "ЖОБА",
+			SectionProjectTitle:   "Жоба паспорты",
+			SectionOverviewLabel:  "СИПАТТАМА",
+			SectionOverviewTitle:  "Сипаттама",
+			SectionReviewLabel:    "РЕЦЕНЗИЯ",
+			SectionReviewTitle:    "Оқытушы пікірі",
+			SectionTeamLabel:      "КОМАНДА",
+			SectionTeamTitle:      "Команда",
+			SectionTasksLabel:     "ТАПСЫРМАЛАР",
+			SectionTasksTitle:     "Тапсырмалар мен үлес",
+			SectionCriteriaLabel:  "КРИТЕРИЙЛЕР",
+			SectionCriteriaTitle:  "Критерийлер мен нәтиже",
+			CriteriaStatLabel:     "Критерийлер",
+			RetakeStatLabel:       "Қайта тапсыру",
+			TasksDoneStatLabel:    "Аяқталған тапсырмалар",
+			ReviewerStatLabel:     "Тексеруші",
+			ProjectLeaderLabel:    "Жоба жетекшісі",
+			ReviewerLabel:         "Тексеруші",
+			ReviewedAtLabel:       "Тексеру күні",
+			CreatedLabel:          "Құрылған",
+			UpdatedLabel:          "Жаңартылған",
+			StacksLabel:           "Технологиялық стек",
+			RoleMetaLabel:         "Рөл",
+			AssigneeMetaLabel:     "Орындаушы",
+			WeightLabel:           "Салмақ",
+			CommentLabel:          "Пікір",
+			FooterProjectLabel:    "жоба",
+			FooterPageLabel:       "бет",
+			NotPublished:          "жарияланбаған",
+			NotSpecified:          "Көрсетілмеген",
+			LeaderRole:            "Жоба жетекшісі",
+			MemberRole:            "Қатысушы",
+			CriterionPending:      "Тексерілмеген",
+			CriterionMet:          "Орындалды",
+			CriterionIssues:       "Ескертулер бар",
+			OverallCommentPending: "Оқытушының пікірі әлі қосылмаған.",
+			OverallCommentAllMet:  "Барлық критерий орындалған деп белгіленген.",
+			NoTasksText:           "Жоба бойынша тапсырмалар табылмады.",
+			NoCriteriaText:        "Бұл жоба үшін критерийлер табылмады.",
+		}
+	}
+}
+
+func reportRetakeSummary(lex reportLexicon, retakeCount int) string {
+	count := max(0, retakeCount)
+	penalty := domain.RetakePenaltyPercent(retakeCount)
+	switch lex.Lang {
+	case "ru":
+		return fmt.Sprintf("%d пересдач, штраф %d%%", count, penalty)
+	case "en":
+		return fmt.Sprintf("%d retakes, penalty %d%%", count, penalty)
+	default:
+		return fmt.Sprintf("%d қайта тапсыру, айыппұл %d%%", count, penalty)
+	}
+}
+
+func reportTasksSummary(lex reportLexicon, stats finalReportTaskStats) string {
+	switch lex.Lang {
+	case "ru":
+		return fmt.Sprintf("Всего задач: %d. Выполнено: %d. В работе: %d. Открыто: %d.", stats.Total, stats.Done, stats.InProgress, stats.Open)
+	case "en":
+		return fmt.Sprintf("Total tasks: %d. Completed: %d. In progress: %d. Open: %d.", stats.Total, stats.Done, stats.InProgress, stats.Open)
+	default:
+		return fmt.Sprintf("Барлық тапсырма: %d. Аяқталғаны: %d. Орындалып жатқаны: %d. Ашық: %d.", stats.Total, stats.Done, stats.InProgress, stats.Open)
+	}
+}
+
+func reportTasksTruncatedNote(lex reportLexicon, limit int) string {
+	switch lex.Lang {
+	case "ru":
+		return fmt.Sprintf("Показаны первые %d задач, чтобы отчёт оставался компактным.", limit)
+	case "en":
+		return fmt.Sprintf("Only the first %d tasks are shown to keep the report compact.", limit)
+	default:
+		return fmt.Sprintf("Есеп ықшам болуы үшін алғашқы %d тапсырма ғана көрсетілді.", limit)
+	}
+}
+
+func reportCriteriaTruncatedNote(lex reportLexicon, limit int) string {
+	switch lex.Lang {
+	case "ru":
+		return fmt.Sprintf("Показаны первые %d критериев.", limit)
+	case "en":
+		return fmt.Sprintf("Only the first %d criteria are shown.", limit)
+	default:
+		return fmt.Sprintf("Алғашқы %d критерий ғана көрсетілді.", limit)
+	}
+}
+
+func reportOverallIssuesSummary(lex reportLexicon, issues int) string {
+	switch lex.Lang {
+	case "ru":
+		return fmt.Sprintf("Есть замечания по %d критериям.", issues)
+	case "en":
+		return fmt.Sprintf("There are issues in %d criteria.", issues)
+	default:
+		return fmt.Sprintf("%d критерий бойынша ескертулер бар.", issues)
+	}
+}
+
+func (s *Service) GetProjectFinalReportPDF(ctx context.Context, projectID, viewerID, viewerFacultyID uuid.UUID, lang string) (FinalReportFile, error) {
 	view, err := s.getAccessibleFinalReportView(ctx, projectID, viewerID, viewerFacultyID)
 	if err != nil {
 		return FinalReportFile{}, err
 	}
+	lang = normalizeReportLanguage(lang)
 
-	if raw, ok := s.loadStoredFinalReportPDF(ctx, view.Project); ok {
+	if raw, ok := s.loadStoredFinalReportPDF(ctx, view.Project, lang); ok {
 		return FinalReportFile{
-			Filename:    reportFilename(view.Project.ID),
+			Filename:    reportFilename(view.Project.ID, lang),
 			ContentType: "application/pdf",
 			Data:        raw,
 		}, nil
 	}
 
-	artifacts, err := s.buildFinalReportArtifacts(ctx, view)
+	artifacts, err := s.buildFinalReportArtifacts(ctx, view, lang)
 	if err != nil {
 		return FinalReportFile{}, err
 	}
-	if err := s.storeFinalReportArtifacts(ctx, view.Project, artifacts); err != nil && !errors.Is(err, ErrStorage) {
+	if err := s.storeFinalReportArtifacts(ctx, view.Project, lang, artifacts); err != nil && !errors.Is(err, ErrStorage) {
 		log.Printf("projects final report store skipped project_id=%s err=%v", view.Project.ID, err)
 	}
 
 	return FinalReportFile{
-		Filename:    reportFilename(view.Project.ID),
+		Filename:    reportFilename(view.Project.ID, lang),
 		ContentType: "application/pdf",
 		Data:        artifacts.PDFData,
 	}, nil
@@ -204,11 +476,12 @@ func (s *Service) CaptureProjectFinalReport(ctx context.Context, projectID, view
 	if err != nil {
 		return err
 	}
-	artifacts, err := s.buildFinalReportArtifacts(ctx, view)
+	lang := normalizeReportLanguage("")
+	artifacts, err := s.buildFinalReportArtifacts(ctx, view, lang)
 	if err != nil {
 		return err
 	}
-	return s.storeFinalReportArtifacts(ctx, view.Project, artifacts)
+	return s.storeFinalReportArtifacts(ctx, view.Project, lang, artifacts)
 }
 
 func (s *Service) getAccessibleFinalReportView(ctx context.Context, projectID, viewerID, viewerFacultyID uuid.UUID) (ProjectView, error) {
@@ -225,8 +498,8 @@ func (s *Service) getAccessibleFinalReportView(ctx context.Context, projectID, v
 	return view, nil
 }
 
-func (s *Service) buildFinalReportArtifacts(ctx context.Context, view ProjectView) (finalReportArtifacts, error) {
-	data, err := s.buildFinalReportData(ctx, view)
+func (s *Service) buildFinalReportArtifacts(ctx context.Context, view ProjectView, lang string) (finalReportArtifacts, error) {
+	data, err := s.buildFinalReportData(ctx, view, lang)
 	if err != nil {
 		return finalReportArtifacts{}, err
 	}
@@ -245,7 +518,7 @@ func (s *Service) buildFinalReportArtifacts(ctx context.Context, view ProjectVie
 	}, nil
 }
 
-func (s *Service) buildFinalReportData(ctx context.Context, view ProjectView) (finalReportData, error) {
+func (s *Service) buildFinalReportData(ctx context.Context, view ProjectView, lang string) (finalReportData, error) {
 	if s.reportSource == nil {
 		return finalReportData{}, ErrReportSource
 	}
@@ -279,19 +552,19 @@ func (s *Service) buildFinalReportData(ctx context.Context, view ProjectView) (f
 		return finalReportData{}, err
 	}
 
-	return newFinalReportData(project, view.ReviewSummary, stacks, members, criteria, grades, tasks), nil
+	return newFinalReportData(project, view.ReviewSummary, stacks, members, criteria, grades, tasks, lang), nil
 }
 
-func (s *Service) storeFinalReportArtifacts(ctx context.Context, project domain.Project, artifacts finalReportArtifacts) error {
+func (s *Service) storeFinalReportArtifacts(ctx context.Context, project domain.Project, lang string, artifacts finalReportArtifacts) error {
 	if s.storage == nil || !s.storage.Available() {
 		return ErrStorage
 	}
 
-	jsonKey := finalReportJSONKey(project.ID, project.RetakeCount)
+	jsonKey := finalReportJSONKey(project.ID, project.RetakeCount, lang)
 	if err := s.storage.PutObject(ctx, jsonKey, "application/json; charset=utf-8", artifacts.SnapshotData); err != nil {
 		return ErrStorage
 	}
-	pdfKey := finalReportPDFKey(project.ID, project.RetakeCount)
+	pdfKey := finalReportPDFKey(project.ID, project.RetakeCount, lang)
 	if err := s.storage.PutObject(ctx, pdfKey, "application/pdf", artifacts.PDFData); err != nil {
 		_ = s.storage.DeleteObject(ctx, jsonKey)
 		return ErrStorage
@@ -299,32 +572,33 @@ func (s *Service) storeFinalReportArtifacts(ctx context.Context, project domain.
 	return nil
 }
 
-func (s *Service) loadStoredFinalReportPDF(ctx context.Context, project domain.Project) ([]byte, bool) {
+func (s *Service) loadStoredFinalReportPDF(ctx context.Context, project domain.Project, lang string) ([]byte, bool) {
 	if s.storage == nil || !s.storage.Available() {
 		return nil, false
 	}
-	raw, err := s.storage.GetObject(ctx, finalReportPDFKey(project.ID, project.RetakeCount))
+	raw, err := s.storage.GetObject(ctx, finalReportPDFKey(project.ID, project.RetakeCount, lang))
 	if err != nil || len(raw) < 4 || !bytes.HasPrefix(raw, []byte("%PDF")) {
 		return nil, false
 	}
 	return raw, true
 }
 
-func finalReportPDFKey(projectID uuid.UUID, retakeCount int) string {
-	return fmt.Sprintf("projects/final-reports/%s/retake-%02d.pdf", projectID.String(), max(0, retakeCount))
+func finalReportPDFKey(projectID uuid.UUID, retakeCount int, lang string) string {
+	return fmt.Sprintf("projects/final-reports/%s/retake-%02d.%s.pdf", projectID.String(), max(0, retakeCount), normalizeReportLanguage(lang))
 }
 
-func finalReportJSONKey(projectID uuid.UUID, retakeCount int) string {
-	return fmt.Sprintf("projects/final-reports/%s/retake-%02d.json", projectID.String(), max(0, retakeCount))
+func finalReportJSONKey(projectID uuid.UUID, retakeCount int, lang string) string {
+	return fmt.Sprintf("projects/final-reports/%s/retake-%02d.%s.json", projectID.String(), max(0, retakeCount), normalizeReportLanguage(lang))
 }
 
-func reportFilename(projectID uuid.UUID) string {
-	return fmt.Sprintf("project-report-%s.pdf", projectID.String())
+func reportFilename(projectID uuid.UUID, lang string) string {
+	return fmt.Sprintf("project-report-%s-%s.pdf", projectID.String(), normalizeReportLanguage(lang))
 }
 
 func finalReportSnapshotPayload(data finalReportData) map[string]any {
 	return map[string]any{
 		"version":      reportStorageSchemaVersion,
+		"language":     data.Language,
 		"generated_at": data.GeneratedAtLabel,
 		"project": map[string]any{
 			"id":          data.ProjectID,
@@ -363,14 +637,16 @@ func newFinalReportData(
 	criteria []projectflow.Criterion,
 	grades []projectflow.CriterionGrade,
 	tasks []projectflow.Task,
+	lang string,
 ) finalReportData {
+	lex := reportLexiconFor(lang)
 	leader := choosePersonLabel(project.CreatedByName, project.CreatedByEmail, project.CreatedBy.String())
 	reviewer := reportDefaultPlaceholder
 	reviewedAt := reportDefaultPlaceholder
-	score := "не опубликована"
+	score := lex.NotPublished
 	passPercent := reportDefaultPlaceholder
 	criteriaSummary := "0 / 0"
-	retakeSummary := fmt.Sprintf("%d пересдач, штраф %d%%", max(0, project.RetakeCount), domain.RetakePenaltyPercent(project.RetakeCount))
+	retakeSummary := reportRetakeSummary(lex, project.RetakeCount)
 	if summary != nil {
 		reviewer = fallbackString(strings.TrimSpace(summary.Reviewer), reportDefaultPlaceholder)
 		if summary.ReviewedAt != nil {
@@ -386,31 +662,34 @@ func newFinalReportData(
 	}
 	reportMembers := make([]finalReportMember, 0, len(members)+1)
 	reportMembers = append(reportMembers, finalReportMember{
-		Name:   leader,
-		Role:   "Лидер проекта",
-		Status: "ACTIVE",
+		Name:       leader,
+		Role:       lex.LeaderRole,
+		Status:     memberStatusLabel("ACTIVE", lex.Lang),
+		StatusCode: "ACTIVE",
 	})
 	for _, item := range members {
 		name := choosePersonLabel(item.FullName, item.Email, item.UserID)
 		memberNameByUserID[item.UserID] = name
-		role := fallbackString(strings.TrimSpace(firstNonEmptyPtr(item.PositionName, item.PositionCode)), "Участник")
+		statusCode := strings.ToUpper(strings.TrimSpace(item.Status))
+		role := fallbackString(strings.TrimSpace(firstNonEmptyPtr(item.PositionName, item.PositionCode)), lex.MemberRole)
 		reportMembers = append(reportMembers, finalReportMember{
-			Name:   name,
-			Role:   role,
-			Status: strings.ToUpper(strings.TrimSpace(item.Status)),
+			Name:       name,
+			Role:       role,
+			Status:     memberStatusLabel(statusCode, lex.Lang),
+			StatusCode: statusCode,
 		})
 	}
 	sort.SliceStable(reportMembers[1:], func(i, j int) bool {
 		left := reportMembers[i+1]
 		right := reportMembers[j+1]
-		if left.Status != right.Status {
-			if left.Status == "ACTIVE" {
+		if left.StatusCode != right.StatusCode {
+			if left.StatusCode == "ACTIVE" {
 				return true
 			}
-			if right.Status == "ACTIVE" {
+			if right.StatusCode == "ACTIVE" {
 				return false
 			}
-			return left.Status < right.Status
+			return left.StatusCode < right.StatusCode
 		}
 		return left.Name < right.Name
 	})
@@ -428,18 +707,22 @@ func newFinalReportData(
 	commentCandidates := make([]finalReportCriterion, 0, len(criteria))
 	for _, item := range criteria {
 		grade, ok := gradeByCriterion[strings.TrimSpace(item.ID)]
-		result := "Не проверено"
+		resultCode := reportCriterionPendingCode
+		result := lex.CriterionPending
 		if ok && grade.IsMet != nil {
 			if *grade.IsMet {
-				result = "Выполнено"
+				resultCode = reportCriterionMetCode
+				result = lex.CriterionMet
 			} else {
-				result = "Есть замечания"
+				resultCode = reportCriterionIssuesCode
+				result = lex.CriterionIssues
 			}
 		}
 		row := finalReportCriterion{
 			Title:       safeReportText(item.Title, reportMaxTitleRunes),
 			Weight:      fmt.Sprintf("%d", max(1, item.Weight)),
 			Result:      result,
+			ResultCode:  resultCode,
 			Description: safeReportText(item.Description, reportMaxTextRunes),
 			Comment:     safeReportText(grade.Comment, reportMaxCommentRunes),
 		}
@@ -450,11 +733,11 @@ func newFinalReportData(
 	}
 	sort.SliceStable(commentCandidates, func(i, j int) bool {
 		left := 1
-		if commentCandidates[i].Result == "Есть замечания" {
+		if commentCandidates[i].ResultCode == reportCriterionIssuesCode {
 			left = 0
 		}
 		right := 1
-		if commentCandidates[j].Result == "Есть замечания" {
+		if commentCandidates[j].ResultCode == reportCriterionIssuesCode {
 			right = 0
 		}
 		if left != right {
@@ -463,7 +746,7 @@ func newFinalReportData(
 		return commentCandidates[i].Title < commentCandidates[j].Title
 	})
 
-	overallComment := "Комментарий преподавателя пока не добавлен."
+	overallComment := lex.OverallCommentPending
 	if len(commentCandidates) > 0 {
 		parts := make([]string, 0, min(3, len(commentCandidates)))
 		for _, item := range commentCandidates[:min(3, len(commentCandidates))] {
@@ -471,9 +754,9 @@ func newFinalReportData(
 		}
 		overallComment = strings.Join(parts, "\n\n")
 	} else if summary != nil && summary.Total > 0 && summary.Met == summary.Total {
-		overallComment = "Все критерии отмечены как выполненные."
+		overallComment = lex.OverallCommentAllMet
 	} else if summary != nil && summary.Total > 0 {
-		overallComment = fmt.Sprintf("Есть замечания по %d критериям.", max(0, summary.Total-summary.Met))
+		overallComment = reportOverallIssuesSummary(lex, max(0, summary.Total-summary.Met))
 	}
 
 	reportTasks := make([]finalReportTask, 0, min(len(tasks), reportMaxTasks))
@@ -497,7 +780,8 @@ func newFinalReportData(
 		}
 		reportTasks = append(reportTasks, finalReportTask{
 			Title:       safeReportText(item.Title, reportMaxTitleRunes),
-			Status:      taskStatusLabel(status),
+			Status:      taskStatusLabel(status, lex.Lang),
+			StatusCode:  status,
 			Role:        fallbackString(strings.TrimSpace(item.PositionName), strings.TrimSpace(item.PositionCode)),
 			Assignee:    fallbackString(assignee, reportDefaultPlaceholder),
 			Description: safeReportText(item.Description, reportMaxCommentRunes),
@@ -505,11 +789,12 @@ func newFinalReportData(
 	}
 
 	return finalReportData{
+		Language:           lex.Lang,
 		ProjectTitle:       safeReportText(project.Title, reportMaxTitleRunes),
 		ProjectDescription: safeReportText(project.Description, reportMaxTextRunes),
 		ProjectID:          project.ID.String(),
-		StatusLabel:        projectStatusLabel(project.Status),
-		VisibilityLabel:    visibilityLabel(project.IsPublic, project.Visibility),
+		StatusLabel:        projectStatusLabel(project.Status, lex.Lang),
+		VisibilityLabel:    visibilityLabel(project.IsPublic, project.Visibility, lex.Lang),
 		CreatedAtLabel:     formatDateTime(project.CreatedAt),
 		UpdatedAtLabel:     formatDateTime(project.UpdatedAt),
 		GeneratedAtLabel:   formatDateTime(time.Now().UTC()),
@@ -520,7 +805,7 @@ func newFinalReportData(
 		PassPercentLabel:   passPercent,
 		CriteriaSummary:    criteriaSummary,
 		RetakeSummary:      retakeSummary,
-		StacksLabel:        formatStacks(stacks),
+		StacksLabel:        formatStacks(stacks, lex.Lang),
 		OverallComment:     safeReportText(overallComment, reportMaxTextRunes),
 		Members:            reportMembers,
 		Tasks:              reportTasks,
@@ -532,6 +817,7 @@ func newFinalReportData(
 }
 
 func renderFinalReportPDF(data finalReportData) ([]byte, error) {
+	lex := reportLexiconFor(data.Language)
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	pdf.SetCompression(false)
 	pdf.SetMargins(reportPageMargin, 18, reportPageMargin)
@@ -542,77 +828,77 @@ func renderFinalReportPDF(data finalReportData) ([]byte, error) {
 	pdf.AddUTF8FontFromBytes("mono", "B", jetBrainsMonoBoldTTF)
 	pdf.SetTitle(data.ProjectTitle, false)
 	pdf.SetAuthor("IDSAI Core", false)
-	pdf.SetSubject("Final project report", false)
+	pdf.SetSubject(lex.Subject, false)
 	pdf.SetHeaderFuncMode(func() {
 		reportPageChrome(pdf)
 	}, true)
 	pdf.SetFooterFunc(func() {
-		reportFooter(pdf, data.ProjectID)
+		reportFooter(pdf, data.ProjectID, lex)
 	})
 	pdf.AddPage()
 
-	reportHero(pdf, data)
-	reportStatsGrid(pdf, data)
+	reportHero(pdf, data, lex)
+	reportStatsGrid(pdf, data, lex)
 
-	reportSectionHeading(pdf, "PROJECT", "Паспорт проекта")
+	reportSectionHeading(pdf, lex.SectionProjectLabel, lex.SectionProjectTitle)
 	reportKeyValueCard(pdf, "", []finalReportKV{
-		{Label: "Лидер проекта", Value: data.LeaderLabel},
-		{Label: "Проверяющий", Value: data.ReviewerLabel},
-		{Label: "Дата проверки", Value: data.ReviewedAtLabel},
-		{Label: "Создан", Value: data.CreatedAtLabel},
-		{Label: "Обновлен", Value: data.UpdatedAtLabel},
-		{Label: "Технологический стек", Value: data.StacksLabel},
+		{Label: lex.ProjectLeaderLabel, Value: data.LeaderLabel},
+		{Label: lex.ReviewerLabel, Value: data.ReviewerLabel},
+		{Label: lex.ReviewedAtLabel, Value: data.ReviewedAtLabel},
+		{Label: lex.CreatedLabel, Value: data.CreatedAtLabel},
+		{Label: lex.UpdatedLabel, Value: data.UpdatedAtLabel},
+		{Label: lex.StacksLabel, Value: data.StacksLabel},
 	})
 
-	reportSectionHeading(pdf, "OVERVIEW", "Описание")
+	reportSectionHeading(pdf, lex.SectionOverviewLabel, lex.SectionOverviewTitle)
 	reportTextCard(pdf, "", data.ProjectDescription)
 
-	reportSectionHeading(pdf, "REVIEW", "Комментарий преподавателя")
+	reportSectionHeading(pdf, lex.SectionReviewLabel, lex.SectionReviewTitle)
 	reportTextCard(pdf, "", data.OverallComment)
 
-	reportSectionHeading(pdf, "TEAM", "Команда")
+	reportSectionHeading(pdf, lex.SectionTeamLabel, lex.SectionTeamTitle)
 	for _, item := range data.Members {
-		reportItemCard(pdf, item.Name, item.Status, reportStatusTone(item.Status), item.Role, "")
+		reportItemCard(pdf, item.Name, item.Status, reportStatusTone(item.StatusCode), item.Role, "")
 	}
 
-	reportSectionHeading(pdf, "TASKS", "Задачи и вклад")
-	reportTextNote(pdf, fmt.Sprintf("Всего задач: %d. Выполнено: %d. В работе: %d. Открыто: %d.", data.TaskStats.Total, data.TaskStats.Done, data.TaskStats.InProgress, data.TaskStats.Open))
+	reportSectionHeading(pdf, lex.SectionTasksLabel, lex.SectionTasksTitle)
+	reportTextNote(pdf, reportTasksSummary(lex, data.TaskStats))
 	if data.TasksTruncated {
-		reportTextNote(pdf, fmt.Sprintf("Показаны первые %d задач, чтобы отчёт оставался компактным.", reportMaxTasks))
+		reportTextNote(pdf, reportTasksTruncatedNote(lex, reportMaxTasks))
 	}
 	if len(data.Tasks) == 0 {
-		reportTextCard(pdf, "", "Задачи в проекте не найдены.")
+		reportTextCard(pdf, "", lex.NoTasksText)
 	} else {
 		for _, item := range data.Tasks {
 			reportItemCard(
 				pdf,
 				item.Title,
 				item.Status,
-				reportTaskTone(item.Status),
-				fmt.Sprintf("Роль: %s | Исполнитель: %s", fallbackString(item.Role, reportDefaultPlaceholder), item.Assignee),
+				reportTaskTone(item.StatusCode),
+				fmt.Sprintf("%s: %s | %s: %s", lex.RoleMetaLabel, fallbackString(item.Role, reportDefaultPlaceholder), lex.AssigneeMetaLabel, item.Assignee),
 				item.Description,
 			)
 		}
 	}
 
-	reportSectionHeading(pdf, "CRITERIA", "Критерии и результат")
+	reportSectionHeading(pdf, lex.SectionCriteriaLabel, lex.SectionCriteriaTitle)
 	if data.CriteriaTruncated {
-		reportTextNote(pdf, fmt.Sprintf("Показаны первые %d критериев.", reportMaxCriteria))
+		reportTextNote(pdf, reportCriteriaTruncatedNote(lex, reportMaxCriteria))
 	}
 	if len(data.Criteria) == 0 {
-		reportTextCard(pdf, "", "Критерии для этого проекта не найдены.")
+		reportTextCard(pdf, "", lex.NoCriteriaText)
 	} else {
 		for _, item := range data.Criteria {
 			body := item.Description
 			if item.Comment != reportDefaultPlaceholder {
-				body = fallbackBody(body, "Комментарий: "+item.Comment)
+				body = fallbackBody(body, lex.CommentLabel+": "+item.Comment)
 			}
 			reportItemCard(
 				pdf,
 				item.Title,
 				item.Result,
-				reportCriterionTone(item.Result),
-				fmt.Sprintf("Вес: %s", item.Weight),
+				reportCriterionTone(item.ResultCode),
+				fmt.Sprintf("%s: %s", lex.WeightLabel, item.Weight),
 				body,
 			)
 		}
@@ -634,14 +920,14 @@ func reportPageChrome(pdf *gofpdf.Fpdf) {
 	pdf.Line(reportPageMargin, 14, 210-reportPageMargin, 14)
 }
 
-func reportFooter(pdf *gofpdf.Fpdf, projectID string) {
+func reportFooter(pdf *gofpdf.Fpdf, projectID string, lex reportLexicon) {
 	pdf.SetY(-12)
 	pdf.SetFont("mono", "", 7.5)
 	setText(pdf, reportTheme.Muted)
-	pdf.CellFormat(0, 5, fmt.Sprintf("project %s | page %d", strutil.TruncateUTF8(projectID, 20), pdf.PageNo()), "", 0, "C", false, 0, "")
+	pdf.CellFormat(0, 5, fmt.Sprintf("%s %s | %s %d", lex.FooterProjectLabel, strutil.TruncateUTF8(projectID, 20), lex.FooterPageLabel, pdf.PageNo()), "", 0, "C", false, 0, "")
 }
 
-func reportHero(pdf *gofpdf.Fpdf, data finalReportData) {
+func reportHero(pdf *gofpdf.Fpdf, data finalReportData, lex reportLexicon) {
 	x := reportPageMargin
 	y := pdf.GetY()
 	w := reportPageWidth
@@ -663,7 +949,7 @@ func reportHero(pdf *gofpdf.Fpdf, data finalReportData) {
 	pdf.SetXY(x+7, y+7)
 	pdf.SetFont("mono", "B", 8)
 	setText(pdf, reportTheme.BlueSoft)
-	pdf.CellFormat(0, 4, "IDSAI FINAL REPORT", "", 1, "L", false, 0, "")
+	pdf.CellFormat(0, 4, lex.HeroEyebrow, "", 1, "L", false, 0, "")
 
 	pdf.SetX(x + 7)
 	pdf.SetFont("sans", "B", 19)
@@ -673,7 +959,7 @@ func reportHero(pdf *gofpdf.Fpdf, data finalReportData) {
 	pdf.SetX(x + 7)
 	pdf.SetFont("sans", "", 9.5)
 	setTextRGB(pdf, 214, 221, 232)
-	pdf.MultiCell(w-scoreW-24, 4.8, "Финальный срез проекта после публикации преподавательской оценки.", "", "L", false)
+	pdf.MultiCell(w-scoreW-24, 4.8, lex.HeroSubtitle, "", "L", false)
 
 	pdf.SetXY(x+7, y+h-11)
 	pdf.SetFont("mono", "", 7.8)
@@ -683,7 +969,7 @@ func reportHero(pdf *gofpdf.Fpdf, data finalReportData) {
 	pdf.SetXY(scoreX, scoreY+4)
 	pdf.SetFont("mono", "", 7.2)
 	setTextRGB(pdf, 214, 234, 255)
-	pdf.CellFormat(scoreW, 4, "ИТОГ", "", 1, "C", false, 0, "")
+	pdf.CellFormat(scoreW, 4, lex.ScoreBadge, "", 1, "C", false, 0, "")
 	pdf.SetX(scoreX)
 	pdf.SetFont("sans", "B", 16)
 	setTextRGB(pdf, 255, 255, 255)
@@ -696,7 +982,7 @@ func reportHero(pdf *gofpdf.Fpdf, data finalReportData) {
 	pdf.SetY(y + h + 7)
 }
 
-func reportStatsGrid(pdf *gofpdf.Fpdf, data finalReportData) {
+func reportStatsGrid(pdf *gofpdf.Fpdf, data finalReportData, lex reportLexicon) {
 	const gap = 6.0
 	cardW := (reportPageWidth - gap) / 2
 	cardH := 23.0
@@ -704,10 +990,10 @@ func reportStatsGrid(pdf *gofpdf.Fpdf, data finalReportData) {
 	y := pdf.GetY()
 	ensureReportSpace(pdf, cardH*2+gap+6)
 
-	reportStatCard(pdf, x, y, cardW, cardH, "Критерии", data.CriteriaSummary, "green")
-	reportStatCard(pdf, x+cardW+gap, y, cardW, cardH, "Пересдачи", data.RetakeSummary, "amber")
-	reportStatCard(pdf, x, y+cardH+gap, cardW, cardH, "Завершено задач", fmt.Sprintf("%d / %d", data.TaskStats.Done, data.TaskStats.Total), "blue")
-	reportStatCard(pdf, x+cardW+gap, y+cardH+gap, cardW, cardH, "Проверяющий", data.ReviewerLabel, "muted")
+	reportStatCard(pdf, x, y, cardW, cardH, lex.CriteriaStatLabel, data.CriteriaSummary, "green")
+	reportStatCard(pdf, x+cardW+gap, y, cardW, cardH, lex.RetakeStatLabel, data.RetakeSummary, "amber")
+	reportStatCard(pdf, x, y+cardH+gap, cardW, cardH, lex.TasksDoneStatLabel, fmt.Sprintf("%d / %d", data.TaskStats.Done, data.TaskStats.Total), "blue")
+	reportStatCard(pdf, x+cardW+gap, y+cardH+gap, cardW, cardH, lex.ReviewerStatLabel, data.ReviewerLabel, "muted")
 
 	pdf.SetY(y + cardH*2 + gap + 6)
 }
@@ -920,9 +1206,9 @@ func reportStatusTone(status string) string {
 
 func reportTaskTone(status string) string {
 	switch strings.ToUpper(strings.TrimSpace(status)) {
-	case "ЗАВЕРШЕНА":
+	case "DONE":
 		return "green"
-	case "В РАБОТЕ":
+	case "IN_PROGRESS":
 		return "blue"
 	default:
 		return "amber"
@@ -931,9 +1217,9 @@ func reportTaskTone(status string) string {
 
 func reportCriterionTone(result string) string {
 	switch strings.ToUpper(strings.TrimSpace(result)) {
-	case "ВЫПОЛНЕНО":
+	case reportCriterionMetCode:
 		return "green"
-	case "ЕСТЬ ЗАМЕЧАНИЯ":
+	case reportCriterionIssuesCode:
 		return "danger"
 	default:
 		return "amber"
@@ -1015,7 +1301,7 @@ func fallbackString(value, fallback string) string {
 	return value
 }
 
-func formatStacks(items []string) string {
+func formatStacks(items []string, lang string) string {
 	clean := make([]string, 0, len(items))
 	for _, item := range items {
 		item = strings.TrimSpace(item)
@@ -1025,51 +1311,215 @@ func formatStacks(items []string) string {
 		clean = append(clean, strutil.TruncateUTF8(item, 40))
 	}
 	if len(clean) == 0 {
-		return "Не указан"
+		return reportLexiconFor(lang).NotSpecified
 	}
 	return strings.Join(clean, ", ")
 }
 
-func projectStatusLabel(status domain.ProjectStatus) string {
+func memberStatusLabel(status, lang string) string {
+	lang = normalizeReportLanguage(lang)
+	switch strings.ToUpper(strings.TrimSpace(status)) {
+	case "ACTIVE":
+		switch lang {
+		case "en":
+			return "Active"
+		case "kk":
+			return "Белсенді"
+		default:
+			return "Активен"
+		}
+	case "INVITED":
+		switch lang {
+		case "en":
+			return "Invited"
+		case "kk":
+			return "Шақырылған"
+		default:
+			return "Приглашен"
+		}
+	case "APPLIED":
+		switch lang {
+		case "en":
+			return "Applied"
+		case "kk":
+			return "Өтініш берді"
+		default:
+			return "Подал заявку"
+		}
+	case "REJECTED":
+		switch lang {
+		case "en":
+			return "Rejected"
+		case "kk":
+			return "Қабылданбады"
+		default:
+			return "Отклонен"
+		}
+	case "REMOVED":
+		switch lang {
+		case "en":
+			return "Removed"
+		case "kk":
+			return "Шығарылған"
+		default:
+			return "Удален"
+		}
+	default:
+		return fallbackString(strings.TrimSpace(status), reportDefaultPlaceholder)
+	}
+}
+
+func projectStatusLabel(status domain.ProjectStatus, lang string) string {
+	lex := reportLexiconFor(lang)
 	switch status {
 	case domain.ProjectDraft:
-		return "Черновик"
+		switch lex.Lang {
+		case "en":
+			return "Draft"
+		case "kk":
+			return "Нобай"
+		default:
+			return "Черновик"
+		}
 	case domain.ProjectReview:
-		return "Подготовка"
+		switch lex.Lang {
+		case "en":
+			return "Preparation"
+		case "kk":
+			return "Дайындық"
+		default:
+			return "Подготовка"
+		}
 	case domain.ProjectRecruitment:
-		return "Набор команды"
+		switch lex.Lang {
+		case "en":
+			return "Recruitment"
+		case "kk":
+			return "Команда жинау"
+		default:
+			return "Набор команды"
+		}
 	case domain.ProjectActive:
-		return "В работе"
+		switch lex.Lang {
+		case "en":
+			return "In progress"
+		case "kk":
+			return "Жұмыста"
+		default:
+			return "В работе"
+		}
 	case domain.ProjectGrading:
-		return "На оценивании"
+		switch lex.Lang {
+		case "en":
+			return "Under review"
+		case "kk":
+			return "Бағалануда"
+		default:
+			return "На оценивании"
+		}
 	case domain.ProjectCompleted:
-		return "Завершен"
+		switch lex.Lang {
+		case "en":
+			return "Completed"
+		case "kk":
+			return "Аяқталған"
+		default:
+			return "Завершен"
+		}
 	case domain.ProjectArchive:
-		return "Архив"
+		switch lex.Lang {
+		case "en":
+			return "Archive"
+		case "kk":
+			return "Мұрағат"
+		default:
+			return "Архив"
+		}
 	default:
 		return string(status)
 	}
 }
 
-func visibilityLabel(isPublic bool, visibility string) string {
+func visibilityLabel(isPublic bool, visibility string, lang string) string {
+	lang = normalizeReportLanguage(lang)
 	if isPublic {
-		return "Публичный"
+		switch lang {
+		case "en":
+			return "Public"
+		case "kk":
+			return "Ашық"
+		default:
+			return "Публичный"
+		}
 	}
 	visibility = strings.ToUpper(strings.TrimSpace(visibility))
 	if visibility == "" {
-		return "Приватный"
+		switch lang {
+		case "en":
+			return "Private"
+		case "kk":
+			return "Жеке"
+		default:
+			return "Приватный"
+		}
+	}
+	switch visibility {
+	case "PRIVATE":
+		return visibilityLabel(false, "", lang)
+	case "GROUP":
+		switch lang {
+		case "en":
+			return "Group"
+		case "kk":
+			return "Топ"
+		default:
+			return "Группа"
+		}
+	case "FACULTY":
+		switch lang {
+		case "en":
+			return "Faculty"
+		case "kk":
+			return "Факультет"
+		default:
+			return "Факультет"
+		}
+	case "PUBLIC":
+		return visibilityLabel(true, visibility, lang)
 	}
 	return visibility
 }
 
-func taskStatusLabel(status string) string {
+func taskStatusLabel(status string, lang string) string {
+	lang = normalizeReportLanguage(lang)
 	switch strings.ToUpper(strings.TrimSpace(status)) {
 	case "DONE":
-		return "Завершена"
+		switch lang {
+		case "en":
+			return "Completed"
+		case "kk":
+			return "Аяқталды"
+		default:
+			return "Завершена"
+		}
 	case "IN_PROGRESS":
-		return "В работе"
+		switch lang {
+		case "en":
+			return "In progress"
+		case "kk":
+			return "Орындалып жатыр"
+		default:
+			return "В работе"
+		}
 	default:
-		return "Открыта"
+		switch lang {
+		case "en":
+			return "Open"
+		case "kk":
+			return "Ашық"
+		default:
+			return "Открыта"
+		}
 	}
 }
 

@@ -483,10 +483,16 @@
   }
 
   function actionOpenReport(projectID) {
-    const url = `/v2/projects/${encodeURIComponent(projectID)}/final-report.pdf`;
-    const popup = window.open(url, "_blank", "noopener,noreferrer");
+    const url = new URL(`/v2/projects/${encodeURIComponent(projectID)}/final-report.pdf`, window.location.origin);
+    const lang = i18n && typeof i18n.getLanguage === "function"
+      ? String(i18n.getLanguage() || "").trim().toLowerCase()
+      : "";
+    if (lang) {
+      url.searchParams.set("lang", lang);
+    }
+    const popup = window.open(url.toString(), "_blank", "noopener,noreferrer");
     if (!popup) {
-      window.location.href = url;
+      window.location.href = url.toString();
     }
   }
 

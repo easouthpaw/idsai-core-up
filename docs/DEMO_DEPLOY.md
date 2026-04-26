@@ -61,7 +61,8 @@ Seeded demo accounts:
 - `nurzhan.prof@idsai.local`
 - `aidana.prof@idsai.local`
 - `sabina.prof@idsai.local`
-
+- aibolat.smartedu@idsai.local
+- asylkhan.prof@idsai.local
 ## Вариант 2. Cloudflare Quick Tunnel
 
 Подходит как аварийный запасной вариант, если нужно показать систему сегодня без деплоя.

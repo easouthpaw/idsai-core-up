@@ -157,13 +157,13 @@ func TestProjectsHandler_DownloadFinalReport(t *testing.T) {
 	})
 	router.GET("/v2/projects/:project_id/final-report.pdf", handler.DownloadFinalReport)
 
-	req := httptest.NewRequest(http.MethodGet, "/v2/projects/"+projectID.String()+"/final-report.pdf", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v2/projects/"+projectID.String()+"/final-report.pdf?lang=ru", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Equal(t, "application/pdf", rec.Header().Get("Content-Type"))
-	require.Contains(t, rec.Header().Get("Content-Disposition"), "project-report-"+projectID.String()+".pdf")
+	require.Contains(t, rec.Header().Get("Content-Disposition"), "project-report-"+projectID.String()+"-ru.pdf")
 	require.True(t, strings.HasPrefix(rec.Body.String()[:4], "%PDF"))
 }
 
@@ -216,12 +216,13 @@ func TestProjectsHandler_DownloadFinalReport_InlineDisposition(t *testing.T) {
 	})
 	router.GET("/v2/projects/:project_id/final-report.pdf", handler.DownloadFinalReport)
 
-	req := httptest.NewRequest(http.MethodGet, "/v2/projects/"+projectID.String()+"/final-report.pdf?disposition=inline", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v2/projects/"+projectID.String()+"/final-report.pdf?disposition=inline&lang=en", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Contains(t, rec.Header().Get("Content-Disposition"), "inline;")
+	require.Contains(t, rec.Header().Get("Content-Disposition"), "project-report-"+projectID.String()+"-en.pdf")
 	require.True(t, strings.HasPrefix(rec.Body.String()[:4], "%PDF"))
 }
 

@@ -2473,11 +2473,48 @@ body.project-body {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .team-table .task-toolbar {
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.task-limit-switch {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #94a3b8;
+  border-radius: 6px;
+  background: #fff;
+  margin-left: auto;
+}
+
+.task-limit-btn {
+  min-width: 38px;
+  height: 28px;
+  border: 0;
+  border-right: 1px solid #94a3b8;
+  background: #fff;
+  color: #475467;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+.task-limit-btn:last-child {
+  border-right: 0;
+}
+
+.task-limit-btn:hover {
+  background: #f8fafc;
+}
+
+.task-limit-btn.active {
+  background: #6b7280;
+  color: #fff;
 }
 
 .kanban-board {
@@ -2507,6 +2544,16 @@ body.project-body {
 .kanban-list {
   display: grid;
   gap: 8px;
+}
+
+.kanban-limit-note {
+  border: 1px dashed #cbd5e1;
+  border-radius: 14px;
+  background: #fff;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 10px 12px;
 }
 
 .task-item {

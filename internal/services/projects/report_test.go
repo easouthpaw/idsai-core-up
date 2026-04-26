@@ -159,10 +159,10 @@ func TestService_GetProjectFinalReportPDF_ReturnsPDF(t *testing.T) {
 		},
 	})
 
-	file, err := svc.GetProjectFinalReportPDF(context.Background(), projectID, viewerID, facultyID)
+	file, err := svc.GetProjectFinalReportPDF(context.Background(), projectID, viewerID, facultyID, "en")
 	require.NoError(t, err)
 	require.Equal(t, "application/pdf", file.ContentType)
-	require.Equal(t, "project-report-"+projectID.String()+".pdf", file.Filename)
+	require.Equal(t, "project-report-"+projectID.String()+"-en.pdf", file.Filename)
 	require.True(t, len(file.Data) > 2000)
 	require.True(t, strings.HasPrefix(string(file.Data[:4]), "%PDF"))
 }
@@ -187,7 +187,7 @@ func TestService_GetProjectFinalReportPDF_RequiresCompletedStatus(t *testing.T) 
 	svc := projects.NewService(repo, &fakeGrantor{})
 	svc.SetReportSource(fakeReportSource{})
 
-	_, err := svc.GetProjectFinalReportPDF(context.Background(), projectID, viewerID, facultyID)
+	_, err := svc.GetProjectFinalReportPDF(context.Background(), projectID, viewerID, facultyID, "")
 	require.ErrorIs(t, err, projects.ErrFinalReportUnavailable)
 }
 
@@ -210,7 +210,7 @@ func TestService_GetProjectFinalReportPDF_RequiresReportSource(t *testing.T) {
 
 	svc := projects.NewService(repo, &fakeGrantor{})
 
-	_, err := svc.GetProjectFinalReportPDF(context.Background(), projectID, viewerID, facultyID)
+	_, err := svc.GetProjectFinalReportPDF(context.Background(), projectID, viewerID, facultyID, "")
 	require.ErrorIs(t, err, projects.ErrReportSource)
 }
 
@@ -263,11 +263,11 @@ func TestService_CaptureProjectFinalReport_StoresArtifactsAndReadUsesStoredPDF(t
 
 	err := svc.CaptureProjectFinalReport(context.Background(), projectID, viewerID, facultyID)
 	require.NoError(t, err)
-	require.Contains(t, storage.objects, "projects/final-reports/"+projectID.String()+"/retake-02.pdf")
-	require.Contains(t, storage.objects, "projects/final-reports/"+projectID.String()+"/retake-02.json")
+	require.Contains(t, storage.objects, "projects/final-reports/"+projectID.String()+"/retake-02.kk.pdf")
+	require.Contains(t, storage.objects, "projects/final-reports/"+projectID.String()+"/retake-02.kk.json")
 
 	svc.SetReportSource(nil)
-	file, err := svc.GetProjectFinalReportPDF(context.Background(), projectID, viewerID, facultyID)
+	file, err := svc.GetProjectFinalReportPDF(context.Background(), projectID, viewerID, facultyID, "")
 	require.NoError(t, err)
 	require.True(t, strings.HasPrefix(string(file.Data[:4]), "%PDF"))
 }
