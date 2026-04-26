@@ -275,6 +275,7 @@
     if (!options.keepInput && regInstitutionEl) {
       regInstitutionEl.value = "";
     }
+    refreshFacultyOptions();
   }
 
   function selectedInstitutionPayload() {
@@ -463,7 +464,8 @@
   function visibleFaculties() {
     const all = Array.isArray(registrationState.faculties) ? registrationState.faculties : [];
     const uniKey = detectUniversityKey();
-    if (!uniKey) return all;
+    // No institution identified — return empty so dropdown stays locked
+    if (!uniKey) return null;
     return all.filter((item) => {
       const code = String(item.code || "").toUpperCase();
       const lastPart = code.includes("_") ? code.split("_").pop() : code;
@@ -471,36 +473,48 @@
     });
   }
 
-  function setFacultyOptions(items) {
-    const list = Array.isArray(items) ? items : [];
+  function setFacultyOptions(items, locked) {
     if (!regFacultyEl) return;
     regFacultyEl.innerHTML = "";
     const first = document.createElement("option");
     first.value = "";
-    first.textContent = "Выберите факультет";
+    first.textContent = locked ? "Сначала выберите учреждение" : "Выберите факультет";
     regFacultyEl.appendChild(first);
+    regFacultyEl.disabled = locked || !items || !items.length;
 
-    list.forEach((item) => {
-      const id = String(item.id || "").trim();
-      const code = String(item.code || "").trim().toUpperCase();
-      const name = String(item.name || "").trim();
-      if (!id) return;
-      const opt = document.createElement("option");
-      opt.value = id;
-      // Show only the readable name (without the university suffix in code)
-      opt.textContent = name || code;
-      regFacultyEl.appendChild(opt);
-    });
+    if (!locked && items) {
+      items.forEach((item) => {
+        const id = String(item.id || "").trim();
+        const name = String(item.name || "").trim();
+        const code = String(item.code || "").trim().toUpperCase();
+        if (!id) return;
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.textContent = name || code;
+        regFacultyEl.appendChild(opt);
+      });
+    }
   }
 
   function refreshFacultyOptions() {
-    const filtered = visibleFaculties();
-    setFacultyOptions(filtered);
+    const filtered = visibleFaculties(); // null = no institution selected
+    const locked = filtered === null;
+    const prevFacultyID = String(regFacultyEl?.value || "").trim();
+
+    setFacultyOptions(filtered, locked);
+
+    // Restore previous selection if it's still in the filtered list
+    if (!locked && filtered && prevFacultyID) {
+      const stillValid = filtered.some((f) => String(f.id || "") === prevFacultyID);
+      if (stillValid && regFacultyEl) regFacultyEl.value = prevFacultyID;
+    }
+
     // Auto-select when exactly one faculty matches
-    if (filtered.length === 1 && regFacultyEl && !regFacultyEl.value) {
+    if (!locked && filtered && filtered.length === 1 && regFacultyEl && !regFacultyEl.value) {
       regFacultyEl.value = String(filtered[0].id || "").trim();
     }
-    // Reset department when faculties change
+
+    // Reset department whenever faculty list changes
     if (regDepartmentEl) {
       regDepartmentEl.value = "";
       setDepartmentOptions([]);
