@@ -629,6 +629,17 @@ input:focus-visible, select:focus-visible {
   font: 700 13px "IBM Plex Mono", ui-monospace, monospace;
 }
 
+.field-note--hint {
+  margin-top: 12px;
+  color: #6b7280;
+}
+
+.field-note--hint a {
+  color: #2563eb;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .mini-row {
   margin-top: 12px;
   display: flex;
