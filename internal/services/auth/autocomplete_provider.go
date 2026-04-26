@@ -3,14 +3,16 @@ package auth
 import "context"
 
 type InstitutionAutocompleteProvider struct {
-	schoolCatalog InstitutionSuggestionProvider
-	fallback      InstitutionSuggestionProvider
+	schoolCatalog    InstitutionSuggestionProvider
+	universityCatalog InstitutionSuggestionProvider
+	fallback         InstitutionSuggestionProvider
 }
 
-func NewInstitutionAutocompleteProvider(schoolCatalog, fallback InstitutionSuggestionProvider) *InstitutionAutocompleteProvider {
+func NewInstitutionAutocompleteProvider(schoolCatalog, universityCatalog, fallback InstitutionSuggestionProvider) *InstitutionAutocompleteProvider {
 	return &InstitutionAutocompleteProvider{
-		schoolCatalog: schoolCatalog,
-		fallback:      fallback,
+		schoolCatalog:    schoolCatalog,
+		universityCatalog: universityCatalog,
+		fallback:         fallback,
 	}
 }
 
@@ -18,12 +20,23 @@ func (p *InstitutionAutocompleteProvider) Suggest(ctx context.Context, in Instit
 	kind := normalizeEducationType(in.Kind)
 
 	var catalogErr error
+
 	if kind == EducationTypeSchool && p.schoolCatalog != nil {
 		items, err := p.schoolCatalog.Suggest(ctx, in)
 		if err == nil && len(items) > 0 {
 			return items, nil
 		}
 		catalogErr = err
+	}
+
+	if kind == EducationTypeUniversity && p.universityCatalog != nil {
+		items, err := p.universityCatalog.Suggest(ctx, in)
+		if err == nil && len(items) > 0 {
+			return items, nil
+		}
+		if err != nil && catalogErr == nil {
+			catalogErr = err
+		}
 	}
 
 	if p.fallback != nil {

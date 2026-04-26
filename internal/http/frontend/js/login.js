@@ -347,6 +347,7 @@
             : `Выбрали ${institutionKindLabel()} из подсказок.`,
           "ok",
         );
+        refreshFacultyOptions();
       });
     });
   }
@@ -414,6 +415,42 @@
     }, 220);
   }
 
+  // Maps institution name keywords → university key suffix used in faculty codes.
+  const universityKeyMap = [
+    { key: "ENU",   words: ["евразийский", "eurasian", "ену", "enu", "gumilyov", "гумилева"] },
+    { key: "KAZNU", words: ["казну", "kaznu", "аль-фараби", "al-farabi", "farabi", "казахский национальный"] },
+    { key: "KBTU",  words: ["кбту", "kbtu", "казахстанско-британский", "british technical"] },
+    { key: "NU",    words: ["назарбаев", "nazarbayev"] },
+    { key: "MUIT",  words: ["муит", "muit", "международный университет информационных", "iitu"] },
+    { key: "AITU",  words: ["aitu", "астана ит", "astana it"] },
+    { key: "SAT",   words: ["сатбаев", "satbayev", "казнту", "kazntu", "сатпаева"] },
+    { key: "SDU",   words: ["sdu", "suleyman", "демирель", "demirel"] },
+  ];
+
+  function detectUniversityKey() {
+    const sel = registrationState.institutionSelection;
+    if (sel) {
+      // kzuniversities provider embeds the key in external_id as "kzuni:{KEY}"
+      if (String(sel.provider || "") === "kzuniversities") {
+        const raw = String(sel.external_id || "");
+        if (raw.startsWith("kzuni:")) return raw.slice(6);
+      }
+      // Fallback: match by name keywords
+      const nameLower = String(sel.name || "").toLowerCase();
+      for (const entry of universityKeyMap) {
+        if (entry.words.some((w) => nameLower.includes(w))) return entry.key;
+      }
+    }
+    // Manual input: try to match typed text
+    const typed = String(regInstitutionEl?.value || "").toLowerCase();
+    if (typed) {
+      for (const entry of universityKeyMap) {
+        if (entry.words.some((w) => typed.includes(w))) return entry.key;
+      }
+    }
+    return null;
+  }
+
   function visibleDepartments() {
     const facultyID = String(regFacultyEl?.value || "").trim();
     const list = Array.isArray(registrationState.departments) ? registrationState.departments : [];
@@ -421,6 +458,17 @@
       return [];
     }
     return list.filter((item) => String(item.faculty_id || "") === facultyID);
+  }
+
+  function visibleFaculties() {
+    const all = Array.isArray(registrationState.faculties) ? registrationState.faculties : [];
+    const uniKey = detectUniversityKey();
+    if (!uniKey) return all;
+    return all.filter((item) => {
+      const code = String(item.code || "").toUpperCase();
+      const lastPart = code.includes("_") ? code.split("_").pop() : code;
+      return lastPart === uniKey;
+    });
   }
 
   function setFacultyOptions(items) {
@@ -439,9 +487,24 @@
       if (!id) return;
       const opt = document.createElement("option");
       opt.value = id;
-      opt.textContent = name ? `${code} — ${name}` : code;
+      // Show only the readable name (without the university suffix in code)
+      opt.textContent = name || code;
       regFacultyEl.appendChild(opt);
     });
+  }
+
+  function refreshFacultyOptions() {
+    const filtered = visibleFaculties();
+    setFacultyOptions(filtered);
+    // Auto-select when exactly one faculty matches
+    if (filtered.length === 1 && regFacultyEl && !regFacultyEl.value) {
+      regFacultyEl.value = String(filtered[0].id || "").trim();
+    }
+    // Reset department when faculties change
+    if (regDepartmentEl) {
+      regDepartmentEl.value = "";
+      setDepartmentOptions([]);
+    }
   }
 
   function updateRegistrationGroupField() {
@@ -556,10 +619,7 @@
     }
     const items = Array.isArray(data.faculties) ? data.faculties : [];
     registrationState.faculties = items;
-    setFacultyOptions(items);
-    if (items.length === 1 && regFacultyEl && !regFacultyEl.value) {
-      regFacultyEl.value = String(items[0].id || "").trim();
-    }
+    refreshFacultyOptions();
     syncRegistrationFields();
   }
 
@@ -918,6 +978,7 @@
       clearInstitutionSelection({ keepInput: true });
     }
     scheduleInstitutionSuggestions();
+    refreshFacultyOptions();
   });
   regInstitutionEl?.addEventListener("focus", () => {
     if (Array.isArray(registrationState.institutionResults) && registrationState.institutionResults.length) {

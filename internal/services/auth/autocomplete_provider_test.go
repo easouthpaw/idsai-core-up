@@ -29,7 +29,7 @@ func TestInstitutionAutocompleteProviderPrefersSchoolCatalog(t *testing.T) {
 		},
 	}
 
-	provider := NewInstitutionAutocompleteProvider(catalog, fallback)
+	provider := NewInstitutionAutocompleteProvider(catalog, nil, fallback)
 	items, err := provider.Suggest(context.Background(), InstitutionSuggestRequest{
 		Query: "лицей 17",
 		Kind:  EducationTypeSchool,
@@ -52,7 +52,7 @@ func TestInstitutionAutocompleteProviderFallsBackWhenSchoolCatalogHasNoMatches(t
 		},
 	}
 
-	provider := NewInstitutionAutocompleteProvider(catalog, fallback)
+	provider := NewInstitutionAutocompleteProvider(catalog, nil, fallback)
 	items, err := provider.Suggest(context.Background(), InstitutionSuggestRequest{
 		Query: "лицей 17",
 		Kind:  EducationTypeSchool,
@@ -82,7 +82,7 @@ func TestInstitutionAutocompleteProviderIgnoresSchoolCatalogForUniversities(t *t
 		},
 	}
 
-	provider := NewInstitutionAutocompleteProvider(catalog, fallback)
+	provider := NewInstitutionAutocompleteProvider(catalog, nil, fallback)
 	items, err := provider.Suggest(context.Background(), InstitutionSuggestRequest{
 		Query: "astana",
 		Kind:  EducationTypeUniversity,
