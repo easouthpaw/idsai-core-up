@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -93,7 +94,8 @@ func handleFlowErr(c *gin.Context, err error) {
 	case errors.Is(err, projectflow.ErrSchemaMissing):
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database schema is outdated; apply migrations"})
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		log.Printf("projectflow internal error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 	}
 }
 

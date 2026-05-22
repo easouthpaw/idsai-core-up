@@ -186,12 +186,17 @@ type CreateArticleInput struct {
 	Status     string
 }
 
+const maxKBContentBytes = 512 * 1024 // 512 KB
+
 func (s *Service) CreateArticle(ctx context.Context, in CreateArticleInput) (domain.KBArticle, error) {
 	title := strings.TrimSpace(in.Title)
 	if title == "" || len(title) > 300 {
 		return domain.KBArticle{}, fmt.Errorf("%w: title is required (max 300)", ErrInvalidInput)
 	}
 	content := strings.TrimSpace(in.Content)
+	if len(content) > maxKBContentBytes {
+		return domain.KBArticle{}, fmt.Errorf("%w: content exceeds maximum size (512 KB)", ErrInvalidInput)
+	}
 	status := strings.ToUpper(strings.TrimSpace(in.Status))
 	if status != "DRAFT" && status != "PUBLISHED" {
 		status = "DRAFT"
@@ -247,6 +252,9 @@ func (s *Service) UpdateArticle(ctx context.Context, in UpdateArticleInput) (dom
 		return domain.KBArticle{}, fmt.Errorf("%w: title is required (max 300)", ErrInvalidInput)
 	}
 	content := strings.TrimSpace(in.Content)
+	if len(content) > maxKBContentBytes {
+		return domain.KBArticle{}, fmt.Errorf("%w: content exceeds maximum size (512 KB)", ErrInvalidInput)
+	}
 	status := strings.ToUpper(strings.TrimSpace(in.Status))
 	if status != "DRAFT" && status != "PUBLISHED" {
 		status = "DRAFT"

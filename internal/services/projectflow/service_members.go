@@ -20,12 +20,15 @@ func (s *Service) UpdateProject(ctx context.Context, userID, projectID uuid.UUID
 		return domain.Project{}, err
 	}
 
+	const maxTitleLen = 200
+	const maxDescLen = 2000
+
 	titleVal := ""
 	titleSet := false
 	if title != nil {
 		titleSet = true
 		titleVal = strings.TrimSpace(*title)
-		if titleVal == "" {
+		if titleVal == "" || len(titleVal) > maxTitleLen {
 			return domain.Project{}, ErrInvalidInput
 		}
 	}
@@ -34,6 +37,9 @@ func (s *Service) UpdateProject(ctx context.Context, userID, projectID uuid.UUID
 	if description != nil {
 		descSet = true
 		descVal = strings.TrimSpace(*description)
+		if len(descVal) > maxDescLen {
+			return domain.Project{}, ErrInvalidInput
+		}
 	}
 
 	if err := s.projectsRepo.UpdateProject(ctx, projectID, titleSet, titleVal, descSet, descVal); err != nil {
