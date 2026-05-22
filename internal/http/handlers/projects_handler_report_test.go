@@ -67,6 +67,10 @@ func (r reportTestRepo) FindGroupIDByCode(ctx context.Context, facultyID uuid.UU
 	return uuid.Nil, nil
 }
 
+func (r reportTestRepo) GroupBelongsToFaculty(ctx context.Context, facultyID, groupID uuid.UUID) (bool, error) {
+	return true, nil
+}
+
 func (r reportTestRepo) ListGroupsByFaculty(ctx context.Context, facultyID uuid.UUID) ([]projects.Group, error) {
 	return nil, nil
 }

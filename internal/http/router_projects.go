@@ -16,6 +16,9 @@ func registerProjectsRoutes(
 	projectsSvc *projects.Service,
 	notifier handlers.NotificationPublisher,
 ) {
+	if projectsSvc == nil {
+		return
+	}
 	projectsH := handlers.NewProjectsHandler(projectsSvc)
 	projectsH.SetNotifier(notifier)
 	enforceProjects := rbacFeatureEnabled("RBAC_ENFORCE_PROJECTS_GET", true)

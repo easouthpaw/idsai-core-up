@@ -66,7 +66,6 @@ func TestService_ProfileGroupAndAvatarFlows(t *testing.T) {
 	now := time.Now().UTC()
 	groupID := uuid.New()
 	repo := authServiceRepo(t, now)
-	repo.findGroupErr = ErrGroupNotFound
 	repo.user.GroupID = &groupID
 	repo.user.GroupCode = "CS-101"
 	svc := NewService(repo, Config{
@@ -94,8 +93,6 @@ func TestService_ProfileGroupAndAvatarFlows(t *testing.T) {
 	request, err := svc.SubmitGroupChangeRequest(context.Background(), repo.user.TenantID, repo.user.ID, "CS", "202")
 	require.NoError(t, err)
 	require.Equal(t, GroupChangeRequest{}, request)
-	require.Equal(t, "CS-202", repo.createdGroupCode)
-	require.Equal(t, 202, repo.createdGroupNumber)
 
 	repo.user.AvatarKey = "old-avatar.jpg"
 	deleted, err := svc.DeleteAvatar(context.Background(), repo.user.TenantID, repo.user.ID)

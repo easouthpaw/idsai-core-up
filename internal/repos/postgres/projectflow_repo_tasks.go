@@ -9,6 +9,7 @@ import (
 	"idsai-core-up/internal/services/projectflow"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 func (r *ProjectFlowRepo) CreateTask(
@@ -36,6 +37,52 @@ RETURNING id;
 `
 	var taskID uuid.UUID
 	if err := r.db.QueryRow(ctx, q, tenantID, projectID, title, description, positionID, assigneeUserID, status, createdBy, dueAt).Scan(&taskID); err != nil {
+		return uuid.Nil, err
+	}
+	return taskID, nil
+}
+
+func (r *ProjectFlowRepo) CreateTaskWithActivity(
+	ctx context.Context,
+	projectID uuid.UUID,
+	title, description string,
+	positionID uuid.UUID,
+	assigneeUserID *uuid.UUID,
+	status string,
+	createdBy uuid.UUID,
+	dueAt *time.Time,
+) (uuid.UUID, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	const qCreate = `
+INSERT INTO tasks(tenant_id, project_id, title, description, position_id, assignee_user_id, status, created_by, due_at)
+SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9
+FROM projects p
+WHERE p.tenant_id = $1
+  AND p.id = $2
+RETURNING id;
+`
+	var taskID uuid.UUID
+	if err := tx.QueryRow(ctx, qCreate, tenantID, projectID, title, description, positionID, assigneeUserID, status, createdBy, dueAt).Scan(&taskID); err != nil {
+		return uuid.Nil, err
+	}
+	if err := insertTaskActivityTx(ctx, tx, tenantID, projectID, taskID, &createdBy, "CREATED", "", status, title, description, nil); err != nil {
+		return uuid.Nil, err
+	}
+	if assigneeUserID != nil {
+		if err := insertTaskActivityTx(ctx, tx, tenantID, projectID, taskID, &createdBy, "ASSIGNED", status, status, title, "Назначен исполнитель: "+assigneeUserID.String(), nil); err != nil {
+			return uuid.Nil, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return uuid.Nil, err
 	}
 	return taskID, nil
@@ -325,6 +372,55 @@ DO UPDATE SET comment = EXCLUDED.comment, attachments = EXCLUDED.attachments, up
 	return nil
 }
 
+func (r *ProjectFlowRepo) CompleteTaskWithSubmission(ctx context.Context, projectID, taskID, userID uuid.UUID, taskTitle, comment string, attachments []string) (uuid.UUID, error) {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	const qSubmission = `
+INSERT INTO task_submissions(tenant_id, project_id, task_id, user_id, comment, attachments)
+SELECT $1, $2, $3, $4, $5, $6::jsonb
+FROM projects p
+WHERE p.tenant_id = $1
+  AND p.id = $2
+ON CONFLICT (task_id)
+DO UPDATE SET comment = EXCLUDED.comment, attachments = EXCLUDED.attachments, updated_at = now(), submitted_at = now();
+`
+	if _, err := tx.Exec(ctx, qSubmission, tenantID, projectID, taskID, userID, comment, encodeStringSliceJSON(attachments)); err != nil {
+		if isUndefinedRelationErr(err, "task_submissions") {
+			return uuid.Nil, projectflow.ErrSchemaMissing
+		}
+		return uuid.Nil, err
+	}
+
+	const qDone = `
+UPDATE tasks
+SET status='DONE', updated_at=now()
+WHERE tenant_id = $1
+  AND project_id = $2
+  AND id = $3
+  AND status = 'IN_PROGRESS'
+RETURNING id;
+`
+	var outTaskID uuid.UUID
+	if err := tx.QueryRow(ctx, qDone, tenantID, projectID, taskID).Scan(&outTaskID); err != nil {
+		return uuid.Nil, mapProjectFlowErr(err)
+	}
+	if err := insertTaskActivityTx(ctx, tx, tenantID, projectID, taskID, &userID, "COMPLETED", "IN_PROGRESS", "DONE", taskTitle, comment, attachments); err != nil {
+		return uuid.Nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return uuid.Nil, err
+	}
+	return outTaskID, nil
+}
+
 func (r *ProjectFlowRepo) MarkTaskDone(ctx context.Context, projectID, taskID uuid.UUID) (uuid.UUID, error) {
 	tenantID, err := tenantIDFromContext(ctx)
 	if err != nil {
@@ -337,6 +433,7 @@ SET status='DONE', updated_at=now()
 WHERE tenant_id = $1
   AND project_id = $2
   AND id = $3
+  AND status = 'IN_PROGRESS'
 RETURNING id;
 `
 	var outTaskID uuid.UUID
@@ -384,6 +481,52 @@ WHERE t.tenant_id = $1
 	return nil
 }
 
+func (r *ProjectFlowRepo) ClaimTaskWithActivity(ctx context.Context, projectID, taskID, userID uuid.UUID, prevStatus, taskTitle string) error {
+	tenantID, err := tenantIDFromContext(ctx)
+	if err != nil {
+		return err
+	}
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	const q = `
+UPDATE tasks t
+SET assignee_user_id = COALESCE(t.assignee_user_id, $4), status='IN_PROGRESS', updated_at=now()
+WHERE t.tenant_id = $1
+  AND t.id = $3
+  AND t.project_id = $2
+  AND t.status='OPEN'
+  AND (
+    (
+      t.assignee_user_id IS NULL
+      AND EXISTS (
+        SELECT 1 FROM project_members m
+        WHERE m.tenant_id = $1
+          AND m.project_id = $2
+          AND m.user_id = $4
+          AND m.status='ACTIVE'
+          AND m.position_id = t.position_id
+      )
+    )
+    OR t.assignee_user_id = $4
+  );
+`
+	ct, err := tx.Exec(ctx, q, tenantID, projectID, taskID, userID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return domain.ErrForbidden
+	}
+	if err := insertTaskActivityTx(ctx, tx, tenantID, projectID, taskID, &userID, "CLAIMED", prevStatus, "IN_PROGRESS", taskTitle, "", nil); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
 func (r *ProjectFlowRepo) DeleteTask(ctx context.Context, projectID, taskID uuid.UUID) error {
 	tenantID, err := tenantIDFromContext(ctx)
 	if err != nil {
@@ -429,6 +572,31 @@ WHERE p.tenant_id = $1
   AND p.id = $2;
 `
 	_, err = r.db.Exec(ctx, q, tenantID, projectID, taskID, actorUserID, eventType, fromStatus, toStatus, title, comment, encodeStringSliceJSON(attachments))
+	if err != nil && isUndefinedRelationErr(err, "task_activity_logs") {
+		return projectflow.ErrSchemaMissing
+	}
+	return err
+}
+
+func insertTaskActivityTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	tenantID, projectID, taskID uuid.UUID,
+	actorUserID *uuid.UUID,
+	eventType, fromStatus, toStatus, title, comment string,
+	attachments []string,
+) error {
+	const q = `
+INSERT INTO task_activity_logs(
+  tenant_id, project_id, task_id, actor_user_id, event_type,
+  from_status, to_status, title, comment, attachments
+)
+SELECT $1, $2, $3, $4, $5, NULLIF($6, ''), NULLIF($7, ''), $8, $9, $10::jsonb
+FROM projects p
+WHERE p.tenant_id = $1
+  AND p.id = $2;
+`
+	_, err := tx.Exec(ctx, q, tenantID, projectID, taskID, actorUserID, eventType, fromStatus, toStatus, title, comment, encodeStringSliceJSON(attachments))
 	if err != nil && isUndefinedRelationErr(err, "task_activity_logs") {
 		return projectflow.ErrSchemaMissing
 	}

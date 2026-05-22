@@ -79,7 +79,11 @@ func requestUsesHTTPS(c *gin.Context) bool {
 	if c.Request.TLS != nil {
 		return true
 	}
-	return strings.EqualFold(strings.TrimSpace(c.GetHeader("X-Forwarded-Proto")), "https")
+	proto := strings.TrimSpace(c.GetHeader("X-Forwarded-Proto"))
+	if proto == "" {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(strings.Split(proto, ",")[0]), "https")
 }
 
 func authResponseNoStore(c *gin.Context) {

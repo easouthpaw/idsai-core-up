@@ -10,15 +10,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const csrfCheckHeader = "X-CSRF-Check"
-
 func CSRFProtection() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if isSafeMethod(c.Request.Method) || !hasSessionCookie(c) {
 			c.Next()
 			return
 		}
-		if strings.TrimSpace(c.GetHeader(csrfCheckHeader)) == "1" || requestHasSameOrigin(c) {
+		if requestHasSameOrigin(c) {
 			c.Next()
 			return
 		}
@@ -70,15 +68,12 @@ func requestScheme(c *gin.Context) string {
 		return "https"
 	}
 	if proto := strings.TrimSpace(c.GetHeader("X-Forwarded-Proto")); proto != "" {
-		return strings.ToLower(strings.Split(proto, ",")[0])
+		return strings.ToLower(strings.TrimSpace(strings.Split(proto, ",")[0]))
 	}
 	return "http"
 }
 
 func requestHost(c *gin.Context) string {
-	if host := strings.TrimSpace(c.GetHeader("X-Forwarded-Host")); host != "" {
-		return strings.TrimSpace(strings.Split(host, ",")[0])
-	}
 	if c.Request != nil {
 		return strings.TrimSpace(c.Request.Host)
 	}

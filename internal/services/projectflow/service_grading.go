@@ -64,6 +64,9 @@ func (s *Service) UpsertGrading(ctx context.Context, userID, projectID uuid.UUID
 	if p.Status != domain.ProjectReview && p.Status != domain.ProjectGrading {
 		return nil, ErrInvalidInput
 	}
+	if p.ProfessorID == nil || *p.ProfessorID != userID {
+		return nil, domain.ErrForbidden
+	}
 
 	uniq := make(map[uuid.UUID]CriterionGradeUpsert, len(items))
 	for _, item := range items {
@@ -277,5 +280,12 @@ func (s *Service) PublishGrading(ctx context.Context, userID, projectID uuid.UUI
 }
 
 func (s *Service) DeleteProject(ctx context.Context, userID, projectID uuid.UUID) error {
+	p, err := s.projectByID(ctx, projectID)
+	if err != nil {
+		return err
+	}
+	if p.Status != domain.ProjectDraft && p.Status != domain.ProjectRecruitment {
+		return fmt.Errorf("%w: cannot delete project with status %s", ErrInvalidInput, p.Status)
+	}
 	return s.lifecycleRepo.DeleteOwnedProject(ctx, projectID, userID)
 }

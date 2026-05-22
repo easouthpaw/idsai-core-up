@@ -15,6 +15,9 @@ func (s *Service) projectByID(ctx context.Context, projectID uuid.UUID) (domain.
 }
 
 func (s *Service) requireProjectPermission(ctx context.Context, userID uuid.UUID, permission string, projectID uuid.UUID) error {
+	if s.authz == nil {
+		return domain.ErrForbidden
+	}
 	scope := rbac.Scope{Type: rbac.ScopeProject, ID: &projectID}
 	ok, err := s.authz.Can(ctx, userID, permission, scope)
 	if err != nil {
@@ -27,6 +30,9 @@ func (s *Service) requireProjectPermission(ctx context.Context, userID uuid.UUID
 }
 
 func (s *Service) requireFacultyPermission(ctx context.Context, userID uuid.UUID, permission string, facultyID uuid.UUID) error {
+	if s.authz == nil {
+		return domain.ErrForbidden
+	}
 	scope := rbac.Scope{Type: rbac.ScopeFaculty, ID: &facultyID}
 	ok, err := s.authz.Can(ctx, userID, permission, scope)
 	if err != nil {
@@ -77,6 +83,9 @@ func (s *Service) requireProjectSubmitAccess(ctx context.Context, userID, projec
 }
 
 func (s *Service) ensureProjectRole(ctx context.Context, userID uuid.UUID, roleCode string, projectID uuid.UUID) error {
+	if s.grantor == nil {
+		return domain.ErrForbidden
+	}
 	ok, err := s.projectsRepo.HasProjectRole(ctx, userID, projectID, roleCode)
 	if err != nil {
 		return err

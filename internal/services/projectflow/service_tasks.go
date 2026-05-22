@@ -2,6 +2,7 @@ package projectflow
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -56,6 +57,14 @@ func (s *Service) CreateTask(ctx context.Context, userID, projectID uuid.UUID, t
 	}
 
 	status := "OPEN"
+	if repo, ok := s.tasksRepo.(AtomicTasksRepository); ok {
+		taskID, err := repo.CreateTaskWithActivity(ctx, projectID, title, description, positionID, assigneeUserID, status, userID, dueAt)
+		if err != nil {
+			return Task{}, err
+		}
+		return s.taskByID(ctx, projectID, taskID)
+	}
+
 	taskID, err := s.tasksRepo.CreateTask(ctx, projectID, title, description, positionID, assigneeUserID, status, userID, dueAt)
 	if err != nil {
 		return Task{}, err
@@ -185,16 +194,30 @@ func (s *Service) CompleteTask(ctx context.Context, userID, projectID, taskID uu
 		return Task{}, err
 	}
 
-	if err := s.tasksRepo.UpsertTaskSubmission(ctx, projectID, taskID, userID, comment, attachments); err != nil {
-		return Task{}, err
-	}
-	outTaskID, err := s.tasksRepo.MarkTaskDone(ctx, projectID, taskID)
-	if err != nil {
-		return Task{}, err
-	}
+	var outTaskID uuid.UUID
+	if repo, ok := s.tasksRepo.(AtomicTasksRepository); ok {
+		outTaskID, err = repo.CompleteTaskWithSubmission(ctx, projectID, taskID, userID, taskTitle, comment, attachments)
+		if err != nil {
+			if errors.Is(err, ErrNotFound) {
+				return Task{}, fmt.Errorf("%w: task was already completed by a concurrent request", ErrInvalidInput)
+			}
+			return Task{}, err
+		}
+	} else {
+		if err := s.tasksRepo.UpsertTaskSubmission(ctx, projectID, taskID, userID, comment, attachments); err != nil {
+			return Task{}, err
+		}
+		outTaskID, err = s.tasksRepo.MarkTaskDone(ctx, projectID, taskID)
+		if err != nil {
+			if errors.Is(err, ErrNotFound) {
+				return Task{}, fmt.Errorf("%w: task was already completed by a concurrent request", ErrInvalidInput)
+			}
+			return Task{}, err
+		}
 
-	if err := s.appendTaskActivity(ctx, projectID, taskID, &userID, "COMPLETED", "IN_PROGRESS", "DONE", taskTitle, comment, attachments); err != nil {
-		return Task{}, err
+		if err := s.appendTaskActivity(ctx, projectID, taskID, &userID, "COMPLETED", "IN_PROGRESS", "DONE", taskTitle, comment, attachments); err != nil {
+			return Task{}, err
+		}
 	}
 	return s.taskByID(ctx, projectID, outTaskID)
 }
@@ -215,13 +238,13 @@ func (s *Service) ClaimTask(ctx context.Context, userID, projectID, taskID uuid.
 	if err := s.ensureTaskActivityAvailable(ctx); err != nil {
 		return err
 	}
+	if repo, ok := s.tasksRepo.(AtomicTasksRepository); ok {
+		return repo.ClaimTaskWithActivity(ctx, projectID, taskID, userID, prevStatus, taskTitle)
+	}
 	if err := s.tasksRepo.ClaimTask(ctx, projectID, taskID, userID); err != nil {
 		return err
 	}
-	if err := s.appendTaskActivity(ctx, projectID, taskID, &userID, "CLAIMED", prevStatus, "IN_PROGRESS", taskTitle, "", nil); err != nil {
-		return err
-	}
-	return nil
+	return s.appendTaskActivity(ctx, projectID, taskID, &userID, "CLAIMED", prevStatus, "IN_PROGRESS", taskTitle, "", nil)
 }
 
 func (s *Service) DeleteTask(ctx context.Context, userID, projectID, taskID uuid.UUID) error {

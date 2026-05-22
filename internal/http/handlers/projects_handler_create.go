@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 
@@ -67,6 +68,18 @@ func (h *ProjectsHandler) Create(c *gin.Context) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid group_id"})
 				return
 			}
+			if err := h.svc.ValidateGroupInFaculty(c.Request.Context(), facultyID, gid); err != nil {
+				if errors.Is(err, projects.ErrGroupNotFound) {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "unknown group_id"})
+					return
+				}
+				if errors.Is(err, projects.ErrInvalidInput) {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "invalid group_id"})
+					return
+				}
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+				return
+			}
 			groupID = &gid
 		} else if req.GroupCode != nil && strings.TrimSpace(*req.GroupCode) != "" {
 			groupCode := strings.ToUpper(strings.TrimSpace(*req.GroupCode))
@@ -91,7 +104,12 @@ func (h *ProjectsHandler) Create(c *gin.Context) {
 
 	id, err := h.svc.CreateProject(c.Request.Context(), req.Title, req.Description, facultyID, persistVisibility, groupID, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		if errors.Is(err, projects.ErrInvalidInput) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid input"})
+			return
+		}
+		log.Printf("create project internal error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

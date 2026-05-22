@@ -97,6 +97,16 @@ func (f fakeProjectsRepo) FindGroupIDByCode(ctx context.Context, facultyID uuid.
 	return f.groupID, f.groupErr
 }
 
+func (f fakeProjectsRepo) GroupBelongsToFaculty(ctx context.Context, facultyID, groupID uuid.UUID) (bool, error) {
+	if f.groupErr != nil {
+		return false, f.groupErr
+	}
+	if f.groupID != uuid.Nil {
+		return groupID == f.groupID, nil
+	}
+	return true, nil
+}
+
 func (f fakeProjectsRepo) ListGroupsByFaculty(ctx context.Context, facultyID uuid.UUID) ([]projects.Group, error) {
 	return f.groups, f.groupsErr
 }

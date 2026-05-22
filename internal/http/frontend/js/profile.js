@@ -183,13 +183,29 @@
   function renderAvatar(el, fallbackText, avatarURL) {
     if (!el) return;
     const url = String(avatarURL || "").trim();
-    if (url) {
+    if (url && isSafeHTTPURL(url)) {
       el.classList.add("has-image");
-      el.innerHTML = `<img src="${escapeHTML(url)}" alt="Avatar" width="296" height="296" loading="lazy" />`;
+      el.replaceChildren();
+      const img = document.createElement("img");
+      img.src = url;
+      img.alt = "Avatar";
+      img.width = 296;
+      img.height = 296;
+      img.loading = "lazy";
+      el.appendChild(img);
       return;
     }
     el.classList.remove("has-image");
     el.textContent = fallbackText;
+  }
+
+  function isSafeHTTPURL(raw) {
+    try {
+      const parsed = new URL(String(raw || "").trim(), window.location.origin);
+      return parsed.protocol === "https:" || parsed.protocol === "http:";
+    } catch (_err) {
+      return false;
+    }
   }
 
   function setStatus(el, message, kind) {

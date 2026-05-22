@@ -934,8 +934,17 @@
 
   function getRepoURL() {
     const custom = String(state.projectMeta.repo || "").trim();
-    if (custom) return custom;
+    if (custom && isSafeHTTPURL(custom)) return custom;
     return `https://github.com/idsai-corp/${slugify(state.project?.title)}`;
+  }
+
+  function isSafeHTTPURL(raw) {
+    try {
+      const parsed = new URL(String(raw || "").trim(), window.location.origin);
+      return parsed.protocol === "https:" || parsed.protocol === "http:";
+    } catch (_err) {
+      return false;
+    }
   }
 
   function getReadmeText() {
@@ -3579,6 +3588,9 @@
 
     if (!title) {
       throw new Error("Название проекта обязательно.");
+    }
+    if (repo && !isSafeHTTPURL(repo)) {
+      throw new Error("Ссылка на репозиторий должна начинаться с http:// или https://.");
     }
 
     await request("PATCH", `/v2/projects/${state.projectID}`, {

@@ -751,6 +751,23 @@ WHERE d.faculty_id = $1
 	return id, err
 }
 
+func (r *ProjectsRepo) GroupBelongsToFaculty(ctx context.Context, facultyID, groupID uuid.UUID) (bool, error) {
+	const q = `
+SELECT EXISTS (
+  SELECT 1
+  FROM student_groups sg
+  JOIN departments d ON d.id = sg.department_id
+  WHERE d.faculty_id = $1
+    AND sg.id = $2
+) AS ok;
+`
+	var ok bool
+	if err := r.db.QueryRow(ctx, q, facultyID, groupID).Scan(&ok); err != nil {
+		return false, err
+	}
+	return ok, nil
+}
+
 func (r *ProjectsRepo) ListGroupsByFaculty(ctx context.Context, facultyID uuid.UUID) ([]projects.Group, error) {
 	const q = `
 SELECT sg.id, sg.group_code, COALESCE(sg.group_code, '')

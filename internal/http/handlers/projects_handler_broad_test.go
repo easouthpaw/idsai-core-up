@@ -115,6 +115,16 @@ func (r *projectsHandlerRepo) FindGroupIDByCode(ctx context.Context, facultyID u
 	return r.groupID, r.groupErr
 }
 
+func (r *projectsHandlerRepo) GroupBelongsToFaculty(ctx context.Context, facultyID, groupID uuid.UUID) (bool, error) {
+	if r.groupErr != nil {
+		return false, r.groupErr
+	}
+	if r.groupID != uuid.Nil {
+		return groupID == r.groupID, nil
+	}
+	return true, nil
+}
+
 func (r *projectsHandlerRepo) ListGroupsByFaculty(ctx context.Context, facultyID uuid.UUID) ([]projects.Group, error) {
 	return r.groups, r.groupsErr
 }

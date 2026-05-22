@@ -28,6 +28,13 @@ func RequirePermissionIf(enabled bool, authz rbac.Authorizer, permission string,
 
 func RequirePermission(authz rbac.Authorizer, permission string, resolveScope ScopeResolver) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if authz == nil {
+			rbacDeniedCount.Add(1)
+			logRBACDecision(c, http.StatusForbidden, uuid.Nil, permission, rbac.Scope{}, "authorizer_missing")
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			return
+		}
+
 		userID, ok := UserIDFromCtx(c)
 		if !ok {
 			rbacUnauthorizedCount.Add(1)

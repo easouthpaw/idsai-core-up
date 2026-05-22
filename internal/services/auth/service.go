@@ -27,6 +27,7 @@ const dummyPasswordHash = "$2a$10$6zP4Lb6Tx0Jj8N4A7JwK3eVj3ljmd725LLJoPLD114F8Cb
 var groupCodePattern = regexp.MustCompile(`^[A-Z]{2,8}-[0-9]{1,4}$`)
 var groupNumberPattern = regexp.MustCompile(`^[0-9]{1,4}$`)
 var schoolClassPattern = regexp.MustCompile(`^(?:[1-9]|1[0-2])(?:\p{L})?$`)
+var emailPattern = regexp.MustCompile(`^[^@\s]+@[^@\s]+\.[^@\s]+$`)
 
 const (
 	EducationTypeUniversity          = "UNIVERSITY"
@@ -534,7 +535,7 @@ func (s *Service) Register(ctx context.Context, tenantCode string, in Registrati
 	fullName := strings.TrimSpace(in.FullName)
 	educationType := normalizeEducationType(in.EducationType)
 	institution := normalizeInstitutionSelection(in.Institution)
-	if email == "" || educationType == "" {
+	if email == "" || !emailPattern.MatchString(email) || educationType == "" {
 		return ErrInvalidInput
 	}
 	if err := passwords.Validate(in.Password); err != nil {
@@ -788,8 +789,23 @@ func normalizeProfileUpdate(in ProfileUpdate) (ProfileUpdate, error) {
 	case len(out.PortfolioURL) > maxProfileLinkLen:
 		return ProfileUpdate{}, ErrInvalidInput
 	}
+	if !validOptionalHTTPURL(out.GithubURL) || !validOptionalHTTPURL(out.PortfolioURL) {
+		return ProfileUpdate{}, ErrInvalidInput
+	}
 
 	return out, nil
+}
+
+func validOptionalHTTPURL(raw string) bool {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return true
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return false
+	}
+	return parsed.Scheme == "http" || parsed.Scheme == "https"
 }
 
 func normalizeProfileTags(items []string, limit int) []string {
@@ -874,15 +890,11 @@ func (s *Service) SubmitGroupChangeRequest(
 		return GroupChangeRequest{}, ErrInvalidInput
 	}
 
-	targetDeptID, targetFacultyID, err := s.repo.FindDepartment(ctx, tenantID, departmentCode)
+	targetDeptID, _, err := s.repo.FindDepartment(ctx, tenantID, departmentCode)
 	if err != nil {
 		return GroupChangeRequest{}, err
 	}
-	groupNumber, err := groupNumberFromCode(requestedGroupCode)
-	if err != nil {
-		return GroupChangeRequest{}, err
-	}
-	targetGroupID, err := s.resolveOrCreateGroup(ctx, tenantID, targetFacultyID, targetDeptID, requestedGroupCode, groupNumber)
+	targetGroupID, err := s.repo.FindGroupByCodeInDepartment(ctx, tenantID, targetDeptID, requestedGroupCode)
 	if err != nil {
 		return GroupChangeRequest{}, err
 	}
@@ -977,7 +989,7 @@ func (s *Service) ListDepartmentGroupsTree(
 
 func (s *Service) StartEmailChange(ctx context.Context, actorKey string, tenantID, userID uuid.UUID, nextEmail string) error {
 	nextEmail = normalizeEmail(nextEmail)
-	if tenantID == uuid.Nil || userID == uuid.Nil || nextEmail == "" {
+	if tenantID == uuid.Nil || userID == uuid.Nil || nextEmail == "" || !emailPattern.MatchString(nextEmail) {
 		return ErrInvalidInput
 	}
 

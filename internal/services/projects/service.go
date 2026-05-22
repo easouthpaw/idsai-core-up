@@ -49,13 +49,38 @@ func (s *Service) SetReportSource(source FinalReportSource) {
 	s.reportSource = source
 }
 
+const (
+	maxProjectTitleLen       = 200
+	maxProjectDescriptionLen = 2000
+)
+
 func (s *Service) CreateProject(ctx context.Context, title, description string, facultyID uuid.UUID, visibility string, groupID *uuid.UUID, createdBy uuid.UUID) (uuid.UUID, error) {
+	title = strings.TrimSpace(title)
+	description = strings.TrimSpace(description)
+	if title == "" || len(title) > maxProjectTitleLen {
+		return uuid.Nil, ErrInvalidInput
+	}
+	if len(description) > maxProjectDescriptionLen {
+		return uuid.Nil, ErrInvalidInput
+	}
+	if groupID != nil {
+		ok, err := s.repo.GroupBelongsToFaculty(ctx, facultyID, *groupID)
+		if err != nil {
+			return uuid.Nil, err
+		}
+		if !ok {
+			return uuid.Nil, ErrGroupNotFound
+		}
+	}
 	if repo, ok := s.repo.(interface {
 		CreateWithLeadRole(ctx context.Context, title, description string, facultyID uuid.UUID, visibility string, groupID *uuid.UUID, createdBy uuid.UUID) (uuid.UUID, error)
 	}); ok {
 		return repo.CreateWithLeadRole(ctx, title, description, facultyID, visibility, groupID, createdBy)
 	}
 
+	if s.grantor == nil {
+		return uuid.Nil, errors.New("project role grantor is not configured")
+	}
 	projectID, err := s.repo.Create(ctx, title, description, facultyID, visibility, groupID, createdBy)
 	if err != nil {
 		return uuid.Nil, err
@@ -160,6 +185,20 @@ func (s *Service) ListPublicProjects(ctx context.Context, userID uuid.UUID) ([]d
 
 func (s *Service) ResolveGroupByCode(ctx context.Context, facultyID uuid.UUID, groupCode string) (uuid.UUID, error) {
 	return s.repo.FindGroupIDByCode(ctx, facultyID, groupCode)
+}
+
+func (s *Service) ValidateGroupInFaculty(ctx context.Context, facultyID, groupID uuid.UUID) error {
+	if facultyID == uuid.Nil || groupID == uuid.Nil {
+		return ErrInvalidInput
+	}
+	ok, err := s.repo.GroupBelongsToFaculty(ctx, facultyID, groupID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrGroupNotFound
+	}
+	return nil
 }
 
 func (s *Service) ListGroupsByFaculty(ctx context.Context, facultyID uuid.UUID) ([]Group, error) {

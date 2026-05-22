@@ -29,13 +29,13 @@ func TestDeleteProject(t *testing.T) {
 	ownerID := uuid.New()
 
 	t.Run("success", func(t *testing.T) {
-		repo := &projectFlowRepos{}
+		repo := &projectFlowRepos{project: domain.Project{ID: projectID, Status: domain.ProjectDraft}}
 		svc := newProjectFlowService(repo, &projectFlowAuthz{}, &projectFlowGrantor{})
 		require.NoError(t, svc.DeleteProject(context.Background(), ownerID, projectID))
 	})
 
 	t.Run("repo error propagates", func(t *testing.T) {
-		repo := &projectFlowRepos{deletedOwnedErr: ErrNotFound}
+		repo := &projectFlowRepos{project: domain.Project{ID: projectID, Status: domain.ProjectDraft}, deletedOwnedErr: ErrNotFound}
 		svc := newProjectFlowService(repo, &projectFlowAuthz{}, &projectFlowGrantor{})
 		require.ErrorIs(t, svc.DeleteProject(context.Background(), ownerID, projectID), ErrNotFound)
 	})

@@ -27,5 +27,6 @@ type Repository interface {
 	ListByFaculty(ctx context.Context, facultyID uuid.UUID, userID uuid.UUID) ([]domain.Project, error)
 	ListPublic(ctx context.Context, userID uuid.UUID) ([]domain.Project, error)
 	FindGroupIDByCode(ctx context.Context, facultyID uuid.UUID, code string) (uuid.UUID, error)
+	GroupBelongsToFaculty(ctx context.Context, facultyID, groupID uuid.UUID) (bool, error)
 	ListGroupsByFaculty(ctx context.Context, facultyID uuid.UUID) ([]Group, error)
 }

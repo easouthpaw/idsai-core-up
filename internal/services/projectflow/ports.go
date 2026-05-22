@@ -96,6 +96,12 @@ type TasksRepository interface {
 	InsertTaskActivity(ctx context.Context, projectID, taskID uuid.UUID, actorUserID *uuid.UUID, eventType, fromStatus, toStatus, title, comment string, attachments []string) error
 }
 
+type AtomicTasksRepository interface {
+	CreateTaskWithActivity(ctx context.Context, projectID uuid.UUID, title, description string, positionID uuid.UUID, assigneeUserID *uuid.UUID, status string, createdBy uuid.UUID, dueAt *time.Time) (uuid.UUID, error)
+	CompleteTaskWithSubmission(ctx context.Context, projectID, taskID, userID uuid.UUID, taskTitle, comment string, attachments []string) (uuid.UUID, error)
+	ClaimTaskWithActivity(ctx context.Context, projectID, taskID, userID uuid.UUID, prevStatus, taskTitle string) error
+}
+
 type AccessRepository interface {
 	// ListProjectRoleCodes returns all PROJECT-scope role codes for a user in a project.
 	ListProjectRoleCodes(ctx context.Context, userID, projectID uuid.UUID) ([]string, error)

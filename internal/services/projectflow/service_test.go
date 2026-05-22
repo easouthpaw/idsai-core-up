@@ -1120,13 +1120,13 @@ func TestGradingFlows(t *testing.T) {
 		authz := &projectFlowAuthz{canResult: true}
 		criterionID := uuid.New()
 		repo := &projectFlowRepos{
-			project:         domain.Project{ID: projectID, Status: domain.ProjectReview},
+			project:         domain.Project{ID: projectID, Status: domain.ProjectReview, ProfessorID: &professorID},
 			criterionGrades: []CriterionGrade{{CriterionID: criterionID.String()}},
 		}
 		svc := newProjectFlowService(repo, authz, &projectFlowGrantor{})
 		isMet := true
 
-		items, err := svc.UpsertGrading(context.Background(), userID, projectID, []CriterionGrade{
+		items, err := svc.UpsertGrading(context.Background(), professorID, projectID, []CriterionGrade{
 			{CriterionID: criterionID.String(), IsMet: &isMet, Comment: "  ok  "},
 			{CriterionID: criterionID.String(), IsMet: &isMet, Comment: "  override  "},
 		})
